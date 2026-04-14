@@ -1,0 +1,25 @@
+export const PERMISSIONS = {
+  USERS_READ: 'users.read',
+  USERS_WRITE: 'users.write',
+  ROLES_ASSIGN: 'roles.assign',
+  LOGS_READ: 'logs.read',
+  FILES_UPLOAD: 'files.upload',
+  NOTIFICATIONS_READ: 'notifications.read',
+  LEADS_READ: 'leads.read',
+  LEADS_WRITE: 'leads.write',
+  LEADS_ASSIGN: 'leads.assign',
+  LEADS_IMPORT: 'leads.import',
+  LEADS_STATUS_CHANGE: 'leads.status.change',
+  CONTRACTS_WRITE: 'contracts.write',
+  ONBOARDING_READ: 'onboarding.read',
+  ONBOARDING_WRITE: 'onboarding.write',
+  ONBOARDING_REVIEW: 'onboarding.review',
+  PROJECTS_READ: 'projects.read',
+  PROJECTS_WRITE: 'projects.write',
+  PROJECTS_MEMBER_MANAGE: 'projects.member.manage',
+  PROJECTS_TASK_MANAGE: 'projects.task.manage',
+  REPORTS_EXPORT: 'reports.export',
+  SYSTEM_CONFIG: 'system.config',
+} as const
+
+export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
