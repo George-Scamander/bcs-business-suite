@@ -12,10 +12,11 @@ import {
   Table,
   message,
 } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { TASK_PRIORITY_OPTIONS, TASK_STATUS_OPTIONS } from '../../../lib/business-constants'
+import { getTaskPriorityOptions, getTaskStatusOptions } from '../../../lib/business-constants'
 import { StatusTag } from '../../../components/common/StatusTag'
 import {
   getProjectById,
@@ -37,6 +38,7 @@ interface TaskFormValues {
 }
 
 export function PmProjectTasksPage() {
+  const { t } = useTranslation()
   const [form] = Form.useForm<TaskFormValues>()
   const navigate = useNavigate()
   const { projectId } = useParams<{ projectId: string }>()
@@ -94,7 +96,7 @@ export function PmProjectTasksPage() {
         dueDate: values.due_date ? values.due_date.format('YYYY-MM-DD') : undefined,
         progress: values.status === 'DONE' ? 100 : undefined,
       })
-      message.success('Task added')
+      message.success(t('page.projectTasks.taskAdded', { defaultValue: 'Task added' }))
       form.resetFields()
       form.setFieldsValue({
         status: 'TODO',
@@ -141,7 +143,7 @@ export function PmProjectTasksPage() {
 
     try {
       await softDeleteProjectTask(taskId, projectId)
-      message.success('Task removed')
+      message.success(t('page.projectTasks.taskRemoved', { defaultValue: 'Task removed' }))
       await loadData()
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Failed to remove task'
@@ -159,12 +161,20 @@ export function PmProjectTasksPage() {
   return (
     <>
       <PageTitleBar
-        title={project ? `Task Management · ${project.project_code}` : 'Task Management'}
-        description="Break project scope into accountable tasks with deadline control."
+        title={
+          project
+            ? `${t('page.projectTasks.title', { defaultValue: 'Task Management' })} · ${project.project_code}`
+            : t('page.projectTasks.title', { defaultValue: 'Task Management' })
+        }
+        description={t('page.projectTasks.desc', {
+          defaultValue: 'Break project scope into accountable tasks with deadline control.',
+        })}
         extra={
           <Space>
-            <Button onClick={() => navigate(`/app/pm/projects/${projectId}`)}>Back to Detail</Button>
-            <Button onClick={() => void loadData()}>Refresh</Button>
+            <Button onClick={() => navigate(`/app/pm/projects/${projectId}`)}>
+              {t('page.common.backToDetail', { defaultValue: 'Back to Detail' })}
+            </Button>
+            <Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
           </Space>
         }
       />
@@ -178,37 +188,41 @@ export function PmProjectTasksPage() {
           initialValues={{ status: 'TODO', priority: 'MEDIUM' }}
         >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <Form.Item name="title" label="Task Title" rules={[{ required: true, message: 'Task title is required' }]}>
+            <Form.Item
+              name="title"
+              label={t('page.projectTasks.taskTitle', { defaultValue: 'Task Title' })}
+              rules={[{ required: true, message: t('page.projectTasks.taskTitleRequired', { defaultValue: 'Task title is required' }) }]}
+            >
               <Input />
             </Form.Item>
 
-            <Form.Item name="assignee_id" label="Assignee">
-              <Select allowClear options={memberOptions} placeholder="Select member" />
+            <Form.Item name="assignee_id" label={t('page.projectTasks.assignee', { defaultValue: 'Assignee' })}>
+              <Select allowClear options={memberOptions} placeholder={t('page.projectTasks.selectMember', { defaultValue: 'Select member' })} />
             </Form.Item>
 
-            <Form.Item name="status" label="Status">
-              <Select options={TASK_STATUS_OPTIONS} />
+            <Form.Item name="status" label={t('page.common.status', { defaultValue: 'Status' })}>
+              <Select options={getTaskStatusOptions(t)} />
             </Form.Item>
 
-            <Form.Item name="priority" label="Priority">
-              <Select options={TASK_PRIORITY_OPTIONS} />
+            <Form.Item name="priority" label={t('page.projectTasks.priority', { defaultValue: 'Priority' })}>
+              <Select options={getTaskPriorityOptions(t)} />
             </Form.Item>
 
-            <Form.Item name="start_date" label="Start Date">
+            <Form.Item name="start_date" label={t('page.projectDetail.startDate', { defaultValue: 'Start Date' })}>
               <DatePicker className="w-full" />
             </Form.Item>
 
-            <Form.Item name="due_date" label="Due Date">
+            <Form.Item name="due_date" label={t('page.projectTasks.dueDate', { defaultValue: 'Due Date' })}>
               <DatePicker className="w-full" />
             </Form.Item>
           </div>
 
-          <Form.Item name="description" label="Description">
+          <Form.Item name="description" label={t('page.projectDetail.descriptionField', { defaultValue: 'Description' })}>
             <Input.TextArea rows={2} />
           </Form.Item>
 
           <Button type="primary" htmlType="submit" loading={saving}>
-            Add Task
+            {t('page.projectTasks.addTask', { defaultValue: 'Add Task' })}
           </Button>
         </Form>
       </Card>
@@ -220,42 +234,46 @@ export function PmProjectTasksPage() {
         dataSource={tasks}
         pagination={{ pageSize: 12 }}
         columns={[
-          { title: 'Task', dataIndex: 'title' },
+          { title: t('page.projectTasks.task', { defaultValue: 'Task' }), dataIndex: 'title' },
           {
-            title: 'Status',
+            title: t('page.common.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
             width: 140,
             render: (value: string) => <StatusTag value={value} />,
           },
           {
-            title: 'Priority',
+            title: t('page.projectTasks.priority', { defaultValue: 'Priority' }),
             dataIndex: 'priority',
             width: 110,
+            render: (value: string) => t(`taskPriority.${value}`, { defaultValue: value }),
           },
           {
-            title: 'Due Date',
+            title: t('page.projectTasks.dueDate', { defaultValue: 'Due Date' }),
             dataIndex: 'due_date',
             width: 130,
             render: (value: string | null) => value ?? '-',
           },
           {
-            title: 'Actions',
+            title: t('page.common.actions', { defaultValue: 'Actions' }),
             width: 260,
             render: (_: unknown, row: ProjectTask) => (
               <Space wrap>
                 {row.status !== 'DONE' ? (
                   <Button size="small" onClick={() => void quickUpdateTaskStatus(row, 'DONE')}>
-                    Mark Done
+                    {t('page.projectTasks.markDone', { defaultValue: 'Mark Done' })}
                   </Button>
                 ) : null}
                 {row.status !== 'IN_PROGRESS' ? (
                   <Button size="small" onClick={() => void quickUpdateTaskStatus(row, 'IN_PROGRESS')}>
-                    In Progress
+                    {t('status.IN_PROGRESS', { defaultValue: 'In Progress' })}
                   </Button>
                 ) : null}
-                <Popconfirm title="Delete this task?" onConfirm={() => void handleDeleteTask(row.id)}>
+                <Popconfirm
+                  title={t('page.projectTasks.deleteConfirm', { defaultValue: 'Delete this task?' })}
+                  onConfirm={() => void handleDeleteTask(row.id)}
+                >
                   <Button size="small" danger>
-                    Delete
+                    {t('page.projectTasks.delete', { defaultValue: 'Delete' })}
                   </Button>
                 </Popconfirm>
               </Space>

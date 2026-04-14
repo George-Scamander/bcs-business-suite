@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Col, Progress, Row, Table, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { MetricCard } from '../../../components/common/MetricCard'
@@ -18,6 +19,7 @@ interface ProjectRow {
 }
 
 export function PmDashboardPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [metrics, setMetrics] = useState({
@@ -60,23 +62,31 @@ export function PmDashboardPage() {
   return (
     <>
       <PageTitleBar
-        title="Project Dashboard"
-        description="Monitor execution progress, overdue risk, and closure readiness."
-        extra={<Button onClick={() => void loadData()}>Refresh</Button>}
+        title={t('page.pm.dashboardTitle', { defaultValue: 'Project Dashboard' })}
+        description={t('page.pm.dashboardDesc', {
+          defaultValue: 'Monitor execution progress, overdue risk, and closure readiness.',
+        })}
+        extra={<Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <Row gutter={[16, 16]} className="mb-5">
         <Col xs={24} md={12} xl={6}>
-          <MetricCard title="My Projects" value={metrics.myProjects} />
+          <MetricCard title={t('page.pm.myProjects', { defaultValue: 'My Projects' })} value={metrics.myProjects} />
         </Col>
         <Col xs={24} md={12} xl={6}>
-          <MetricCard title="Delayed Projects" value={metrics.delayedProjects} />
+          <MetricCard
+            title={t('page.pm.delayedProjects', { defaultValue: 'Delayed Projects' })}
+            value={metrics.delayedProjects}
+          />
         </Col>
         <Col xs={24} md={12} xl={6}>
-          <MetricCard title="Tasks Due This Week" value={metrics.tasksDueThisWeek} />
+          <MetricCard
+            title={t('page.pm.tasksDueThisWeek', { defaultValue: 'Tasks Due This Week' })}
+            value={metrics.tasksDueThisWeek}
+          />
         </Col>
         <Col xs={24} md={12} xl={6}>
-          <MetricCard title="Avg Completion" value={metrics.avgCompletionRate} suffix="%" />
+          <MetricCard title={t('page.pm.avgCompletion', { defaultValue: 'Avg Completion' })} value={metrics.avgCompletionRate} suffix="%" />
         </Col>
       </Row>
 
@@ -84,22 +94,22 @@ export function PmDashboardPage() {
         loading={loading}
         rowKey="id"
         bordered
-        title={() => 'Project Execution Snapshot'}
+        title={() => t('page.pm.projectExecutionSnapshot', { defaultValue: 'Project Execution Snapshot' })}
         dataSource={rows}
         pagination={false}
         onRow={(record) => ({
           onClick: () => navigate(`/app/pm/projects/${record.id}`),
         })}
         columns={[
-          { title: 'Project Code', dataIndex: 'project_code' },
-          { title: 'Project Name', dataIndex: 'name' },
+          { title: t('page.pm.projectCode', { defaultValue: 'Project Code' }), dataIndex: 'project_code' },
+          { title: t('page.pm.projectName', { defaultValue: 'Project Name' }), dataIndex: 'name' },
           {
-            title: 'Status',
+            title: t('page.common.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
             render: (value: string) => <StatusTag value={value} />,
           },
           {
-            title: 'Progress',
+            title: t('page.pm.progress', { defaultValue: 'Progress' }),
             dataIndex: 'completion_rate',
             render: (value: number) => <Progress percent={Number(value.toFixed(1))} size="small" />,
           },

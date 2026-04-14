@@ -15,10 +15,11 @@ import {
 } from 'antd'
 import type { UploadFile } from 'antd'
 import { EyeOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { ONBOARDING_STATUS_OPTIONS } from '../../../lib/business-constants'
+import { getOnboardingStatusOptions } from '../../../lib/business-constants'
 import { createSignedFileUrl, uploadPrivateDocument } from '../../../lib/supabase/storage'
 import { supabase } from '../../../lib/supabase/client'
 import { useAuth } from '../../auth/auth-context'
@@ -55,6 +56,7 @@ interface DocUploadFormValues {
 }
 
 export function BdOnboardingDetailPage() {
+  const { t } = useTranslation()
   const [statusForm] = Form.useForm<StatusFormValues>()
   const [docForm] = Form.useForm<DocUploadFormValues>()
   const navigate = useNavigate()
@@ -155,7 +157,7 @@ export function BdOnboardingDetailPage() {
     const file = docFileList[0]?.originFileObj
 
     if (!file) {
-      message.warning('Please select a file')
+      message.warning(t('page.files.selectAtLeastOne', { defaultValue: 'Select at least one file' }))
       return
     }
 
@@ -170,7 +172,7 @@ export function BdOnboardingDetailPage() {
         fileName: metadata.file_name,
         objectPath: metadata.object_path,
       })
-      message.success('Document submitted')
+      message.success(t('page.onboarding.documentSubmitted', { defaultValue: 'Document submitted' }))
       setDocFileList([])
       docForm.resetFields()
       await loadData()
@@ -196,11 +198,11 @@ export function BdOnboardingDetailPage() {
         reason: values.reason,
         pmOwnerId: values.pm_owner_id,
       })
-      message.success('Onboarding status updated')
+      message.success(t('page.onboarding.statusUpdated', { defaultValue: 'Onboarding status updated' }))
       await loadData()
 
       if (result.projectId) {
-        message.info(`Project created: ${result.projectId}`)
+        message.info(`${t('page.onboarding.projectCreated', { defaultValue: 'Project created:' })} ${result.projectId}`)
       }
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Failed to change status'
@@ -231,7 +233,7 @@ export function BdOnboardingDetailPage() {
         decision: reviewDecision,
         comment: reviewComment || undefined,
       })
-      message.success('Review submitted')
+      message.success(t('page.onboarding.reviewSubmitted', { defaultValue: 'Review submitted' }))
       setReviewModalOpen(false)
       setReviewTarget(null)
       await loadData()
@@ -253,15 +255,21 @@ export function BdOnboardingDetailPage() {
   return (
     <>
       <PageTitleBar
-        title={caseRow ? `Onboarding Case · ${caseRow.case_no}` : 'Onboarding Case'}
-        description="Manage onboarding documents, review loops, SLA progression, and downstream project handoff."
+        title={
+          caseRow
+            ? `${t('page.onboarding.detailTitle', { defaultValue: 'Onboarding Case' })} · ${caseRow.case_no}`
+            : t('page.onboarding.detailTitle', { defaultValue: 'Onboarding Case' })
+        }
+        description={t('page.onboarding.detailDesc', {
+          defaultValue: 'Manage onboarding documents, review loops, SLA progression, and downstream project handoff.',
+        })}
         extra={
           <Space>
-            <Button onClick={() => navigate('/app/bd/onboarding')}>Back to List</Button>
-            <Button onClick={() => void loadData()}>Refresh</Button>
+            <Button onClick={() => navigate('/app/bd/onboarding')}>{t('page.onboarding.backToList', { defaultValue: 'Back to List' })}</Button>
+            <Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
             {linkedProject ? (
               <Button type="primary" onClick={() => navigate(`/app/bd/projects/${linkedProject.id}`)}>
-                View Project
+                {t('page.onboarding.viewProject', { defaultValue: 'View Project' })}
               </Button>
             ) : null}
           </Space>
@@ -271,15 +279,19 @@ export function BdOnboardingDetailPage() {
       <Card className="mb-5" loading={loading}>
         {caseRow ? (
           <Descriptions bordered size="small" column={{ xs: 1, md: 2, lg: 3 }}>
-            <Descriptions.Item label="Case No.">{caseRow.case_no}</Descriptions.Item>
-            <Descriptions.Item label="Status">
+            <Descriptions.Item label={t('page.admin.caseNo', { defaultValue: 'Case No' })}>{caseRow.case_no}</Descriptions.Item>
+            <Descriptions.Item label={t('page.common.status', { defaultValue: 'Status' })}>
               <StatusTag value={caseRow.status} />
             </Descriptions.Item>
-            <Descriptions.Item label="SLA Due">{caseRow.sla_due_at ? new Date(caseRow.sla_due_at).toLocaleString() : '-'}</Descriptions.Item>
-            <Descriptions.Item label="Started">{new Date(caseRow.started_at).toLocaleString()}</Descriptions.Item>
-            <Descriptions.Item label="Completed">{caseRow.completed_at ? new Date(caseRow.completed_at).toLocaleString() : '-'}</Descriptions.Item>
-            <Descriptions.Item label="Reviewer">{caseRow.reviewer_user_id ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label="Remarks" span={3}>
+            <Descriptions.Item label={t('page.admin.slaDue', { defaultValue: 'SLA Due' })}>
+              {caseRow.sla_due_at ? new Date(caseRow.sla_due_at).toLocaleString() : '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label={t('page.onboarding.started', { defaultValue: 'Started' })}>{new Date(caseRow.started_at).toLocaleString()}</Descriptions.Item>
+            <Descriptions.Item label={t('status.COMPLETED', { defaultValue: 'Completed' })}>
+              {caseRow.completed_at ? new Date(caseRow.completed_at).toLocaleString() : '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label={t('page.onboarding.reviewer', { defaultValue: 'Reviewer' })}>{caseRow.reviewer_user_id ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('page.onboarding.remarks', { defaultValue: 'Remarks' })} span={3}>
               {caseRow.remarks ?? '-'}
             </Descriptions.Item>
           </Descriptions>
@@ -290,28 +302,28 @@ export function BdOnboardingDetailPage() {
             className="mt-4"
             type="success"
             showIcon
-            message={`Linked project created: ${linkedProject.project_code}`}
+            message={`${t('page.onboarding.linkedProjectCreated', { defaultValue: 'Linked project created:' })} ${linkedProject.project_code}`}
           />
         ) : null}
       </Card>
 
       <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Card title="Workflow Steps">
+        <Card title={t('page.onboarding.workflowSteps', { defaultValue: 'Workflow Steps' })}>
           <Table
             rowKey="id"
             size="small"
             pagination={false}
             dataSource={steps}
             columns={[
-              { title: 'Order', dataIndex: 'step_order', width: 70 },
-              { title: 'Step', dataIndex: 'step_name' },
+              { title: t('page.onboarding.order', { defaultValue: 'Order' }), dataIndex: 'step_order', width: 70 },
+              { title: t('page.onboarding.step', { defaultValue: 'Step' }), dataIndex: 'step_name' },
               {
-                title: 'Status',
+                title: t('page.common.status', { defaultValue: 'Status' }),
                 dataIndex: 'status',
                 render: (value: string) => <StatusTag value={value} />,
               },
               {
-                title: 'Due',
+                title: t('page.onboarding.due', { defaultValue: 'Due' }),
                 dataIndex: 'due_at',
                 width: 170,
                 render: (value: string | null) => (value ? new Date(value).toLocaleString() : '-'),
@@ -320,32 +332,40 @@ export function BdOnboardingDetailPage() {
           />
         </Card>
 
-        <Card title="Case Status Transition">
+        <Card title={t('page.onboarding.caseStatusTransition', { defaultValue: 'Case Status Transition' })}>
           <Form<StatusFormValues> form={statusForm} layout="vertical" onFinish={handleChangeStatus} requiredMark={false}>
-            <Form.Item name="to_status" label="Target Status" rules={[{ required: true, message: 'Select target status' }]}>
-              <Select options={ONBOARDING_STATUS_OPTIONS} />
+            <Form.Item
+              name="to_status"
+              label={t('page.onboarding.targetStatus', { defaultValue: 'Target Status' })}
+              rules={[{ required: true, message: t('page.onboarding.selectTargetStatus', { defaultValue: 'Select target status' }) }]}
+            >
+              <Select options={getOnboardingStatusOptions(t)} />
             </Form.Item>
 
-            <Form.Item name="pm_owner_id" label="PM Owner (for completion -> project handoff)">
-              <Select allowClear options={dropdownUserOptions} placeholder="Optional" />
+            <Form.Item name="pm_owner_id" label={t('page.onboarding.pmOwner', { defaultValue: 'PM Owner (for completion -> project handoff)' })}>
+              <Select allowClear options={dropdownUserOptions} placeholder={t('page.onboarding.optional', { defaultValue: 'Optional' })} />
             </Form.Item>
 
-            <Form.Item name="reason" label="Reason">
+            <Form.Item name="reason" label={t('page.onboarding.reason', { defaultValue: 'Reason' })}>
               <Input.TextArea rows={3} />
             </Form.Item>
 
             <Button type="primary" htmlType="submit" loading={statusSaving}>
-              Update Onboarding Status
+              {t('page.onboarding.updateStatus', { defaultValue: 'Update Onboarding Status' })}
             </Button>
           </Form>
         </Card>
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Card title="Document Submission">
+        <Card title={t('page.onboarding.docSubmission', { defaultValue: 'Document Submission' })}>
           <Form<DocUploadFormValues> form={docForm} layout="vertical" onFinish={handleUploadDocument} requiredMark={false}>
-            <Form.Item name="doc_type" label="Document Type" rules={[{ required: true, message: 'Document type is required' }]}>
-              <Input placeholder="Business license / Site layout / Contract appendix" />
+            <Form.Item
+              name="doc_type"
+              label={t('page.onboarding.docType', { defaultValue: 'Document Type' })}
+              rules={[{ required: true, message: t('page.onboarding.docTypeRequired', { defaultValue: 'Document type is required' }) }]}
+            >
+              <Input placeholder={t('page.onboarding.docPlaceholder', { defaultValue: 'Business license / Site layout / Contract appendix' })} />
             </Form.Item>
 
             <Upload
@@ -357,16 +377,16 @@ export function BdOnboardingDetailPage() {
                 setDocFileList((current) => current.filter((item) => item.uid !== file.uid))
               }}
             >
-              <Button>Select File</Button>
+              <Button>{t('page.leads.selectFiles', { defaultValue: 'Select Files' })}</Button>
             </Upload>
 
             <Button type="primary" className="mt-4" htmlType="submit" loading={docSaving}>
-              Submit Document
+              {t('page.onboarding.submitDocument', { defaultValue: 'Submit Document' })}
             </Button>
           </Form>
         </Card>
 
-        <Card title="Status Logs">
+        <Card title={t('page.onboarding.statusLogs', { defaultValue: 'Status Logs' })}>
           <Table
             rowKey="id"
             size="small"
@@ -374,18 +394,18 @@ export function BdOnboardingDetailPage() {
             dataSource={statusLogs.slice(0, 10)}
             columns={[
               {
-                title: 'Time',
+                title: t('page.logs.time', { defaultValue: 'Time' }),
                 dataIndex: 'changed_at',
                 width: 180,
                 render: (value: string) => new Date(value).toLocaleString(),
               },
               {
-                title: 'From',
+                title: t('page.onboarding.from', { defaultValue: 'From' }),
                 dataIndex: 'from_status',
                 render: (value: string | null) => (value ? <StatusTag value={value} /> : '-'),
               },
               {
-                title: 'To',
+                title: t('page.onboarding.to', { defaultValue: 'To' }),
                 dataIndex: 'to_status',
                 render: (value: string) => <StatusTag value={value} />,
               },
@@ -395,23 +415,23 @@ export function BdOnboardingDetailPage() {
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Card title="Onboarding Documents">
+        <Card title={t('page.onboarding.documents', { defaultValue: 'Onboarding Documents' })}>
           <Table
             rowKey="id"
             size="small"
             pagination={{ pageSize: 8 }}
             dataSource={documents}
             columns={[
-              { title: 'Type', dataIndex: 'doc_type', width: 180 },
-              { title: 'File', dataIndex: 'file_name', render: (value: string | null) => value ?? '-' },
+              { title: t('page.files.fileType', { defaultValue: 'Type' }), dataIndex: 'doc_type', width: 180 },
+              { title: t('page.files.fileName', { defaultValue: 'File' }), dataIndex: 'file_name', render: (value: string | null) => value ?? '-' },
               {
-                title: 'Review Status',
+                title: t('page.onboarding.reviewStatus', { defaultValue: 'Review Status' }),
                 dataIndex: 'review_status',
                 width: 170,
                 render: (value: string) => <StatusTag value={value} />,
               },
               {
-                title: 'Actions',
+                title: t('page.common.actions', { defaultValue: 'Actions' }),
                 width: 170,
                 render: (_: unknown, row: OnboardingDocument) => (
                   <Space>
@@ -423,7 +443,7 @@ export function BdOnboardingDetailPage() {
                     />
                     {canReview ? (
                       <Button size="small" onClick={() => openReviewModal(row)}>
-                        Review
+                        {t('page.onboardingReview.review', { defaultValue: 'Review' })}
                       </Button>
                     ) : null}
                   </Space>
@@ -433,7 +453,7 @@ export function BdOnboardingDetailPage() {
           />
         </Card>
 
-        <Card title="Review History">
+        <Card title={t('page.onboarding.reviewHistory', { defaultValue: 'Review History' })}>
           <Table
             rowKey="id"
             size="small"
@@ -441,45 +461,47 @@ export function BdOnboardingDetailPage() {
             dataSource={reviews}
             columns={[
               {
-                title: 'Reviewed At',
+                title: t('page.onboarding.reviewedAt', { defaultValue: 'Reviewed At' }),
                 dataIndex: 'reviewed_at',
                 width: 180,
                 render: (value: string) => new Date(value).toLocaleString(),
               },
-              { title: 'Decision', dataIndex: 'decision', width: 160, render: (value: string) => <StatusTag value={value} /> },
-              { title: 'Comment', dataIndex: 'comment', render: (value: string | null) => value ?? '-' },
+              { title: t('page.onboarding.decision', { defaultValue: 'Decision' }), dataIndex: 'decision', width: 160, render: (value: string) => <StatusTag value={value} /> },
+              { title: t('page.onboarding.comment', { defaultValue: 'Comment' }), dataIndex: 'comment', render: (value: string | null) => value ?? '-' },
             ]}
           />
         </Card>
       </div>
 
       <Modal
-        title="Review Document"
+        title={t('page.onboarding.reviewDocument', { defaultValue: 'Review Document' })}
         open={reviewModalOpen}
         onCancel={() => {
           setReviewModalOpen(false)
           setReviewTarget(null)
         }}
         onOk={() => void handleSubmitReview()}
-        okText="Submit Review"
+        okText={t('page.onboarding.submitReview', { defaultValue: 'Submit Review' })}
         confirmLoading={reviewSaving}
       >
         <Space direction="vertical" className="w-full">
-          <p className="mb-0 text-sm text-slate-600">Document: {reviewTarget?.doc_type ?? '-'}</p>
+          <p className="mb-0 text-sm text-slate-600">
+            {t('page.onboarding.documentLabel', { defaultValue: 'Document:' })} {reviewTarget?.doc_type ?? '-'}
+          </p>
           <Select
             value={reviewDecision}
             onChange={(value) => setReviewDecision(value)}
             options={[
-              { label: 'Approved', value: 'APPROVED' },
-              { label: 'Revision Required', value: 'REVISION_REQUIRED' },
-              { label: 'Rejected', value: 'REJECTED' },
+              { label: t('status.APPROVED', { defaultValue: 'Approved' }), value: 'APPROVED' },
+              { label: t('status.REVISION_REQUIRED', { defaultValue: 'Revision Required' }), value: 'REVISION_REQUIRED' },
+              { label: t('status.REJECTED', { defaultValue: 'Rejected' }), value: 'REJECTED' },
             ]}
           />
           <Input.TextArea
             rows={3}
             value={reviewComment}
             onChange={(event) => setReviewComment(event.target.value)}
-            placeholder="Review notes"
+            placeholder={t('page.onboarding.reviewNotes', { defaultValue: 'Review notes' })}
           />
         </Space>
       </Modal>

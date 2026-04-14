@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Badge, Button, List, Tag, Typography, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { supabase } from '../../../lib/supabase/client'
@@ -15,6 +16,7 @@ interface NotificationRow {
 }
 
 export function NotificationsPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [items, setItems] = useState<NotificationRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -62,28 +64,30 @@ export function NotificationsPage() {
   return (
     <>
       <PageTitleBar
-        title="Notification Center"
-        description="Receive reminders for pending actions, review requests, and status updates."
-        extra={<Button onClick={() => void loadNotifications()}>Refresh</Button>}
+        title={t('page.notifications.title', { defaultValue: 'Notification Center' })}
+        description={t('page.notifications.desc', {
+          defaultValue: 'Receive reminders for pending actions, review requests, and status updates.',
+        })}
+        extra={<Button onClick={() => void loadNotifications()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <List
           loading={loading}
           dataSource={items}
-          locale={{ emptyText: 'No notifications yet.' }}
+          locale={{ emptyText: t('page.notifications.empty', { defaultValue: 'No notifications yet.' }) }}
           renderItem={(item) => (
             <List.Item
               actions={
                 item.is_read
                   ? [
                       <Tag color="green" key="read">
-                        Read
+                        {t('page.notifications.read', { defaultValue: 'Read' })}
                       </Tag>,
                     ]
                   : [
                       <Button key="mark-read" type="link" onClick={() => void markAsRead(item.id)}>
-                        Mark as read
+                        {t('page.notifications.markRead', { defaultValue: 'Mark as read' })}
                       </Button>,
                     ]
               }

@@ -1,4 +1,6 @@
-export type LeadStatus = 'NEW' | 'TO_FOLLOW' | 'FOLLOWING' | 'NEGOTIATING' | 'ON_HOLD' | 'LOST' | 'SIGNED'
+export type LeadStatus = 'NEW' | 'TO_FOLLOW' | 'FOLLOWING' | 'NEGOTIATING' | 'ON_HOLD' | 'LOST' | 'SIGNED' | 'REJECTED'
+
+export type IntentPackage = 'BCS' | 'PRODUCTS_SALES'
 
 export type OnboardingStatus =
   | 'NOT_STARTED'
@@ -28,8 +30,12 @@ export interface Lead {
   city: string | null
   address: string | null
   source: string | null
+  intent_package: IntentPackage | null
   intent_level: number | null
   estimated_value: number | null
+  bd_notes: string | null
+  team_attention_note: string | null
+  duplicate_note: string | null
   status: LeadStatus
   lost_reason_code: string | null
   lost_reason_note: string | null
@@ -51,6 +57,8 @@ export interface LeadFollowup {
   summary: string
   followup_at: string
   next_followup_at: string | null
+  bd_notes: string | null
+  team_attention_note: string | null
   status_snapshot: LeadStatus | null
   created_by: string | null
   created_at: string
@@ -73,6 +81,7 @@ export interface SignedRecord {
   contract_no: string
   contract_date: string | null
   contract_value: number | null
+  contract_package: IntentPackage | null
   contract_currency: string
   contract_file_id: string | null
   signed_by: string | null

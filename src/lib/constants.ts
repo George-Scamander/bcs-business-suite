@@ -6,6 +6,7 @@ export const PRIVATE_BUCKET = 'private-documents'
 export const SUPPORTED_LOCALES: Array<{ code: LocaleCode; label: string }> = [
   { code: 'en', label: 'English' },
   { code: 'zh-CN', label: '简体中文' },
+  { code: 'zh-HK', label: '繁體中文（香港）' },
   { code: 'id-ID', label: 'Bahasa Indonesia' },
 ]
 
@@ -44,7 +45,6 @@ export const NAV_ITEMS_BY_ROLE: Record<RoleCode, Array<{ key: string; label: str
   project_manager: [
     { key: 'pm-dashboard', label: 'Project Dashboard', path: '/app/pm/dashboard' },
     { key: 'pm-projects', label: 'Projects', path: '/app/pm/projects' },
-    { key: 'uploads', label: 'File Center', path: '/app/files' },
     { key: 'profile', label: 'Profile', path: '/app/settings/profile' },
     { key: 'notifications', label: 'Notifications', path: '/app/notifications' },
   ],

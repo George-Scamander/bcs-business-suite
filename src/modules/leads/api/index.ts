@@ -1,4 +1,4 @@
-import type { Lead, LeadFollowup, LeadStatus, LeadStatusLog, SignedRecord } from '../../../types/business'
+import type { IntentPackage, Lead, LeadFollowup, LeadStatus, LeadStatusLog, SignedRecord } from '../../../types/business'
 import { supabase } from '../../../lib/supabase/client'
 import { recordOperationLog } from '../../../lib/supabase/logs'
 
@@ -30,8 +30,12 @@ export interface CreateLeadInput {
   city?: string
   address?: string
   source?: string
+  intent_package?: IntentPackage
   intent_level?: number
   estimated_value?: number
+  bd_notes?: string
+  team_attention_note?: string
+  duplicate_note?: string
   assigned_bd_id?: string
   next_followup_at?: string
 }
@@ -48,6 +52,7 @@ export interface ChangeLeadStatusInput {
   contractNo?: string
   contractDate?: string
   contractValue?: number
+  contractPackage?: IntentPackage
 }
 
 export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
@@ -192,6 +197,8 @@ export async function addFollowup(input: {
   summary: string
   followupAt?: string
   nextFollowupAt?: string
+  bdNotes?: string
+  teamAttentionNote?: string
 }): Promise<LeadFollowup> {
   const lead = await getLeadById(input.leadId)
 
@@ -203,6 +210,8 @@ export async function addFollowup(input: {
       summary: input.summary,
       followup_at: input.followupAt ?? new Date().toISOString(),
       next_followup_at: input.nextFollowupAt ?? null,
+      bd_notes: input.bdNotes ?? null,
+      team_attention_note: input.teamAttentionNote ?? null,
       status_snapshot: lead.status,
     })
     .select('*')
@@ -217,6 +226,8 @@ export async function addFollowup(input: {
     .update({
       last_followup_at: input.followupAt ?? new Date().toISOString(),
       next_followup_at: input.nextFollowupAt ?? null,
+      bd_notes: input.bdNotes ?? lead.bd_notes ?? null,
+      team_attention_note: input.teamAttentionNote ?? lead.team_attention_note ?? null,
     })
     .eq('id', input.leadId)
 
@@ -286,9 +297,49 @@ export async function changeLeadStatus(input: ChangeLeadStatusInput): Promise<{ 
     throw result.error
   }
 
+  if (input.toStatus === 'SIGNED' && input.contractPackage) {
+    const updatePackageResult = await supabase
+      .from('signed_records')
+      .update({
+        contract_package: input.contractPackage,
+      })
+      .eq('lead_id', input.leadId)
+
+    if (updatePackageResult.error) {
+      throw updatePackageResult.error
+    }
+  }
+
   return {
     signedRecordId: (result.data as string | null) ?? null,
   }
+}
+
+export async function checkDuplicateLeadByCompanyName(companyName: string, excludeLeadId?: string): Promise<Lead[]> {
+  const normalized = companyName.trim()
+
+  if (!normalized) {
+    return []
+  }
+
+  let query = supabase
+    .from('leads')
+    .select('*')
+    .is('deleted_at', null)
+    .ilike('company_name', normalized)
+    .order('updated_at', { ascending: false })
+
+  if (excludeLeadId) {
+    query = query.neq('id', excludeLeadId)
+  }
+
+  const result = await query
+
+  if (result.error) {
+    throw result.error
+  }
+
+  return (result.data ?? []) as Lead[]
 }
 
 export async function createLeadAttachment(leadId: string, fileRecordId: string, fileName: string, objectPath: string): Promise<void> {

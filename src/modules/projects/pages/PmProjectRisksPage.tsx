@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Button, Card, Form, Input, Select, Space, Table, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
@@ -18,6 +19,7 @@ interface RiskFormValues {
 }
 
 export function PmProjectRisksPage() {
+  const { t } = useTranslation()
   const [form] = Form.useForm<RiskFormValues>()
   const navigate = useNavigate()
   const { projectId } = useParams<{ projectId: string }>()
@@ -63,7 +65,7 @@ export function PmProjectRisksPage() {
 
     try {
       await changeProjectStatus(projectId, values.to_status, values.reason)
-      message.success('Project risk status updated')
+      message.success(t('page.projectRisks.updated', { defaultValue: 'Project risk status updated' }))
       await loadData()
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Failed to update risk status'
@@ -90,12 +92,20 @@ export function PmProjectRisksPage() {
   return (
     <>
       <PageTitleBar
-        title={project ? `Risk & Exceptions · ${project.project_code}` : 'Risk & Exceptions'}
-        description="Monitor delay risks and apply controlled project status interventions."
+        title={
+          project
+            ? `${t('page.projectRisks.title', { defaultValue: 'Risk & Exceptions' })} · ${project.project_code}`
+            : t('page.projectRisks.title', { defaultValue: 'Risk & Exceptions' })
+        }
+        description={t('page.projectRisks.desc', {
+          defaultValue: 'Monitor delay risks and apply controlled project status interventions.',
+        })}
         extra={
           <Space>
-            <Button onClick={() => navigate(`/app/pm/projects/${projectId}`)}>Back to Detail</Button>
-            <Button onClick={() => void loadData()}>Refresh</Button>
+            <Button onClick={() => navigate(`/app/pm/projects/${projectId}`)}>
+              {t('page.common.backToDetail', { defaultValue: 'Back to Detail' })}
+            </Button>
+            <Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
           </Space>
         }
       />
@@ -103,7 +113,7 @@ export function PmProjectRisksPage() {
       <Card className="mb-5" loading={loading}>
         {project ? (
           <div className="mb-4 flex items-center gap-4">
-            <span>Current Status:</span>
+            <span>{t('page.projectRisks.currentStatus', { defaultValue: 'Current Status:' })}</span>
             <StatusTag value={project.status} />
             {project.is_delayed ? <StatusTag value="DELAYED" /> : null}
           </div>
@@ -111,24 +121,28 @@ export function PmProjectRisksPage() {
 
         <Form<RiskFormValues> form={form} layout="vertical" onFinish={handleChangeStatus} requiredMark={false}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Form.Item name="to_status" label="Target Status" rules={[{ required: true, message: 'Select status' }]}>
+            <Form.Item
+              name="to_status"
+              label={t('page.onboarding.targetStatus', { defaultValue: 'Target Status' })}
+              rules={[{ required: true, message: t('page.projectRisks.selectStatus', { defaultValue: 'Select status' }) }]}
+            >
               <Select
                 options={[
-                  { label: 'In Progress', value: 'IN_PROGRESS' },
-                  { label: 'On Hold', value: 'ON_HOLD' },
-                  { label: 'Delayed', value: 'DELAYED' },
-                  { label: 'Completed', value: 'COMPLETED' },
+                  { label: t('status.IN_PROGRESS', { defaultValue: 'In Progress' }), value: 'IN_PROGRESS' },
+                  { label: t('status.ON_HOLD', { defaultValue: 'On Hold' }), value: 'ON_HOLD' },
+                  { label: t('status.DELAYED', { defaultValue: 'Delayed' }), value: 'DELAYED' },
+                  { label: t('status.COMPLETED', { defaultValue: 'Completed' }), value: 'COMPLETED' },
                 ]}
               />
             </Form.Item>
           </div>
 
-          <Form.Item name="reason" label="Reason">
-            <Input.TextArea rows={3} placeholder="Describe root cause and mitigation plan." />
+          <Form.Item name="reason" label={t('page.onboarding.reason', { defaultValue: 'Reason' })}>
+            <Input.TextArea rows={3} placeholder={t('page.projectRisks.reasonPlaceholder', { defaultValue: 'Describe root cause and mitigation plan.' })} />
           </Form.Item>
 
           <Button type="primary" htmlType="submit" loading={saving}>
-            Update Risk Status
+            {t('page.projectRisks.updateStatus', { defaultValue: 'Update Risk Status' })}
           </Button>
         </Form>
       </Card>
@@ -138,8 +152,13 @@ export function PmProjectRisksPage() {
           type="error"
           showIcon
           className="mb-4"
-          message={`${overdueTasks.length} overdue tasks detected`}
-          description="Project delay risk is high. Please update timeline or resources."
+          message={t('page.projectRisks.overdueMessage', {
+            defaultValue: '{{count}} overdue tasks detected',
+            count: overdueTasks.length,
+          })}
+          description={t('page.projectRisks.overdueDesc', {
+            defaultValue: 'Project delay risk is high. Please update timeline or resources.',
+          })}
         />
       ) : null}
 
@@ -148,8 +167,11 @@ export function PmProjectRisksPage() {
           type="warning"
           showIcon
           className="mb-4"
-          message={`${dueSoonTasks.length} tasks due within 3 days`}
-          description="Check dependencies and owner readiness."
+          message={t('page.projectRisks.dueSoonMessage', {
+            defaultValue: '{{count}} tasks due within 3 days',
+            count: dueSoonTasks.length,
+          })}
+          description={t('page.projectRisks.dueSoonDesc', { defaultValue: 'Check dependencies and owner readiness.' })}
         />
       ) : null}
 
@@ -160,10 +182,10 @@ export function PmProjectRisksPage() {
         dataSource={overdueTasks.concat(dueSoonTasks.filter((item) => !overdueTasks.some((overdue) => overdue.id === item.id)))}
         pagination={{ pageSize: 10 }}
         columns={[
-          { title: 'Task', dataIndex: 'title' },
-          { title: 'Status', dataIndex: 'status', width: 130, render: (value: string) => <StatusTag value={value} /> },
-          { title: 'Due Date', dataIndex: 'due_date', width: 120, render: (value: string | null) => value ?? '-' },
-          { title: 'Priority', dataIndex: 'priority', width: 110 },
+          { title: t('page.projectTasks.task', { defaultValue: 'Task' }), dataIndex: 'title' },
+          { title: t('page.common.status', { defaultValue: 'Status' }), dataIndex: 'status', width: 130, render: (value: string) => <StatusTag value={value} /> },
+          { title: t('page.projectTasks.dueDate', { defaultValue: 'Due Date' }), dataIndex: 'due_date', width: 120, render: (value: string | null) => value ?? '-' },
+          { title: t('page.projectTasks.priority', { defaultValue: 'Priority' }), dataIndex: 'priority', width: 110 },
         ]}
       />
     </>

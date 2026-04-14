@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Input, Space, Table, Tag, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import type { OperationLogRecord } from '../../../types/rbac'
@@ -13,6 +14,7 @@ interface OperationLogWithActor extends OperationLogRecord {
 }
 
 export function OperationLogsPage() {
+  const { t } = useTranslation()
   const [rows, setRows] = useState<OperationLogWithActor[]>([])
   const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(true)
@@ -55,19 +57,21 @@ export function OperationLogsPage() {
   return (
     <>
       <PageTitleBar
-        title="Operation Logs"
-        description="Track high-risk actions for audit and compliance verification."
+        title={t('page.logs.title', { defaultValue: 'Operation Logs' })}
+        description={t('page.logs.desc', {
+          defaultValue: 'Track high-risk actions for audit and compliance verification.',
+        })}
         extra={
           <Space>
             <Input.Search
-              placeholder="Search by module/action/email"
+              placeholder={t('page.logs.searchPlaceholder', { defaultValue: 'Search by module/action/email' })}
               allowClear
               style={{ width: 280 }}
               onSearch={(value) => setKeyword(value)}
               onChange={(event) => setKeyword(event.target.value)}
               value={keyword}
             />
-            <Button onClick={() => void loadRows()}>Refresh</Button>
+            <Button onClick={() => void loadRows()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
           </Space>
         }
       />
@@ -80,31 +84,31 @@ export function OperationLogsPage() {
         pagination={{ pageSize: 12 }}
         columns={[
           {
-            title: 'Time',
+            title: t('page.logs.time', { defaultValue: 'Time' }),
             dataIndex: 'created_at',
             width: 210,
             render: (value: string) => new Date(value).toLocaleString(),
           },
           {
-            title: 'Actor',
+            title: t('page.logs.actor', { defaultValue: 'Actor' }),
             dataIndex: 'actor',
             width: 220,
-            render: (value: OperationLogWithActor['actor']) => value?.full_name ?? value?.email ?? 'System',
+            render: (value: OperationLogWithActor['actor']) => value?.full_name ?? value?.email ?? t('page.logs.system', { defaultValue: 'System' }),
           },
           {
-            title: 'Module',
+            title: t('page.logs.module', { defaultValue: 'Module' }),
             dataIndex: 'module',
             width: 140,
-            render: (value: string) => <Tag color="blue">{value}</Tag>,
+            render: (value: string) => <Tag color="blue">{t(`operationModule.${value}`, { defaultValue: value })}</Tag>,
           },
           {
-            title: 'Action',
+            title: t('page.common.actions', { defaultValue: 'Actions' }),
             dataIndex: 'action',
             width: 160,
-            render: (value: string) => <Tag>{value}</Tag>,
+            render: (value: string) => <Tag>{t(`operationAction.${value}`, { defaultValue: value })}</Tag>,
           },
           {
-            title: 'Entity',
+            title: t('page.logs.entity', { defaultValue: 'Entity' }),
             key: 'entity',
             render: (_: unknown, row: OperationLogWithActor) => `${row.entity_type}:${row.entity_id ?? '-'}`,
           },

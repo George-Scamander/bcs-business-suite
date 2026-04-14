@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
-import { Button, Card, DatePicker, Form, Input, InputNumber, Select, Space, Upload, message } from 'antd'
+import { Alert, Button, Card, DatePicker, Form, Input, Select, Space, Upload, message } from 'antd'
 import type { UploadFile } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { createLead, createLeadAttachment, getLeadById, updateLead } from '../api'
+import { INDUSTRY_OPTIONS, INTENT_PACKAGE_OPTIONS, NEXT_FOLLOWUP_ARRANGEMENT_OPTIONS } from '../../../lib/business-constants'
+import { checkDuplicateLeadByCompanyName, createLead, createLeadAttachment, getLeadById, updateLead } from '../api'
 import { useAuth } from '../../auth/auth-context'
 import { listActiveUsers, type UserOption } from '../../shared/api/users'
 import { uploadPrivateDocument } from '../../../lib/supabase/storage'
+import type { IntentPackage } from '../../../types/business'
 
 interface LeadFormValues {
   company_name: string
@@ -20,13 +23,18 @@ interface LeadFormValues {
   city?: string
   address?: string
   source?: string
+  intent_package?: IntentPackage
   intent_level?: number
-  estimated_value?: number
+  bd_notes?: string
+  team_attention_note?: string
+  duplicate_note?: string
+  schedule_next_followup?: 'YES' | 'NO'
   assigned_bd_id?: string
   next_followup_at?: dayjs.Dayjs
 }
 
 export function LeadFormPage() {
+  const { t } = useTranslation()
   const [form] = Form.useForm<LeadFormValues>()
   const navigate = useNavigate()
   const { leadId } = useParams<{ leadId: string }>()
@@ -37,8 +45,10 @@ export function LeadFormPage() {
   const [uploading, setUploading] = useState(false)
   const [stagedFiles, setStagedFiles] = useState<UploadFile[]>([])
   const [userOptions, setUserOptions] = useState<UserOption[]>([])
+  const [duplicateMatches, setDuplicateMatches] = useState<Array<{ id: string; lead_code: string; company_name: string }>>([])
 
   const isEdit = Boolean(leadId)
+  const scheduleNextFollowup = Form.useWatch('schedule_next_followup', form)
 
   const loadUsers = useCallback(async () => {
     if (!roles.includes('super_admin')) {
@@ -76,8 +86,12 @@ export function LeadFormPage() {
         city: detail.city ?? undefined,
         address: detail.address ?? undefined,
         source: detail.source ?? undefined,
+        intent_package: detail.intent_package ?? undefined,
         intent_level: detail.intent_level ?? undefined,
-        estimated_value: detail.estimated_value ?? undefined,
+        bd_notes: detail.bd_notes ?? undefined,
+        team_attention_note: detail.team_attention_note ?? undefined,
+        duplicate_note: detail.duplicate_note ?? undefined,
+        schedule_next_followup: detail.next_followup_at ? 'YES' : 'NO',
         assigned_bd_id: detail.assigned_bd_id ?? undefined,
         next_followup_at: detail.next_followup_at ? dayjs(detail.next_followup_at) : undefined,
       })
@@ -128,6 +142,19 @@ export function LeadFormPage() {
     setSaving(true)
 
     try {
+      const duplicates = await checkDuplicateLeadByCompanyName(values.company_name, leadId)
+      setDuplicateMatches(duplicates.map((item) => ({ id: item.id, lead_code: item.lead_code, company_name: item.company_name })))
+
+      if (duplicates.length > 0 && !values.duplicate_note?.trim()) {
+        message.warning(
+          t('page.leads.duplicateNoteRequired', {
+            defaultValue: 'This company name already exists. Please add a duplicate distinction note before saving.',
+          }),
+        )
+        setSaving(false)
+        return
+      }
+
       const payload = {
         company_name: values.company_name,
         contact_person: values.contact_person,
@@ -138,10 +165,16 @@ export function LeadFormPage() {
         city: values.city,
         address: values.address,
         source: values.source,
+        intent_package: values.intent_package,
         intent_level: values.intent_level,
-        estimated_value: values.estimated_value,
+        bd_notes: values.bd_notes,
+        team_attention_note: values.team_attention_note,
+        duplicate_note: values.duplicate_note,
         assigned_bd_id: values.assigned_bd_id,
-        next_followup_at: values.next_followup_at ? values.next_followup_at.toISOString() : undefined,
+        next_followup_at:
+          values.schedule_next_followup === 'YES' && values.next_followup_at
+            ? values.next_followup_at.toISOString()
+            : undefined,
       }
 
       const lead = isEdit
@@ -156,7 +189,11 @@ export function LeadFormPage() {
 
       await uploadAttachments(lead.id)
 
-      message.success(isEdit ? 'Lead updated successfully' : 'Lead created successfully')
+      message.success(
+        isEdit
+          ? t('page.leads.updatedSuccess', { defaultValue: 'Lead updated successfully' })
+          : t('page.leads.createdSuccess', { defaultValue: 'Lead created successfully' }),
+      )
       navigate(`/app/bd/leads/${lead.id}`)
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Failed to save lead'
@@ -184,71 +221,178 @@ export function LeadFormPage() {
     }))
   }, [roles, user, userOptions])
 
+  const industryOptions = useMemo(() => {
+    return INDUSTRY_OPTIONS.map((item) => ({
+      value: item.value,
+      label:
+        item.value === 'Repair Workshop'
+          ? t('page.leads.industryRepairWorkshop', { defaultValue: 'Repair Workshop' })
+          : item.value === 'Parts Sales'
+            ? t('page.leads.industryPartsSales', { defaultValue: 'Parts Sales' })
+            : item.value === 'Car Wash'
+              ? t('page.leads.industryCarWash', { defaultValue: 'Car Wash' })
+              : item.value === 'Car Beauty'
+                ? t('page.leads.industryCarBeauty', { defaultValue: 'Car Beauty' })
+                : item.value === 'Body & Paint Specialist'
+                  ? t('page.leads.industryBodyPaint', { defaultValue: 'Body & Paint Specialist' })
+                  : t('page.leads.industryOther', { defaultValue: 'Other' }),
+    }))
+  }, [t])
+
   return (
     <>
       <PageTitleBar
-        title={isEdit ? 'Edit Lead' : 'Create Lead'}
-        description="Capture core prospect profile and handoff-ready context for BD execution."
+        title={isEdit ? t('page.leads.editTitle', { defaultValue: 'Edit Lead' }) : t('page.leads.createTitle', { defaultValue: 'Create Lead' })}
+        description={t('page.leads.formDesc', {
+          defaultValue: 'Capture core prospect profile, potential package intent, and collaboration notes.',
+        })}
       />
 
       <Card loading={loading}>
         <Form<LeadFormValues> form={form} layout="vertical" requiredMark={false} onFinish={handleSubmit}>
+          {duplicateMatches.length > 0 ? (
+            <Alert
+              type="warning"
+              showIcon
+              className="mb-4"
+              message={t('page.leads.duplicateDetectedTitle', { defaultValue: 'Potential duplicate detected' })}
+              description={`${t('page.leads.duplicateDetectedDesc', {
+                defaultValue: 'Existing leads:',
+              })} ${duplicateMatches.map((item) => `${item.lead_code} (${item.company_name})`).join(', ')}`}
+            />
+          ) : null}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Form.Item name="company_name" label="Company Name" rules={[{ required: true, message: 'Company name is required' }]}>
+            <Form.Item
+              name="company_name"
+              label={t('page.leads.companyName', { defaultValue: 'Company Name' })}
+              rules={[{ required: true, message: t('page.leads.companyRequired', { defaultValue: 'Company name is required' }) }]}
+            >
               <Input placeholder="PT Example Motor" />
             </Form.Item>
 
-            <Form.Item name="assigned_bd_id" label="Assigned BD">
-              <Select allowClear options={assigneeOptions} placeholder="Select assignee" />
+            <Form.Item name="assigned_bd_id" label={t('page.leads.assignedBd', { defaultValue: 'Assigned BD' })}>
+              <Select allowClear options={assigneeOptions} placeholder={t('page.leads.selectAssignee', { defaultValue: 'Select assignee' })} />
             </Form.Item>
 
-            <Form.Item name="contact_person" label="Contact Person">
+            <Form.Item name="contact_person" label={t('page.leads.contactPerson', { defaultValue: 'Contact Person' })}>
               <Input />
             </Form.Item>
 
-            <Form.Item name="contact_phone" label="Contact Phone">
+            <Form.Item name="contact_phone" label={t('page.leads.contactPhone', { defaultValue: 'Contact Phone' })}>
               <Input />
             </Form.Item>
 
-            <Form.Item name="contact_email" label="Contact Email" rules={[{ type: 'email', message: 'Enter a valid email' }]}>
+            <Form.Item
+              name="contact_email"
+              label={t('page.leads.contactEmail', { defaultValue: 'Contact Email' })}
+              rules={[{ type: 'email', message: t('page.leads.validEmail', { defaultValue: 'Enter a valid email' }) }]}
+            >
               <Input />
             </Form.Item>
 
-            <Form.Item name="industry" label="Industry">
-              <Input placeholder="Automotive workshop" />
+            <Form.Item name="industry" label={t('page.common.industry', { defaultValue: 'Industry' })}>
+              <Select
+                allowClear
+                options={industryOptions}
+                placeholder={t('page.leads.selectIndustry', { defaultValue: 'Select industry' })}
+              />
             </Form.Item>
 
-            <Form.Item name="region" label="Region">
+            <Form.Item name="region" label={t('page.common.region', { defaultValue: 'Region' })}>
               <Input placeholder="West Java" />
             </Form.Item>
 
-            <Form.Item name="city" label="City">
+            <Form.Item name="city" label={t('page.leads.city', { defaultValue: 'City' })}>
               <Input placeholder="Bandung" />
             </Form.Item>
 
-            <Form.Item name="source" label="Lead Source">
+            <Form.Item name="source" label={t('page.leads.leadSource', { defaultValue: 'Lead Source' })}>
               <Input placeholder="Cold visit / Referral / Event" />
             </Form.Item>
 
-            <Form.Item name="intent_level" label="Intent Level (1-5)">
-              <InputNumber min={1} max={5} className="w-full" />
+            <Form.Item
+              name="intent_package"
+              label={t('page.leads.potentialPackage', { defaultValue: 'Potential Intent Package' })}
+              rules={[{ required: true, message: t('page.leads.packageRequired', { defaultValue: 'Please select a package' }) }]}
+            >
+              <Select
+                options={INTENT_PACKAGE_OPTIONS.map((item) => ({
+                  value: item.value,
+                  label:
+                    item.value === 'BCS'
+                      ? t('page.leads.packageBCS', { defaultValue: 'BCS' })
+                      : t('page.leads.packageProductsSales', { defaultValue: 'Products Sales' }),
+                }))}
+                placeholder={t('page.leads.selectPackage', { defaultValue: 'Select package' })}
+              />
             </Form.Item>
 
-            <Form.Item name="estimated_value" label="Estimated Contract Value">
-              <InputNumber min={0} className="w-full" />
+            <Form.Item name="intent_level" label={t('page.leads.intentLevel', { defaultValue: 'Intent Level (1-5)' })}>
+              <Select
+                allowClear
+                options={[1, 2, 3, 4, 5].map((value) => ({ value, label: String(value) }))}
+                placeholder={t('page.leads.selectIntentLevel', { defaultValue: 'Select level' })}
+              />
             </Form.Item>
 
-            <Form.Item name="next_followup_at" label="Next Follow-up Time">
+            <Form.Item
+              name="schedule_next_followup"
+              label={t('page.leads.arrangeNextFollowup', { defaultValue: 'Arrange next follow-up?' })}
+              initialValue="NO"
+            >
+              <Select
+                options={NEXT_FOLLOWUP_ARRANGEMENT_OPTIONS.map((item) => ({
+                  value: item.value,
+                  label:
+                    item.value === 'YES'
+                      ? t('page.common.yes', { defaultValue: 'Yes' })
+                      : t('page.common.no', { defaultValue: 'No' }),
+                }))}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="next_followup_at"
+              label={t('page.leads.nextFollowupTime', { defaultValue: 'Next Follow-up Time' })}
+              hidden={scheduleNextFollowup !== 'YES'}
+              rules={
+                scheduleNextFollowup === 'YES'
+                  ? [{ required: true, message: t('page.leads.nextFollowupRequired', { defaultValue: 'Please select next follow-up time' }) }]
+                  : []
+              }
+            >
               <DatePicker showTime className="w-full" />
+            </Form.Item>
+
+            <Form.Item name="duplicate_note" label={t('page.leads.duplicateNote', { defaultValue: 'Duplicate Distinction Note' })}>
+              <Input placeholder={t('page.leads.duplicateNotePlaceholder', { defaultValue: 'e.g., Same brand but different branch in North Jakarta' })} />
             </Form.Item>
           </div>
 
-          <Form.Item name="address" label="Address">
+          <Form.Item name="address" label={t('page.leads.address', { defaultValue: 'Address' })}>
             <Input.TextArea rows={2} />
           </Form.Item>
 
+          <Form.Item name="bd_notes" label={t('page.leads.bdNotes', { defaultValue: 'BD Notes' })}>
+            <Input.TextArea
+              rows={3}
+              placeholder={t('page.leads.bdNotesPlaceholder', {
+                defaultValue: 'Record customer characteristics, business preference, and communication highlights.',
+              })}
+            />
+          </Form.Item>
+
+          <Form.Item name="team_attention_note" label={t('page.leads.teamAttentionNote', { defaultValue: 'Team Attention Note' })}>
+            <Input.TextArea
+              rows={3}
+              placeholder={t('page.leads.teamAttentionPlaceholder', {
+                defaultValue: 'Shared note for all team members to pay attention to this customer.',
+              })}
+            />
+          </Form.Item>
+
           <div className="mb-4 rounded-lg border border-slate-200 p-4">
-            <p className="mb-2 font-medium">Attachments</p>
+            <p className="mb-2 font-medium">{t('page.leads.attachments', { defaultValue: 'Attachments' })}</p>
             <Upload
               multiple
               beforeUpload={() => false}
@@ -258,15 +402,21 @@ export function LeadFormPage() {
                 setStagedFiles((current) => current.filter((item) => item.uid !== file.uid))
               }}
             >
-              <Button>Select Files</Button>
+              <Button>{t('page.leads.selectFiles', { defaultValue: 'Select Files' })}</Button>
             </Upload>
-            <p className="mb-0 mt-2 text-xs text-slate-500">Files will be uploaded after lead save and linked to this lead record.</p>
+            <p className="mb-0 mt-2 text-xs text-slate-500">
+              {t('page.leads.attachmentsHint', {
+                defaultValue: 'Files will be uploaded after lead save and linked to this lead record.',
+              })}
+            </p>
           </div>
 
           <Space>
-            <Button onClick={() => navigate(-1)}>Cancel</Button>
+            <Button onClick={() => navigate(-1)}>{t('page.usersRoles.cancel', { defaultValue: 'Cancel' })}</Button>
             <Button type="primary" htmlType="submit" loading={saving || uploading}>
-              {isEdit ? 'Save Changes' : 'Create Lead'}
+              {isEdit
+                ? t('page.leads.saveChanges', { defaultValue: 'Save Changes' })
+                : t('page.leads.createLead', { defaultValue: 'Create Lead' })}
             </Button>
           </Space>
         </Form>

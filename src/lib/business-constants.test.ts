@@ -20,6 +20,7 @@ describe('business constants', () => {
       'ON_HOLD',
       'LOST',
       'SIGNED',
+      'REJECTED',
     ])
   })
 

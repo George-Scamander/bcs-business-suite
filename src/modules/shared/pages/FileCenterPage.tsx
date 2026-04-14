@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button, Space, Table, Tag, Upload, message } from 'antd'
 import type { UploadFile } from 'antd'
 import { DeleteOutlined, EyeOutlined, InboxOutlined, UploadOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import type { UploadFileRecord } from '../../../types/rbac'
@@ -25,6 +26,7 @@ function formatFileSize(value: number | null): string {
 }
 
 export function FileCenterPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [rows, setRows] = useState<UploadFileRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,7 +56,7 @@ export function FileCenterPage() {
     }
 
     if (stagedFiles.length === 0) {
-      message.warning('Select at least one file')
+      message.warning(t('page.files.selectAtLeastOne', { defaultValue: 'Select at least one file' }))
       return
     }
 
@@ -66,7 +68,7 @@ export function FileCenterPage() {
         }
       }
 
-      message.success('Files uploaded successfully')
+      message.success(t('page.files.uploadSuccess', { defaultValue: 'Files uploaded successfully' }))
       setStagedFiles([])
       await loadRows()
     } catch (error) {
@@ -105,11 +107,13 @@ export function FileCenterPage() {
   return (
     <>
       <PageTitleBar
-        title="File Center"
-        description="Upload private business documents with row-level and storage-level access control."
+        title={t('page.files.title', { defaultValue: 'File Center' })}
+        description={t('page.files.desc', {
+          defaultValue: 'Upload private business documents with row-level and storage-level access control.',
+        })}
         extra={
           <Button type="primary" icon={<UploadOutlined />} onClick={() => void handleUploadNow()} loading={uploading}>
-            Upload Selected
+            {t('page.files.uploadSelected', { defaultValue: 'Upload Selected' })}
           </Button>
         }
       />
@@ -127,8 +131,12 @@ export function FileCenterPage() {
           <p className="ant-upload-drag-icon">
             <InboxOutlined />
           </p>
-          <p className="ant-upload-text">Drop files here or click to select</p>
-          <p className="ant-upload-hint">Files are uploaded to private Supabase storage bucket with access policies.</p>
+          <p className="ant-upload-text">{t('page.files.dropHint', { defaultValue: 'Drop files here or click to select' })}</p>
+          <p className="ant-upload-hint">
+            {t('page.files.policyHint', {
+              defaultValue: 'Files are uploaded to private Supabase storage bucket with access policies.',
+            })}
+          </p>
         </Upload.Dragger>
       </div>
 
@@ -139,24 +147,24 @@ export function FileCenterPage() {
         dataSource={rows}
         pagination={{ pageSize: 8 }}
         columns={[
-          { title: 'File Name', dataIndex: 'file_name' },
+          { title: t('page.files.fileName', { defaultValue: 'File Name' }), dataIndex: 'file_name' },
           {
-            title: 'Type',
+            title: t('page.files.fileType', { defaultValue: 'Type' }),
             dataIndex: 'mime_type',
-            render: (value: string | null) => <Tag>{value ?? 'unknown'}</Tag>,
+            render: (value: string | null) => <Tag>{value ?? t('page.files.unknown', { defaultValue: 'unknown' })}</Tag>,
           },
           {
-            title: 'Size',
+            title: t('page.files.fileSize', { defaultValue: 'Size' }),
             dataIndex: 'size_bytes',
             render: (value: number | null) => formatFileSize(value),
           },
           {
-            title: 'Uploaded At',
+            title: t('page.files.uploadedAt', { defaultValue: 'Uploaded At' }),
             dataIndex: 'created_at',
             render: (value: string) => new Date(value).toLocaleString(),
           },
           {
-            title: 'Actions',
+            title: t('page.common.actions', { defaultValue: 'Actions' }),
             key: 'actions',
             render: (_value: unknown, row: UploadFileRecord) => (
               <Space>

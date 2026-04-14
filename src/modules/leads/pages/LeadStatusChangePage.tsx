@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import dayjs from 'dayjs'
-import { Alert, Button, Card, DatePicker, Form, Input, InputNumber, Select, Space, Table, message } from 'antd'
+import { Alert, Button, Card, DatePicker, Form, Input, Select, Space, Table, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { LEAD_STATUS_OPTIONS, LOST_REASON_OPTIONS } from '../../../lib/business-constants'
+import { getIntentPackageOptions, getLeadStatusOptions, getLostReasonOptions } from '../../../lib/business-constants'
 import { changeLeadStatus, getLeadById, listLeadStatusLogs } from '../api'
 import { StatusTag } from '../../../components/common/StatusTag'
-import type { Lead, LeadStatus, LeadStatusLog } from '../../../types/business'
+import type { IntentPackage, Lead, LeadStatus, LeadStatusLog } from '../../../types/business'
 
 interface StatusFormValues {
   to_status: LeadStatus
@@ -15,10 +16,11 @@ interface StatusFormValues {
   lost_reason_code?: string
   contract_no?: string
   contract_date?: dayjs.Dayjs
-  contract_value?: number
+  contract_package?: IntentPackage
 }
 
 export function LeadStatusChangePage() {
+  const { t } = useTranslation()
   const [form] = Form.useForm<StatusFormValues>()
   const navigate = useNavigate()
   const { leadId } = useParams<{ leadId: string }>()
@@ -70,12 +72,12 @@ export function LeadStatusChangePage() {
         lostReasonCode: values.lost_reason_code,
         contractNo: values.contract_no,
         contractDate: values.contract_date ? values.contract_date.format('YYYY-MM-DD') : undefined,
-        contractValue: values.contract_value,
+        contractPackage: values.contract_package,
       })
 
       setLastSignedRecordId(result.signedRecordId)
-      message.success('Lead status updated')
-      form.resetFields(['reason', 'lost_reason_code', 'contract_no', 'contract_date', 'contract_value'])
+      message.success(t('page.leads.statusUpdated', { defaultValue: 'Lead status updated' }))
+      form.resetFields(['reason', 'lost_reason_code', 'contract_no', 'contract_date', 'contract_package'])
       await loadData()
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Failed to change lead status'
@@ -88,12 +90,18 @@ export function LeadStatusChangePage() {
   return (
     <>
       <PageTitleBar
-        title={lead ? `Lead Status · ${lead.lead_code}` : 'Lead Status'}
-        description="Apply governed state transitions with mandatory reasons and conversion-ready contract info."
+        title={
+          lead
+            ? `${t('page.leads.statusTitle', { defaultValue: 'Lead Status' })} · ${lead.lead_code}`
+            : t('page.leads.statusTitle', { defaultValue: 'Lead Status' })
+        }
+        description={t('page.leads.statusDesc', {
+          defaultValue: 'Apply governed state transitions with mandatory reasons and conversion-ready contract info.',
+        })}
         extra={
           <Space>
-            <Button onClick={() => navigate(`/app/bd/leads/${leadId}`)}>Back to Detail</Button>
-            <Button onClick={() => void loadData()}>Refresh</Button>
+            <Button onClick={() => navigate(`/app/bd/leads/${leadId}`)}>{t('page.leads.backToDetail', { defaultValue: 'Back to Detail' })}</Button>
+            <Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
           </Space>
         }
       />
@@ -101,7 +109,7 @@ export function LeadStatusChangePage() {
       <Card className="mb-5" loading={loading}>
         {lead ? (
           <div className="mb-3 text-sm text-slate-600">
-            Current status: <StatusTag value={lead.status} />
+            {t('page.leads.currentStatus', { defaultValue: 'Current status:' })} <StatusTag value={lead.status} />
           </div>
         ) : null}
 
@@ -110,40 +118,64 @@ export function LeadStatusChangePage() {
             type="success"
             showIcon
             className="mb-4"
-            message={`Signed record created: ${lastSignedRecordId}`}
-            description="You can now start onboarding from the onboarding initiation page."
+            message={`${t('page.leads.signedRecordCreated', { defaultValue: 'Signed record created:' })} ${lastSignedRecordId}`}
+            description={t('page.leads.signedRecordDesc', {
+              defaultValue: 'You can now start onboarding from the onboarding initiation page.',
+            })}
           />
         ) : null}
 
         <Form<StatusFormValues> form={form} layout="vertical" onFinish={handleSubmit} requiredMark={false}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <Form.Item name="to_status" label="Target Status" rules={[{ required: true, message: 'Select target status' }]}>
-              <Select options={LEAD_STATUS_OPTIONS} placeholder="Select target status" />
+            <Form.Item
+              name="to_status"
+              label={t('page.onboarding.targetStatus', { defaultValue: 'Target Status' })}
+              rules={[{ required: true, message: t('page.onboarding.selectTargetStatus', { defaultValue: 'Select target status' }) }]}
+            >
+              <Select options={getLeadStatusOptions(t)} placeholder={t('page.onboarding.selectTargetStatus', { defaultValue: 'Select target status' })} />
             </Form.Item>
 
-            <Form.Item name="lost_reason_code" label="Lost Reason" hidden={toStatus !== 'LOST'}>
-              <Select options={LOST_REASON_OPTIONS} allowClear />
+            <Form.Item name="lost_reason_code" label={t('page.leads.lostReason', { defaultValue: 'Lost Reason' })} hidden={toStatus !== 'LOST'}>
+              <Select options={getLostReasonOptions(t)} allowClear />
             </Form.Item>
 
-            <Form.Item name="contract_no" label="Contract No." hidden={toStatus !== 'SIGNED'} rules={toStatus === 'SIGNED' ? [{ required: true, message: 'Contract no. is required' }] : []}>
+            <Form.Item
+              name="contract_no"
+              label={t('page.leads.contractNo', { defaultValue: 'Contract No.' })}
+              hidden={toStatus !== 'SIGNED'}
+              rules={
+                toStatus === 'SIGNED'
+                  ? [{ required: true, message: t('page.leads.contractNoRequired', { defaultValue: 'Contract no. is required' }) }]
+                  : []
+              }
+            >
               <Input placeholder="BCS-ID-2026-001" />
             </Form.Item>
 
-            <Form.Item name="contract_date" label="Contract Date" hidden={toStatus !== 'SIGNED'}>
+            <Form.Item name="contract_date" label={t('page.leads.contractDate', { defaultValue: 'Contract Date' })} hidden={toStatus !== 'SIGNED'}>
               <DatePicker className="w-full" />
             </Form.Item>
 
-            <Form.Item name="contract_value" label="Contract Value" hidden={toStatus !== 'SIGNED'}>
-              <InputNumber min={0} className="w-full" />
+            <Form.Item
+              name="contract_package"
+              label={t('page.leads.potentialPackage', { defaultValue: 'Potential Intent Package' })}
+              hidden={toStatus !== 'SIGNED'}
+              rules={
+                toStatus === 'SIGNED'
+                  ? [{ required: true, message: t('page.leads.packageRequired', { defaultValue: 'Please select a package' }) }]
+                  : []
+              }
+            >
+              <Select options={getIntentPackageOptions(t)} />
             </Form.Item>
           </div>
 
-          <Form.Item name="reason" label="Reason">
-            <Input.TextArea rows={3} placeholder="Provide context for this transition." />
+          <Form.Item name="reason" label={t('page.onboarding.reason', { defaultValue: 'Reason' })}>
+            <Input.TextArea rows={3} placeholder={t('page.leads.transitionContext', { defaultValue: 'Provide context for this transition.' })} />
           </Form.Item>
 
           <Button type="primary" htmlType="submit" loading={saving}>
-            Update Status
+            {t('page.leads.updateStatus', { defaultValue: 'Update Status' })}
           </Button>
         </Form>
       </Card>
@@ -155,25 +187,25 @@ export function LeadStatusChangePage() {
         pagination={{ pageSize: 10 }}
         columns={[
           {
-            title: 'Changed At',
+            title: t('page.leads.changedAt', { defaultValue: 'Changed At' }),
             dataIndex: 'changed_at',
             width: 190,
             render: (value: string) => new Date(value).toLocaleString(),
           },
           {
-            title: 'From',
+            title: t('page.onboarding.from', { defaultValue: 'From' }),
             dataIndex: 'from_status',
             width: 150,
             render: (value: string | null) => (value ? <StatusTag value={value} /> : '-'),
           },
           {
-            title: 'To',
+            title: t('page.onboarding.to', { defaultValue: 'To' }),
             dataIndex: 'to_status',
             width: 150,
             render: (value: string) => <StatusTag value={value} />,
           },
           {
-            title: 'Reason',
+            title: t('page.onboarding.reason', { defaultValue: 'Reason' }),
             dataIndex: 'reason',
             render: (value: string | null) => value ?? '-',
           },

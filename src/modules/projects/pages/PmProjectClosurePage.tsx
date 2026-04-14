@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Button, Card, Checkbox, Descriptions, Form, Input, Space, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
@@ -12,6 +13,7 @@ interface ClosureFormValues {
 }
 
 export function PmProjectClosurePage() {
+  const { t } = useTranslation()
   const [form] = Form.useForm<ClosureFormValues>()
   const navigate = useNavigate()
   const { projectId } = useParams<{ projectId: string }>()
@@ -67,7 +69,7 @@ export function PmProjectClosurePage() {
 
     try {
       await changeProjectStatus(projectId, 'COMPLETED', note)
-      message.success('Project marked as COMPLETED')
+      message.success(t('page.projectClosure.markedCompleted', { defaultValue: 'Project marked as COMPLETED' }))
       await loadData()
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Failed to mark completed'
@@ -86,7 +88,7 @@ export function PmProjectClosurePage() {
 
     try {
       await changeProjectStatus(projectId, 'CLOSED', note)
-      message.success('Project marked as CLOSED')
+      message.success(t('page.projectClosure.markedClosed', { defaultValue: 'Project marked as CLOSED' }))
       await loadData()
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Failed to close project'
@@ -105,12 +107,20 @@ export function PmProjectClosurePage() {
   return (
     <>
       <PageTitleBar
-        title={project ? `Delivery & Closure · ${project.project_code}` : 'Delivery & Closure'}
-        description="Finalize delivery, complete acceptance checks, and close project with auditable notes."
+        title={
+          project
+            ? `${t('page.projectClosure.title', { defaultValue: 'Delivery & Closure' })} · ${project.project_code}`
+            : t('page.projectClosure.title', { defaultValue: 'Delivery & Closure' })
+        }
+        description={t('page.projectClosure.desc', {
+          defaultValue: 'Finalize delivery, complete acceptance checks, and close project with auditable notes.',
+        })}
         extra={
           <Space>
-            <Button onClick={() => navigate(`/app/pm/projects/${projectId}`)}>Back to Detail</Button>
-            <Button onClick={() => void loadData()}>Refresh</Button>
+            <Button onClick={() => navigate(`/app/pm/projects/${projectId}`)}>
+              {t('page.common.backToDetail', { defaultValue: 'Back to Detail' })}
+            </Button>
+            <Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
           </Space>
         }
       />
@@ -118,11 +128,13 @@ export function PmProjectClosurePage() {
       <Card className="mb-5" loading={loading}>
         {project ? (
           <Descriptions bordered size="small" column={{ xs: 1, md: 2, lg: 3 }} className="mb-4">
-            <Descriptions.Item label="Project Status">
+            <Descriptions.Item label={t('page.projectClosure.projectStatus', { defaultValue: 'Project Status' })}>
               <StatusTag value={project.status} />
             </Descriptions.Item>
-            <Descriptions.Item label="Completion by Tasks">{completion}%</Descriptions.Item>
-            <Descriptions.Item label="System Completion">{Number(project.completion_rate).toFixed(1)}%</Descriptions.Item>
+            <Descriptions.Item label={t('page.projectClosure.completionByTasks', { defaultValue: 'Completion by Tasks' })}>{completion}%</Descriptions.Item>
+            <Descriptions.Item label={t('page.projectClosure.systemCompletion', { defaultValue: 'System Completion' })}>
+              {Number(project.completion_rate).toFixed(1)}%
+            </Descriptions.Item>
           </Descriptions>
         ) : null}
 
@@ -131,33 +143,35 @@ export function PmProjectClosurePage() {
             type="warning"
             showIcon
             className="mb-4"
-            message="Task completion is below 100%"
-            description="Finish all open tasks before closure to ensure delivery consistency."
+            message={t('page.projectClosure.below100Title', { defaultValue: 'Task completion is below 100%' })}
+            description={t('page.projectClosure.below100Desc', {
+              defaultValue: 'Finish all open tasks before closure to ensure delivery consistency.',
+            })}
           />
         ) : null}
 
         <Form<ClosureFormValues> form={form} layout="vertical" onFinish={handleSubmit} requiredMark={false}>
-          <Card size="small" title="Closure Checklist" className="mb-4">
+          <Card size="small" title={t('page.projectClosure.checklist', { defaultValue: 'Closure Checklist' })} className="mb-4">
             <Space direction="vertical">
               <Checkbox checked={deliveryChecked} onChange={(event) => setDeliveryChecked(event.target.checked)}>
-                Delivery scope completed
+                {t('page.projectClosure.deliveryCompleted', { defaultValue: 'Delivery scope completed' })}
               </Checkbox>
               <Checkbox checked={acceptanceChecked} onChange={(event) => setAcceptanceChecked(event.target.checked)}>
-                Customer acceptance confirmed
+                {t('page.projectClosure.acceptanceConfirmed', { defaultValue: 'Customer acceptance confirmed' })}
               </Checkbox>
               <Checkbox checked={handoverChecked} onChange={(event) => setHandoverChecked(event.target.checked)}>
-                Internal handover package archived
+                {t('page.projectClosure.handoverArchived', { defaultValue: 'Internal handover package archived' })}
               </Checkbox>
             </Space>
           </Card>
 
-          <Form.Item name="closure_note" label="Closure Note">
-            <Input.TextArea rows={4} placeholder="Closure summary and key learnings." />
+          <Form.Item name="closure_note" label={t('page.projectClosure.closureNote', { defaultValue: 'Closure Note' })}>
+            <Input.TextArea rows={4} placeholder={t('page.projectClosure.closurePlaceholder', { defaultValue: 'Closure summary and key learnings.' })} />
           </Form.Item>
 
           <Space>
             <Button type="primary" htmlType="submit" loading={savingComplete} disabled={!closureReady}>
-              Mark COMPLETED
+              {t('page.projectClosure.markCompleted', { defaultValue: 'Mark COMPLETED' })}
             </Button>
             <Button
               danger
@@ -165,7 +179,7 @@ export function PmProjectClosurePage() {
               loading={savingClose}
               disabled={!closureReady || project?.status !== 'COMPLETED'}
             >
-              Mark CLOSED
+              {t('page.projectClosure.markClosed', { defaultValue: 'Mark CLOSED' })}
             </Button>
           </Space>
         </Form>

@@ -1,5 +1,6 @@
 import { Button, Card, Form, Input, Typography, message } from 'antd'
 import { LockOutlined, MailOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { APP_NAME } from '../../../lib/constants'
@@ -11,6 +12,7 @@ interface LoginFormValues {
 }
 
 export function LoginPage() {
+  const { t } = useTranslation()
   const { isAuthenticated, signIn } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -24,10 +26,10 @@ export function LoginPage() {
   async function handleFinish(values: LoginFormValues) {
     try {
       await signIn(values.email, values.password)
-      message.success('Signed in successfully')
+      message.success(t('auth.login.success', { defaultValue: 'Signed in successfully' }))
       navigate(fromPath, { replace: true })
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Sign-in failed. Please try again.'
+      const text = error instanceof Error ? error.message : t('auth.login.failed', { defaultValue: 'Sign-in failed. Please try again.' })
       message.error(text)
     }
   }
@@ -40,38 +42,40 @@ export function LoginPage() {
             {APP_NAME}
           </Typography.Title>
           <Typography.Paragraph className="mb-0 text-slate-500">
-            Sign in to manage BD leads, onboarding, and projects.
+            {t('auth.login.description', {
+              defaultValue: 'Sign in to manage BD leads, onboarding, and projects.',
+            })}
           </Typography.Paragraph>
         </div>
 
         <Form<LoginFormValues> layout="vertical" onFinish={handleFinish} requiredMark={false} autoComplete="off">
           <Form.Item
-            label="Email"
+            label={t('page.common.email', { defaultValue: 'Email' })}
             name="email"
             rules={[
-              { required: true, message: 'Email is required' },
-              { type: 'email', message: 'Invalid email format' },
+              { required: true, message: t('auth.login.emailRequired', { defaultValue: 'Email is required' }) },
+              { type: 'email', message: t('auth.login.emailInvalid', { defaultValue: 'Invalid email format' }) },
             ]}
           >
-            <Input prefix={<MailOutlined />} placeholder="you@bosch.com" />
+            <Input prefix={<MailOutlined />} placeholder={t('auth.login.emailPlaceholder', { defaultValue: 'you@bosch.com' })} />
           </Form.Item>
 
           <Form.Item
-            label="Password"
+            label={t('auth.login.password', { defaultValue: 'Password' })}
             name="password"
-            rules={[{ required: true, message: 'Password is required' }]}
+            rules={[{ required: true, message: t('auth.login.passwordRequired', { defaultValue: 'Password is required' }) }]}
           >
-            <Input.Password prefix={<LockOutlined />} placeholder="Enter password" />
+            <Input.Password prefix={<LockOutlined />} placeholder={t('auth.login.passwordPlaceholder', { defaultValue: 'Enter password' })} />
           </Form.Item>
 
           <div className="mb-4 flex items-center justify-end">
             <Link to="/forgot-password" className="text-sm">
-              Forgot password?
+              {t('auth.login.forgot', { defaultValue: 'Forgot password?' })}
             </Link>
           </div>
 
           <Button type="primary" htmlType="submit" block>
-            Sign In
+            {t('auth.login.submit', { defaultValue: 'Sign In' })}
           </Button>
         </Form>
       </Card>

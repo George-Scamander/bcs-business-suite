@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Col, Input, Progress, Row, Select, Space, Table, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { MetricCard } from '../../../components/common/MetricCard'
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { PROJECT_STATUS_OPTIONS } from '../../../lib/business-constants'
+import { getProjectStatusOptions } from '../../../lib/business-constants'
 import { StatusTag } from '../../../components/common/StatusTag'
 import { listProjects, markDelayedProjects, type ProjectFilters } from '../../projects/api'
 import type { Project } from '../../../types/business'
 
 export function AdminProjectOverviewPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [rows, setRows] = useState<Project[]>([])
@@ -59,26 +61,28 @@ export function AdminProjectOverviewPage() {
   return (
     <>
       <PageTitleBar
-        title="Project Overview"
-        description="Global execution visibility across all active and closed implementation projects."
-        extra={<Button onClick={() => void loadData()}>Refresh</Button>}
+        title={t('page.projectOverview.title', { defaultValue: 'Project Overview' })}
+        description={t('page.projectOverview.desc', {
+          defaultValue: 'Global execution visibility across all active and closed implementation projects.',
+        })}
+        extra={<Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <Row gutter={[16, 16]} className="mb-5">
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title="Total Projects" value={metrics.total} />
+          <MetricCard title={t('page.admin.totalProjects', { defaultValue: 'Total Projects' })} value={metrics.total} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title="In Progress" value={metrics.inProgress} />
+          <MetricCard title={t('status.IN_PROGRESS', { defaultValue: 'In Progress' })} value={metrics.inProgress} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title="Delayed" value={metrics.delayed} />
+          <MetricCard title={t('status.DELAYED', { defaultValue: 'Delayed' })} value={metrics.delayed} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title="Completed/Closed" value={metrics.completed} />
+          <MetricCard title={t('page.projectOverview.completedClosed', { defaultValue: 'Completed/Closed' })} value={metrics.completed} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title="Avg Completion" value={metrics.avgCompletion} suffix="%" />
+          <MetricCard title={t('page.pm.avgCompletion', { defaultValue: 'Avg Completion' })} value={metrics.avgCompletion} suffix="%" />
         </Col>
       </Row>
 
@@ -86,22 +90,22 @@ export function AdminProjectOverviewPage() {
         <Space wrap>
           <Select
             allowClear
-            placeholder="Status"
+            placeholder={t('page.common.status', { defaultValue: 'Status' })}
             style={{ width: 220 }}
-            options={PROJECT_STATUS_OPTIONS}
+            options={getProjectStatusOptions(t)}
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
           />
           <Input.Search
             allowClear
-            placeholder="Project keyword"
+            placeholder={t('page.projectOverview.keywordPlaceholder', { defaultValue: 'Project keyword' })}
             style={{ width: 280 }}
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             onSearch={() => void loadData()}
           />
           <Button type="primary" onClick={() => void loadData()}>
-            Apply
+            {t('page.common.apply', { defaultValue: 'Apply' })}
           </Button>
         </Space>
       </div>
@@ -113,32 +117,32 @@ export function AdminProjectOverviewPage() {
         dataSource={rows}
         pagination={{ pageSize: 12 }}
         columns={[
-          { title: 'Project Code', dataIndex: 'project_code', width: 170 },
-          { title: 'Name', dataIndex: 'name' },
+          { title: t('page.pm.projectCode', { defaultValue: 'Project Code' }), dataIndex: 'project_code', width: 170 },
+          { title: t('page.pm.projectName', { defaultValue: 'Name' }), dataIndex: 'name' },
           {
-            title: 'Status',
+            title: t('page.common.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
             width: 150,
             render: (value: string) => <StatusTag value={value} />,
           },
           {
-            title: 'Completion',
+            title: t('page.projectOverview.completion', { defaultValue: 'Completion' }),
             dataIndex: 'completion_rate',
             width: 220,
             render: (value: number) => <Progress percent={Number(Number(value ?? 0).toFixed(1))} size="small" />,
           },
           {
-            title: 'Target End',
+            title: t('page.projectOverview.targetEnd', { defaultValue: 'Target End' }),
             dataIndex: 'target_end_date',
             width: 130,
             render: (value: string | null) => value ?? '-',
           },
           {
-            title: 'Action',
+            title: t('page.common.actions', { defaultValue: 'Actions' }),
             width: 120,
             render: (_: unknown, row: Project) => (
               <Button size="small" onClick={() => navigate(`/app/pm/projects/${row.id}`)}>
-                Open
+                {t('page.projectOverview.open', { defaultValue: 'Open' })}
               </Button>
             ),
           },

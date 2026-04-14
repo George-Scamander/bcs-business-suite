@@ -1,4 +1,5 @@
 import { Tag } from 'antd'
+import { useTranslation } from 'react-i18next'
 
 const statusColorMap: Record<string, string> = {
   NEW: 'default',
@@ -26,7 +27,8 @@ const statusColorMap: Record<string, string> = {
 }
 
 export function StatusTag({ value }: { value: string }) {
+  const { t } = useTranslation()
   const color = statusColorMap[value] ?? 'default'
 
-  return <Tag color={color}>{value}</Tag>
+  return <Tag color={color}>{t(`status.${value}`, { defaultValue: value })}</Tag>
 }

@@ -67,7 +67,7 @@ function resolvePrimaryRole(roles: RoleCode[]): RoleCode {
 
 export function AppLayout() {
   const { t } = useTranslation()
-  const { profile, roles, signOut, updateLocale } = useAuth()
+  const { user, profile, roles, signOut, updateLocale } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [locale, setLocale] = useState(profile?.locale ?? 'en')
   const screens = Grid.useBreakpoint()
@@ -93,20 +93,32 @@ export function AppLayout() {
     NAV_ITEMS_BY_ROLE[primaryRole][0]?.key
 
   useEffect(() => {
-    if (profile?.locale) {
-      setLocale(profile.locale)
-      void i18n.changeLanguage(profile.locale)
+    const supported = new Set(SUPPORTED_LOCALES.map((item) => item.code))
+    const storageKey = user?.id ? `bcs_locale_${user.id}` : null
+    const localLocale = storageKey ? window.localStorage.getItem(storageKey) : null
+    const nextLocale = [localLocale, profile?.locale, 'en'].find(
+      (value): value is LocaleCode => Boolean(value && supported.has(value as LocaleCode)),
+    )
+
+    if (!nextLocale) {
+      return
     }
-  }, [profile?.locale])
+
+    setLocale(nextLocale)
+    void i18n.changeLanguage(nextLocale)
+  }, [profile?.locale, user?.id])
 
   async function handleLocaleChange(value: LocaleCode) {
     setLocale(value)
     await i18n.changeLanguage(value)
+    if (user?.id) {
+      window.localStorage.setItem(`bcs_locale_${user.id}`, value)
+    }
 
     try {
       await updateLocale(value)
     } catch {
-      message.error('Failed to save language preference')
+      message.error(t('common.localeSaveFailed', { defaultValue: 'Failed to save language preference' }))
     }
   }
 
@@ -151,36 +163,42 @@ export function AppLayout() {
       )}
 
       <Layout>
-        <Header className="flex items-center justify-between bg-white px-4 md:px-6 border-b border-slate-200">
-          <Space>
-            {screens.md === false ? (
-              <Button icon={<MenuOutlined />} onClick={() => setDrawerOpen(true)} type="text" />
-            ) : null}
-            <div>
-              <Typography.Text className="block text-slate-900 font-medium">
-                {profile?.full_name ?? profile?.email}
-              </Typography.Text>
-              <Typography.Text className="text-xs text-slate-500">
-                {t('common.timezone', { defaultValue: 'Timezone' })}: {profile?.timezone ?? 'Asia/Jakarta'}
-              </Typography.Text>
-            </div>
-          </Space>
+        <Header className="!h-auto !leading-normal bg-white px-3 py-3 md:px-6 border-b border-slate-200">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            <Space className="min-w-0" size={12}>
+              {screens.md === false ? (
+                <Button icon={<MenuOutlined />} onClick={() => setDrawerOpen(true)} type="text" />
+              ) : null}
+              <div className="min-w-0">
+                <Typography.Text className="block truncate text-slate-900 font-medium">
+                  {profile?.full_name ?? profile?.email}
+                </Typography.Text>
+                <Typography.Text className="block truncate text-xs text-slate-500">
+                  {t('common.timezone', { defaultValue: 'Timezone' })}: {profile?.timezone ?? 'Asia/Jakarta'}
+                </Typography.Text>
+              </div>
+            </Space>
 
-          <Space>
-            <Select
-              size="small"
-              value={locale}
-              style={{ width: 150 }}
-              options={SUPPORTED_LOCALES.map((item) => ({ value: item.code, label: item.label }))}
-              onChange={(value: LocaleCode) => void handleLocaleChange(value)}
-            />
-            <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/app/settings/profile')} />
-            <Button type="text" icon={<BellOutlined />} onClick={() => navigate('/app/notifications')} />
-            <Avatar icon={<UserOutlined />} />
-            <Button icon={<LogoutOutlined />} onClick={() => void handleSignOut()}>
-              {t('common.logout', { defaultValue: 'Logout' })}
-            </Button>
-          </Space>
+            <Space size={8} wrap>
+              <Select
+                size="small"
+                value={locale}
+                style={{ width: screens.sm ? 168 : 150 }}
+                options={SUPPORTED_LOCALES.map((item) => ({ value: item.code, label: item.label }))}
+                onChange={(value: LocaleCode) => void handleLocaleChange(value)}
+              />
+              <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/app/settings/profile')} />
+              <Button type="text" icon={<BellOutlined />} onClick={() => navigate('/app/notifications')} />
+              <Avatar icon={<UserOutlined />} />
+              {screens.sm ? (
+                <Button icon={<LogoutOutlined />} onClick={() => void handleSignOut()}>
+                  {t('common.logout', { defaultValue: 'Logout' })}
+                </Button>
+              ) : (
+                <Button type="text" icon={<LogoutOutlined />} onClick={() => void handleSignOut()} />
+              )}
+            </Space>
+          </div>
         </Header>
 
         <Content className="bg-[#f3f4f6] p-4 md:p-6">

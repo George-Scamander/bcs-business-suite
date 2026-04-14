@@ -1,5 +1,5 @@
 export type RoleCode = 'super_admin' | 'bd_user' | 'project_manager'
-export type LocaleCode = 'en' | 'zh-CN' | 'id-ID'
+export type LocaleCode = 'en' | 'zh-CN' | 'zh-HK' | 'id-ID'
 
 export interface Profile {
   id: string

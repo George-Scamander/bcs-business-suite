@@ -298,7 +298,14 @@ export default function App() {
               }
             />
 
-            <Route path="files" element={<FileCenterPage />} />
+            <Route
+              path="files"
+              element={
+                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.FILES_UPLOAD]}>
+                  <FileCenterPage />
+                </RoleGuard>
+              }
+            />
             <Route path="settings/profile" element={<ProfileSettingsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="unauthorized" element={<UnauthorizedPage />} />

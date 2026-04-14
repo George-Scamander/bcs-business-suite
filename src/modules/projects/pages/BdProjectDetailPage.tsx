@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Descriptions, Space, Table, Timeline, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
@@ -13,6 +14,7 @@ import {
 import type { Project, ProjectMilestone, ProjectTask, ProjectUpdate } from '../../../types/business'
 
 export function BdProjectDetailPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { projectId } = useParams<{ projectId: string }>()
 
@@ -56,12 +58,18 @@ export function BdProjectDetailPage() {
   return (
     <>
       <PageTitleBar
-        title={project ? `Project Detail · ${project.project_code}` : 'Project Detail'}
-        description="BD-facing read-only execution view for customer communication and expectation management."
+        title={
+          project
+            ? `${t('page.projectDetail.title', { defaultValue: 'Project Detail' })} · ${project.project_code}`
+            : t('page.projectDetail.title', { defaultValue: 'Project Detail' })
+        }
+        description={t('page.bd.projectReadonlyDesc', {
+          defaultValue: 'BD-facing read-only execution view for customer communication and expectation management.',
+        })}
         extra={
           <Space>
-            <Button onClick={() => navigate('/app/bd/projects')}>Back to Projects</Button>
-            <Button onClick={() => void loadData()}>Refresh</Button>
+            <Button onClick={() => navigate('/app/bd/projects')}>{t('page.bd.backToProjects', { defaultValue: 'Back to Projects' })}</Button>
+            <Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
           </Space>
         }
       />
@@ -69,15 +77,17 @@ export function BdProjectDetailPage() {
       <Card loading={loading} className="mb-5">
         {project ? (
           <Descriptions bordered size="small" column={{ xs: 1, md: 2, lg: 3 }}>
-            <Descriptions.Item label="Project Code">{project.project_code}</Descriptions.Item>
-            <Descriptions.Item label="Status">
+            <Descriptions.Item label={t('page.pm.projectCode', { defaultValue: 'Project Code' })}>{project.project_code}</Descriptions.Item>
+            <Descriptions.Item label={t('page.common.status', { defaultValue: 'Status' })}>
               <StatusTag value={project.status} />
             </Descriptions.Item>
-            <Descriptions.Item label="Completion">{Number(project.completion_rate).toFixed(1)}%</Descriptions.Item>
-            <Descriptions.Item label="Start Date">{project.start_date ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label="Target End">{project.target_end_date ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label="Actual End">{project.actual_end_date ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label="Description" span={3}>
+            <Descriptions.Item label={t('page.projectOverview.completion', { defaultValue: 'Completion' })}>
+              {Number(project.completion_rate).toFixed(1)}%
+            </Descriptions.Item>
+            <Descriptions.Item label={t('page.projectDetail.startDate', { defaultValue: 'Start Date' })}>{project.start_date ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('page.projectOverview.targetEnd', { defaultValue: 'Target End' })}>{project.target_end_date ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('page.projectDetail.actualEnd', { defaultValue: 'Actual End' })}>{project.actual_end_date ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('page.projectDetail.descriptionField', { defaultValue: 'Description' })} span={3}>
               {project.description ?? '-'}
             </Descriptions.Item>
           </Descriptions>
@@ -85,23 +95,28 @@ export function BdProjectDetailPage() {
       </Card>
 
       <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Card title="Milestones">
+        <Card title={t('page.projectProgress.milestoneTimeline', { defaultValue: 'Milestones' })}>
           <Table
             rowKey="id"
             size="small"
             pagination={false}
             dataSource={milestones}
             columns={[
-              { title: 'Milestone', dataIndex: 'title' },
-              { title: 'Planned Date', dataIndex: 'planned_date', width: 140, render: (value: string | null) => value ?? '-' },
+              { title: t('page.projectProgress.milestone', { defaultValue: 'Milestone' }), dataIndex: 'title' },
               {
-                title: 'Status',
+                title: t('page.projectProgress.plannedDate', { defaultValue: 'Planned Date' }),
+                dataIndex: 'planned_date',
+                width: 140,
+                render: (value: string | null) => value ?? '-',
+              },
+              {
+                title: t('page.common.status', { defaultValue: 'Status' }),
                 dataIndex: 'status',
                 width: 130,
                 render: (value: string) => <StatusTag value={value} />,
               },
               {
-                title: 'Progress',
+                title: t('page.pm.progress', { defaultValue: 'Progress' }),
                 dataIndex: 'progress',
                 width: 110,
                 render: (value: number) => `${Number(value ?? 0).toFixed(0)}%`,
@@ -110,27 +125,32 @@ export function BdProjectDetailPage() {
           />
         </Card>
 
-        <Card title="Task Snapshot">
+        <Card title={t('page.projectDetail.taskSnapshot', { defaultValue: 'Task Snapshot' })}>
           <Table
             rowKey="id"
             size="small"
             pagination={{ pageSize: 8 }}
             dataSource={tasks}
             columns={[
-              { title: 'Task', dataIndex: 'title' },
+              { title: t('page.projectTasks.task', { defaultValue: 'Task' }), dataIndex: 'title' },
               {
-                title: 'Status',
+                title: t('page.common.status', { defaultValue: 'Status' }),
                 dataIndex: 'status',
                 width: 130,
                 render: (value: string) => <StatusTag value={value} />,
               },
-              { title: 'Due Date', dataIndex: 'due_date', width: 130, render: (value: string | null) => value ?? '-' },
+              {
+                title: t('page.projectTasks.dueDate', { defaultValue: 'Due Date' }),
+                dataIndex: 'due_date',
+                width: 130,
+                render: (value: string | null) => value ?? '-',
+              },
             ]}
           />
         </Card>
       </div>
 
-      <Card title="Updates Shared To BD">
+      <Card title={t('page.projectDetail.updatesSharedToBd', { defaultValue: 'Updates Shared To BD' })}>
         <Timeline
           items={updates.map((item) => ({
             children: (

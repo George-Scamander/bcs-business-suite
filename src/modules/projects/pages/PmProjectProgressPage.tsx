@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import dayjs from 'dayjs'
 import { Button, Card, DatePicker, Form, Input, InputNumber, Progress, Space, Table, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
@@ -21,6 +22,7 @@ interface MilestoneFormValues {
 }
 
 export function PmProjectProgressPage() {
+  const { t } = useTranslation()
   const [form] = Form.useForm<MilestoneFormValues>()
   const navigate = useNavigate()
   const { projectId } = useParams<{ projectId: string }>()
@@ -70,7 +72,7 @@ export function PmProjectProgressPage() {
         progress: values.progress ?? 0,
         sortOrder: milestones.length + 1,
       })
-      message.success('Milestone added')
+      message.success(t('page.projectProgress.milestoneAdded', { defaultValue: 'Milestone added' }))
       form.resetFields()
       await loadData()
     } catch (error) {
@@ -84,12 +86,20 @@ export function PmProjectProgressPage() {
   return (
     <>
       <PageTitleBar
-        title={project ? `Project Progress · ${project.project_code}` : 'Project Progress'}
-        description="Maintain milestone trajectory and completion curve for active delivery."
+        title={
+          project
+            ? `${t('page.projectProgress.title', { defaultValue: 'Project Progress' })} · ${project.project_code}`
+            : t('page.projectProgress.title', { defaultValue: 'Project Progress' })
+        }
+        description={t('page.projectProgress.desc', {
+          defaultValue: 'Maintain milestone trajectory and completion curve for active delivery.',
+        })}
         extra={
           <Space>
-            <Button onClick={() => navigate(`/app/pm/projects/${projectId}`)}>Back to Detail</Button>
-            <Button onClick={() => void loadData()}>Refresh</Button>
+            <Button onClick={() => navigate(`/app/pm/projects/${projectId}`)}>
+              {t('page.common.backToDetail', { defaultValue: 'Back to Detail' })}
+            </Button>
+            <Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
           </Space>
         }
       />
@@ -99,7 +109,9 @@ export function PmProjectProgressPage() {
           <div>
             <div className="mb-3 flex items-center gap-4">
               <StatusTag value={project.status} />
-              <span className="text-sm text-slate-600">Completion: {Number(project.completion_rate).toFixed(1)}%</span>
+              <span className="text-sm text-slate-600">
+                {t('page.projectOverview.completion', { defaultValue: 'Completion' })}: {Number(project.completion_rate).toFixed(1)}%
+              </span>
             </div>
             <Progress percent={Number(Number(project.completion_rate).toFixed(1))} />
           </div>
@@ -107,53 +119,57 @@ export function PmProjectProgressPage() {
       </Card>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Card title="Add Milestone">
+        <Card title={t('page.projectProgress.addMilestone', { defaultValue: 'Add Milestone' })}>
           <Form<MilestoneFormValues> form={form} layout="vertical" onFinish={handleAddMilestone} requiredMark={false}>
-            <Form.Item name="title" label="Milestone Title" rules={[{ required: true, message: 'Title is required' }]}>
+            <Form.Item
+              name="title"
+              label={t('page.projectProgress.milestoneTitle', { defaultValue: 'Milestone Title' })}
+              rules={[{ required: true, message: t('page.projectProgress.titleRequired', { defaultValue: 'Title is required' }) }]}
+            >
               <Input />
             </Form.Item>
 
-            <Form.Item name="description" label="Description">
+            <Form.Item name="description" label={t('page.projectDetail.descriptionField', { defaultValue: 'Description' })}>
               <Input.TextArea rows={3} />
             </Form.Item>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Form.Item name="planned_date" label="Planned Date">
+              <Form.Item name="planned_date" label={t('page.projectProgress.plannedDate', { defaultValue: 'Planned Date' })}>
                 <DatePicker className="w-full" />
               </Form.Item>
-              <Form.Item name="progress" label="Initial Progress">
+              <Form.Item name="progress" label={t('page.projectProgress.initialProgress', { defaultValue: 'Initial Progress' })}>
                 <InputNumber min={0} max={100} className="w-full" />
               </Form.Item>
             </div>
 
             <Button type="primary" htmlType="submit" loading={saving}>
-              Add Milestone
+              {t('page.projectProgress.addMilestoneAction', { defaultValue: 'Add Milestone' })}
             </Button>
           </Form>
         </Card>
 
-        <Card title="Milestone Timeline">
+        <Card title={t('page.projectProgress.milestoneTimeline', { defaultValue: 'Milestone Timeline' })}>
           <Table
             rowKey="id"
             size="small"
             pagination={false}
             dataSource={milestones}
             columns={[
-              { title: 'Order', dataIndex: 'sort_order', width: 70 },
-              { title: 'Milestone', dataIndex: 'title' },
+              { title: t('page.onboarding.order', { defaultValue: 'Order' }), dataIndex: 'sort_order', width: 70 },
+              { title: t('page.projectProgress.milestone', { defaultValue: 'Milestone' }), dataIndex: 'title' },
               {
-                title: 'Status',
+                title: t('page.common.status', { defaultValue: 'Status' }),
                 dataIndex: 'status',
                 width: 130,
                 render: (value: string) => <StatusTag value={value} />,
               },
               {
-                title: 'Progress',
+                title: t('page.pm.progress', { defaultValue: 'Progress' }),
                 dataIndex: 'progress',
                 width: 110,
                 render: (value: number) => `${Number(value ?? 0).toFixed(0)}%`,
               },
-              { title: 'Planned', dataIndex: 'planned_date', width: 120, render: (value: string | null) => value ?? '-' },
+              { title: t('page.projectProgress.planned', { defaultValue: 'Planned' }), dataIndex: 'planned_date', width: 120, render: (value: string | null) => value ?? '-' },
             ]}
           />
         </Card>

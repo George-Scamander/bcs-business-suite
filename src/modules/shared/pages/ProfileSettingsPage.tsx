@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Button, Card, Form, Input, Select, Space, Typography, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { SUPPORTED_LOCALES } from '../../../lib/constants'
@@ -14,6 +15,7 @@ interface ProfileFormValues {
 }
 
 export function ProfileSettingsPage() {
+  const { t } = useTranslation()
   const [form] = Form.useForm<ProfileFormValues>()
   const { user, profile, refreshProfile } = useAuth()
 
@@ -53,39 +55,42 @@ export function ProfileSettingsPage() {
       afterData: values,
     })
 
-    message.success('Profile updated')
+    message.success(t('page.profile.updated', { defaultValue: 'Profile updated' }))
   }
 
   return (
     <>
-      <PageTitleBar title="Profile Settings" description="Manage your display info, locale, and timezone." />
+      <PageTitleBar
+        title={t('page.profile.title', { defaultValue: 'Profile Settings' })}
+        description={t('page.profile.desc', { defaultValue: 'Manage your display info, locale, and timezone.' })}
+      />
 
       <Card className="max-w-2xl">
         <Form<ProfileFormValues> form={form} layout="vertical" onFinish={handleSave} requiredMark={false}>
-          <Form.Item label="Email">
+          <Form.Item label={t('page.common.email', { defaultValue: 'Email' })}>
             <Input value={profile?.email ?? ''} disabled />
           </Form.Item>
 
           <Form.Item
-            label="Full Name"
+            label={t('page.profile.fullName', { defaultValue: 'Full Name' })}
             name="full_name"
-            rules={[{ required: true, message: 'Full name is required' }]}
+            rules={[{ required: true, message: t('page.profile.fullNameRequired', { defaultValue: 'Full name is required' }) }]}
           >
-            <Input placeholder="Your full name" />
+            <Input placeholder={t('page.profile.fullNamePlaceholder', { defaultValue: 'Your full name' })} />
           </Form.Item>
 
           <Form.Item
-            label="Locale"
+            label={t('page.profile.locale', { defaultValue: 'Locale' })}
             name="locale"
-            rules={[{ required: true, message: 'Locale is required' }]}
+            rules={[{ required: true, message: t('page.profile.localeRequired', { defaultValue: 'Locale is required' }) }]}
           >
             <Select options={SUPPORTED_LOCALES.map((item) => ({ value: item.code, label: item.label }))} />
           </Form.Item>
 
           <Form.Item
-            label="Timezone"
+            label={t('page.profile.timezone', { defaultValue: 'Timezone' })}
             name="timezone"
-            rules={[{ required: true, message: 'Timezone is required' }]}
+            rules={[{ required: true, message: t('page.profile.timezoneRequired', { defaultValue: 'Timezone is required' }) }]}
           >
             <Select
               options={[
@@ -99,13 +104,16 @@ export function ProfileSettingsPage() {
 
           <Space>
             <Button type="primary" htmlType="submit">
-              Save Changes
+              {t('page.leads.saveChanges', { defaultValue: 'Save Changes' })}
             </Button>
           </Space>
         </Form>
 
         <Typography.Paragraph className="mt-4 mb-0 text-slate-500 text-sm">
-          Tip: For operation timeline consistency, we store all timestamps in UTC and display in your selected timezone.
+          {t('page.profile.tip', {
+            defaultValue:
+              'Tip: For operation timeline consistency, we store all timestamps in UTC and display in your selected timezone.',
+          })}
         </Typography.Paragraph>
       </Card>
     </>

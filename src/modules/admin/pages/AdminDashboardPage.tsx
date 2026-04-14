@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Col, Row, Table, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 
 import { MetricCard } from '../../../components/common/MetricCard'
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
@@ -15,6 +16,7 @@ interface PendingCaseRow {
 }
 
 export function AdminDashboardPage() {
+  const { t } = useTranslation()
   const [metrics, setMetrics] = useState({
     totalLeads: 0,
     signedLeads: 0,
@@ -62,29 +64,37 @@ export function AdminDashboardPage() {
   return (
     <>
       <PageTitleBar
-        title="Admin Overview"
-        description="Global operational view across leads, onboarding, and projects."
-        extra={<Button onClick={() => void loadData()}>Refresh</Button>}
+        title={t('page.admin.overviewTitle', { defaultValue: 'Admin Overview' })}
+        description={t('page.admin.overviewDesc', {
+          defaultValue: 'Global operational view across leads, onboarding, and projects.',
+        })}
+        extra={<Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <Row gutter={[16, 16]} className="mb-5">
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title="Total Leads" value={metrics.totalLeads} />
+          <MetricCard title={t('page.admin.totalLeads', { defaultValue: 'Total Leads' })} value={metrics.totalLeads} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title="Signed Leads" value={metrics.signedLeads} />
+          <MetricCard title={t('page.admin.signedLeads', { defaultValue: 'Signed Leads' })} value={metrics.signedLeads} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title="Onboarding Active" value={metrics.activeOnboardingCases} />
+          <MetricCard
+            title={t('page.admin.onboardingActive', { defaultValue: 'Onboarding Active' })}
+            value={metrics.activeOnboardingCases}
+          />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title="Total Projects" value={metrics.totalProjects} />
+          <MetricCard title={t('page.admin.totalProjects', { defaultValue: 'Total Projects' })} value={metrics.totalProjects} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title="Delayed Projects" value={metrics.delayedProjects} />
+          <MetricCard
+            title={t('page.admin.delayedProjects', { defaultValue: 'Delayed Projects' })}
+            value={metrics.delayedProjects}
+          />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title="Active Users" value={metrics.activeUsers} />
+          <MetricCard title={t('page.admin.activeUsers', { defaultValue: 'Active Users' })} value={metrics.activeUsers} />
         </Col>
       </Row>
 
@@ -94,16 +104,16 @@ export function AdminDashboardPage() {
         bordered
         dataSource={pendingCases}
         pagination={false}
-        title={() => 'Pending Onboarding Queue'}
+        title={() => t('page.admin.pendingOnboardingQueue', { defaultValue: 'Pending Onboarding Queue' })}
         columns={[
-          { title: 'Case No', dataIndex: 'case_no' },
+          { title: t('page.admin.caseNo', { defaultValue: 'Case No' }), dataIndex: 'case_no' },
           {
-            title: 'Status',
+            title: t('page.common.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
             render: (value: string) => <StatusTag value={value} />,
           },
           {
-            title: 'SLA Due',
+            title: t('page.admin.slaDue', { defaultValue: 'SLA Due' }),
             dataIndex: 'sla_due_at',
             render: (value: string | null) => (value ? new Date(value).toLocaleString() : '-'),
           },

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
+import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { ROLE_LABELS } from '../../../lib/constants'
@@ -20,6 +21,7 @@ interface UserWithRoles {
 }
 
 export function UserRoleManagementPage() {
+  const { t } = useTranslation()
   const [rows, setRows] = useState<UserWithRoles[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [selectedRoleByUser, setSelectedRoleByUser] = useState<Record<string, number>>({})
@@ -31,7 +33,9 @@ export function UserRoleManagementPage() {
     const [profilesResult, rolesResult] = await Promise.all([
       supabase
         .from('profiles')
-        .select('id, email, full_name, is_active, user_role_relations(id, role_id, role:roles(id, code, name, description))')
+        .select(
+          'id, email, full_name, is_active, user_role_relations:user_role_relations!user_role_relations_user_id_fkey(id, role_id, role:roles(id, code, name, description))',
+        )
         .order('created_at', { ascending: false }),
       supabase.from('roles').select('*').order('id', { ascending: true }),
     ])
@@ -68,7 +72,7 @@ export function UserRoleManagementPage() {
     const roleId = selectedRoleByUser[userId]
 
     if (!roleId) {
-      message.warning('Please select a role first.')
+      message.warning(t('page.common.selectRoleFirst', { defaultValue: 'Please select a role first.' }))
       return
     }
 
@@ -92,7 +96,7 @@ export function UserRoleManagementPage() {
       },
     })
 
-    message.success('Role assigned')
+    message.success(t('page.common.roleAssigned', { defaultValue: 'Role assigned' }))
     await loadData()
   }
 
@@ -119,7 +123,7 @@ export function UserRoleManagementPage() {
       },
     })
 
-    message.success('Role revoked')
+    message.success(t('page.common.roleRevoked', { defaultValue: 'Role revoked' }))
     await loadData()
   }
 
@@ -134,9 +138,11 @@ export function UserRoleManagementPage() {
   return (
     <>
       <PageTitleBar
-        title="User & Role Management"
-        description="Assign or revoke role access for internal users with full audit logging."
-        extra={<Button onClick={() => void loadData()}>Refresh</Button>}
+        title={t('page.usersRoles.title', { defaultValue: 'User & Role Management' })}
+        description={t('page.usersRoles.desc', {
+          defaultValue: 'Assign or revoke role access for internal users with full audit logging.',
+        })}
+        extra={<Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <Table
@@ -147,33 +153,39 @@ export function UserRoleManagementPage() {
         pagination={{ pageSize: 10 }}
         columns={[
           {
-            title: 'User',
+            title: t('page.common.user', { defaultValue: 'User' }),
             key: 'user',
             render: (_: unknown, row: UserWithRoles) => row.full_name ?? row.email,
           },
           {
-            title: 'Email',
+            title: t('page.common.email', { defaultValue: 'Email' }),
             dataIndex: 'email',
           },
           {
-            title: 'Status',
+            title: t('page.common.status', { defaultValue: 'Status' }),
             dataIndex: 'is_active',
-            render: (value: boolean) => <Tag color={value ? 'green' : 'red'}>{value ? 'Active' : 'Disabled'}</Tag>,
+            render: (value: boolean) => (
+              <Tag color={value ? 'green' : 'red'}>
+                {value
+                  ? t('page.common.active', { defaultValue: 'Active' })
+                  : t('page.common.disabled', { defaultValue: 'Disabled' })}
+              </Tag>
+            ),
           },
           {
-            title: 'Current Roles',
+            title: t('page.usersRoles.currentRoles', { defaultValue: 'Current Roles' }),
             dataIndex: 'user_role_relations',
             render: (relations: UserWithRoles['user_role_relations'], row: UserWithRoles) => (
               <Space wrap>
-                {relations.length === 0 ? <Tag>None</Tag> : null}
+                {relations.length === 0 ? <Tag>{t('page.common.none', { defaultValue: 'None' })}</Tag> : null}
                 {relations.map((relation) => {
                   const roleCode = relation.role?.code ?? 'bd_user'
                   return (
                     <Popconfirm
                       key={relation.id}
-                      title="Revoke this role?"
-                      okText="Revoke"
-                      cancelText="Cancel"
+                      title={t('page.common.revokeRoleConfirm', { defaultValue: 'Revoke this role?' })}
+                      okText={t('page.usersRoles.revoke', { defaultValue: 'Revoke' })}
+                      cancelText={t('page.usersRoles.cancel', { defaultValue: 'Cancel' })}
                       onConfirm={() => void revokeRole(row.id, relation.role_id, roleCode)}
                     >
                       <Tag color="blue" className="cursor-pointer hover:opacity-80">
@@ -186,13 +198,13 @@ export function UserRoleManagementPage() {
             ),
           },
           {
-            title: 'Assign Role',
+            title: t('page.common.assignRole', { defaultValue: 'Assign Role' }),
             key: 'assign',
             width: 320,
             render: (_: unknown, row: UserWithRoles) => (
               <Space>
                 <Select
-                  placeholder="Select role"
+                  placeholder={t('page.usersRoles.selectRole', { defaultValue: 'Select role' })}
                   style={{ width: 180 }}
                   options={roleOptions}
                   value={selectedRoleByUser[row.id]}
@@ -204,7 +216,7 @@ export function UserRoleManagementPage() {
                   }
                 />
                 <Button type="primary" onClick={() => void assignRole(row.id)}>
-                  Assign
+                  {t('page.common.assign', { defaultValue: 'Assign' })}
                 </Button>
               </Space>
             ),
