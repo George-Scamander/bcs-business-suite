@@ -1,4 +1,5 @@
 import type { PropsWithChildren } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Navigate } from 'react-router-dom'
 
 import type { RoleCode } from '../../types/rbac'
@@ -16,7 +17,16 @@ export function RoleGuard({
   fallbackPath = '/app/unauthorized',
   children,
 }: RoleGuardProps) {
-  const { roles, hasPermission } = useAuth()
+  const { t } = useTranslation()
+  const { roles, hasPermission, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="grid min-h-[240px] place-items-center text-slate-500">
+        <p>{t('common.loadingPermissions', { defaultValue: 'Loading permissions...' })}</p>
+      </div>
+    )
+  }
 
   const roleAllowed = allowRoles.length === 0 || allowRoles.some((role) => roles.includes(role))
   const permissionAllowed = requiredPermissions.every((permission) => hasPermission(permission))

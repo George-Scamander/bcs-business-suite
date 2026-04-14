@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { PropsWithChildren } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 
-import type { Permission, Profile, Role, RoleCode } from '../../types/rbac'
+import type { LocaleCode, Permission, Profile, Role, RoleCode } from '../../types/rbac'
 import { recordLogin, recordOperationLog } from '../../lib/supabase/logs'
 import { supabase } from '../../lib/supabase/client'
 
@@ -18,6 +18,7 @@ interface AuthContextValue {
   signOut: () => Promise<void>
   requestPasswordReset: (email: string) => Promise<void>
   updatePassword: (password: string) => Promise<void>
+  updateLocale: (locale: LocaleCode) => Promise<void>
   refreshProfile: () => Promise<void>
   hasRole: (role: RoleCode) => boolean
   hasPermission: (permission: string) => boolean
@@ -174,7 +175,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const authListener = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession)
       setUser(nextSession?.user ?? null)
-      void loadUserData(nextSession?.user ?? null)
+
+      if (nextSession?.user) {
+        setIsLoading(true)
+      } else {
+        setIsLoading(false)
+      }
+
+      void (async () => {
+        try {
+          await loadUserData(nextSession?.user ?? null)
+        } finally {
+          if (isMounted) {
+            setIsLoading(false)
+          }
+        }
+      })()
     })
 
     return () => {
@@ -237,6 +253,28 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [])
 
+  const updateLocale = useCallback(
+    async (locale: LocaleCode) => {
+      if (!user) {
+        return
+      }
+
+      const updateResult = await supabase
+        .from('profiles')
+        .update({
+          locale,
+        })
+        .eq('id', user.id)
+
+      if (updateResult.error) {
+        throw updateResult.error
+      }
+
+      setProfile((current) => (current ? { ...current, locale } : current))
+    },
+    [user],
+  )
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -250,6 +288,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signOut,
       requestPasswordReset,
       updatePassword,
+      updateLocale,
       refreshProfile,
       hasRole: (role) => roles.includes(role),
       hasPermission: (permission) => permissions.includes(permission),
@@ -265,6 +304,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signOut,
       requestPasswordReset,
       updatePassword,
+      updateLocale,
       refreshProfile,
     ],
   )

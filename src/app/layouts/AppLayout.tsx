@@ -21,11 +21,14 @@ import {
   UserOutlined,
 } from '@ant-design/icons'
 import { Avatar, Button, Drawer, Grid, Layout, Menu, Select, Space, Tag, Typography } from 'antd'
+import { message } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import { APP_NAME, NAV_ITEMS_BY_ROLE, ROLE_LABELS, SUPPORTED_LOCALES } from '../../lib/constants'
-import type { RoleCode } from '../../types/rbac'
+import type { LocaleCode, RoleCode } from '../../types/rbac'
 import { useAuth } from '../../modules/auth/auth-context'
+import i18n from '../../lib/i18n'
 
 const { Header, Sider, Content } = Layout
 
@@ -63,7 +66,8 @@ function resolvePrimaryRole(roles: RoleCode[]): RoleCode {
 }
 
 export function AppLayout() {
-  const { profile, roles, signOut } = useAuth()
+  const { t } = useTranslation()
+  const { profile, roles, signOut, updateLocale } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [locale, setLocale] = useState(profile?.locale ?? 'en')
   const screens = Grid.useBreakpoint()
@@ -76,13 +80,13 @@ export function AppLayout() {
     return NAV_ITEMS_BY_ROLE[primaryRole].map((item) => ({
       key: item.key,
       icon: iconMap[item.key] ?? <AppstoreOutlined />,
-      label: item.label,
+      label: t(`nav.${item.key}`, { defaultValue: item.label }),
       onClick: () => {
         navigate(item.path)
         setDrawerOpen(false)
       },
     }))
-  }, [navigate, primaryRole])
+  }, [navigate, primaryRole, t])
 
   const selectedKey =
     NAV_ITEMS_BY_ROLE[primaryRole].find((item) => location.pathname.startsWith(item.path))?.key ??
@@ -91,8 +95,20 @@ export function AppLayout() {
   useEffect(() => {
     if (profile?.locale) {
       setLocale(profile.locale)
+      void i18n.changeLanguage(profile.locale)
     }
   }, [profile?.locale])
+
+  async function handleLocaleChange(value: LocaleCode) {
+    setLocale(value)
+    await i18n.changeLanguage(value)
+
+    try {
+      await updateLocale(value)
+    } catch {
+      message.error('Failed to save language preference')
+    }
+  }
 
   async function handleSignOut() {
     await signOut()
@@ -114,17 +130,17 @@ export function AppLayout() {
         <Sider width={248} className="bg-white border-r border-slate-200">
           <div className="px-5 py-5 border-b border-slate-200">
             <Typography.Title level={4} className="mb-1">
-              {APP_NAME}
+              {t('common.appName', { defaultValue: APP_NAME })}
             </Typography.Title>
             <Tag color="red" className="m-0">
-              {ROLE_LABELS[primaryRole]}
+              {t(`role.${primaryRole}`, { defaultValue: ROLE_LABELS[primaryRole] })}
             </Tag>
           </div>
           {sideMenu}
         </Sider>
       ) : (
         <Drawer
-          title={APP_NAME}
+          title={t('common.appName', { defaultValue: APP_NAME })}
           placement="left"
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
@@ -144,7 +160,9 @@ export function AppLayout() {
               <Typography.Text className="block text-slate-900 font-medium">
                 {profile?.full_name ?? profile?.email}
               </Typography.Text>
-              <Typography.Text className="text-xs text-slate-500">Timezone: {profile?.timezone ?? 'Asia/Jakarta'}</Typography.Text>
+              <Typography.Text className="text-xs text-slate-500">
+                {t('common.timezone', { defaultValue: 'Timezone' })}: {profile?.timezone ?? 'Asia/Jakarta'}
+              </Typography.Text>
             </div>
           </Space>
 
@@ -154,13 +172,13 @@ export function AppLayout() {
               value={locale}
               style={{ width: 150 }}
               options={SUPPORTED_LOCALES.map((item) => ({ value: item.code, label: item.label }))}
-              onChange={(value) => setLocale(value)}
+              onChange={(value: LocaleCode) => void handleLocaleChange(value)}
             />
             <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/app/settings/profile')} />
             <Button type="text" icon={<BellOutlined />} onClick={() => navigate('/app/notifications')} />
             <Avatar icon={<UserOutlined />} />
             <Button icon={<LogoutOutlined />} onClick={() => void handleSignOut()}>
-              Logout
+              {t('common.logout', { defaultValue: 'Logout' })}
             </Button>
           </Space>
         </Header>
