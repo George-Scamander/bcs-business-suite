@@ -1,4 +1,5 @@
 import type {
+  OnboardingCase,
   Project,
   ProjectMember,
   ProjectMilestone,
@@ -19,8 +20,108 @@ export interface ProjectFilters {
   keyword?: string
 }
 
+export interface CreateProjectInput {
+  id?: string
+  onboarding_case_id?: string
+  name: string
+  description?: string
+  pm_owner_id: string
+  bd_owner_id?: string
+  start_date?: string
+  target_end_date?: string
+}
+
+export async function listOnboardingCasesWithoutProject(): Promise<OnboardingCase[]> {
+  const [caseResult, projectResult] = await Promise.all([
+    supabase.from('onboarding_cases').select('*').order('updated_at', { ascending: false }),
+    supabase.from('projects').select('onboarding_case_id').is('deleted_at', null),
+  ])
+
+  if (caseResult.error) {
+    throw caseResult.error
+  }
+
+  if (projectResult.error) {
+    throw projectResult.error
+  }
+
+  const linkedCaseIds = new Set((projectResult.data ?? []).map((item) => item.onboarding_case_id))
+  return ((caseResult.data ?? []) as OnboardingCase[]).filter((item) => !linkedCaseIds.has(item.id))
+}
+
+export async function createProject(input: CreateProjectInput): Promise<Project> {
+  const projectId = input.id ?? crypto.randomUUID()
+  const result = await supabase
+    .from('projects')
+    .insert({
+      id: projectId,
+      onboarding_case_id: input.onboarding_case_id ?? null,
+      name: input.name,
+      description: input.description ?? null,
+      pm_owner_id: input.pm_owner_id,
+      bd_owner_id: input.bd_owner_id ?? null,
+      start_date: input.start_date ?? null,
+      target_end_date: input.target_end_date ?? null,
+      status: 'NOT_STARTED',
+      completion_rate: 0,
+    })
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'projects',
+    entityType: 'projects',
+    entityId: projectId,
+    action: 'create_project',
+    afterData: {
+      id: projectId,
+      onboarding_case_id: input.onboarding_case_id ?? null,
+      name: input.name,
+      description: input.description ?? null,
+      pm_owner_id: input.pm_owner_id,
+      bd_owner_id: input.bd_owner_id ?? null,
+      start_date: input.start_date ?? null,
+      target_end_date: input.target_end_date ?? null,
+      status: 'NOT_STARTED',
+      completion_rate: 0,
+    },
+  })
+
+  return { id: projectId } as Project
+}
+
 export async function listProjects(filters: ProjectFilters = {}): Promise<Project[]> {
   let query = supabase.from('projects').select('*').is('deleted_at', null).order('updated_at', { ascending: false })
+
+  if (filters.status) {
+    query = query.eq('status', filters.status)
+  }
+
+  if (filters.pmOwnerId) {
+    query = query.eq('pm_owner_id', filters.pmOwnerId)
+  }
+
+  if (filters.bdOwnerId) {
+    query = query.eq('bd_owner_id', filters.bdOwnerId)
+  }
+
+  if (filters.keyword) {
+    query = query.or(`name.ilike.%${filters.keyword}%,project_code.ilike.%${filters.keyword}%`)
+  }
+
+  const result = await query
+
+  if (result.error) {
+    throw result.error
+  }
+
+  return (result.data ?? []) as Project[]
+}
+
+export async function listDeletedProjects(filters: ProjectFilters = {}): Promise<Project[]> {
+  let query = supabase.from('projects').select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false })
 
   if (filters.status) {
     query = query.eq('status', filters.status)
@@ -75,6 +176,108 @@ export async function updateProject(input: Partial<Project> & { id: string }): P
   })
 
   return result.data
+}
+
+export async function softDeleteProject(projectId: string): Promise<void> {
+  const result = await supabase.from('projects').update({ deleted_at: new Date().toISOString() }).eq('id', projectId)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'projects',
+    entityType: 'projects',
+    entityId: projectId,
+    action: 'soft_delete_project',
+  })
+}
+
+export async function softDeleteProjects(projectIds: string[]): Promise<void> {
+  if (projectIds.length === 0) {
+    return
+  }
+
+  const result = await supabase.from('projects').update({ deleted_at: new Date().toISOString() }).in('id', projectIds)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'projects',
+    entityType: 'projects',
+    action: 'soft_delete_projects_bulk',
+    afterData: { project_ids: projectIds },
+  })
+}
+
+export async function hardDeleteProject(projectId: string): Promise<void> {
+  const result = await supabase.from('projects').delete().eq('id', projectId)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'projects',
+    entityType: 'projects',
+    entityId: projectId,
+    action: 'hard_delete_project',
+  })
+}
+
+export async function hardDeleteProjects(projectIds: string[]): Promise<void> {
+  if (projectIds.length === 0) {
+    return
+  }
+
+  const result = await supabase.from('projects').delete().in('id', projectIds)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'projects',
+    entityType: 'projects',
+    action: 'hard_delete_projects_bulk',
+    afterData: { project_ids: projectIds },
+  })
+}
+
+export async function restoreProject(projectId: string): Promise<void> {
+  const result = await supabase.from('projects').update({ deleted_at: null }).eq('id', projectId)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'projects',
+    entityType: 'projects',
+    entityId: projectId,
+    action: 'restore_project',
+  })
+}
+
+export async function restoreProjects(projectIds: string[]): Promise<void> {
+  if (projectIds.length === 0) {
+    return
+  }
+
+  const result = await supabase.from('projects').update({ deleted_at: null }).in('id', projectIds)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'projects',
+    entityType: 'projects',
+    action: 'restore_projects_bulk',
+    afterData: { project_ids: projectIds },
+  })
 }
 
 export async function changeProjectStatus(projectId: string, toStatus: ProjectStatus, reason?: string): Promise<void> {

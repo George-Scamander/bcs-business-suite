@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
-import { Alert, Button, Card, DatePicker, Form, Input, Select, Space, Upload, message } from 'antd'
+import { Button, Card, DatePicker, Form, Input, InputNumber, Popconfirm, Select, Space, Upload, message } from 'antd'
 import type { UploadFile } from 'antd'
-import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { INDUSTRY_OPTIONS, INTENT_PACKAGE_OPTIONS, NEXT_FOLLOWUP_ARRANGEMENT_OPTIONS } from '../../../lib/business-constants'
-import { checkDuplicateLeadByCompanyName, createLead, createLeadAttachment, getLeadById, updateLead } from '../api'
+import { createLead, createLeadAttachment, getLeadById, softDeleteLead, updateLead } from '../api'
 import { useAuth } from '../../auth/auth-context'
-import { listActiveUsers, type UserOption } from '../../shared/api/users'
 import { uploadPrivateDocument } from '../../../lib/supabase/storage'
-import type { IntentPackage } from '../../../types/business'
+import { listDictionaryItems, type DictionaryItem } from '../../shared/api/dictionary'
+import { buildLeadSourceOptions, buildRegionOptions, findCitiesByRegion } from '../lead-options'
 
 interface LeadFormValues {
   company_name: string
@@ -23,20 +22,48 @@ interface LeadFormValues {
   city?: string
   address?: string
   source?: string
-  intent_package?: IntentPackage
-  intent_level?: number
-  bd_notes?: string
   team_attention_note?: string
-  duplicate_note?: string
-  schedule_next_followup?: 'YES' | 'NO'
-  assigned_bd_id?: string
+  intent_level?: number
+  estimated_value?: number
   next_followup_at?: dayjs.Dayjs
 }
 
+interface DraftLeadFormValues extends Omit<LeadFormValues, 'next_followup_at'> {
+  next_followup_at?: string
+}
+
+interface SupabaseLikeError {
+  message?: string
+}
+
+function normalizeText(value?: string): string | undefined {
+  if (!value) {
+    return undefined
+  }
+
+  const text = value.trim()
+  return text.length > 0 ? text : undefined
+}
+
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (typeof error === 'object' && error !== null) {
+    const supabaseError = error as SupabaseLikeError
+    if (supabaseError.message && supabaseError.message.trim().length > 0) {
+      return supabaseError.message
+    }
+  }
+
+  return fallback
+}
+
 export function LeadFormPage() {
-  const { t } = useTranslation()
   const [form] = Form.useForm<LeadFormValues>()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { leadId } = useParams<{ leadId: string }>()
   const { user, roles } = useAuth()
 
@@ -44,31 +71,69 @@ export function LeadFormPage() {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [stagedFiles, setStagedFiles] = useState<UploadFile[]>([])
-  const [userOptions, setUserOptions] = useState<UserOption[]>([])
-  const [duplicateMatches, setDuplicateMatches] = useState<Array<{ id: string; lead_code: string; company_name: string }>>([])
+  const [dictionaryItems, setDictionaryItems] = useState<DictionaryItem[]>([])
 
   const isEdit = Boolean(leadId)
-  const scheduleNextFollowup = Form.useWatch('schedule_next_followup', form)
+  const isSuperAdmin = roles.includes('super_admin')
+  const canEditTeamAttentionOnThisPage = !isEdit || isSuperAdmin
+  const canUploadAttachments = roles.includes('super_admin') || roles.includes('project_manager')
 
-  const loadUsers = useCallback(async () => {
-    if (!roles.includes('super_admin')) {
-      return
+  const draftKey = useMemo(() => {
+    return `lead-form-draft:${leadId ?? 'new'}`
+  }, [leadId])
+  const legacyDraftKey = useMemo(() => `lead-form-draft:${leadId ?? 'new'}:${user?.id ?? 'anonymous'}`, [leadId, user?.id])
+
+  const regionOptions = useMemo(() => buildRegionOptions(dictionaryItems), [dictionaryItems])
+  const sourceOptions = useMemo(() => buildLeadSourceOptions(dictionaryItems), [dictionaryItems])
+
+  const selectedRegion = Form.useWatch('region', form)
+  const selectedSource = Form.useWatch('source', form)
+  const cityOptions = useMemo(() => {
+    return findCitiesByRegion(regionOptions, selectedRegion).map((city) => ({
+      value: city,
+      label: city,
+    }))
+  }, [regionOptions, selectedRegion])
+
+  const mergedSourceOptions = useMemo(() => {
+    if (!selectedSource || sourceOptions.some((item) => item.value === selectedSource)) {
+      return sourceOptions
     }
 
+    return [{ label: selectedSource, value: selectedSource }, ...sourceOptions]
+  }, [selectedSource, sourceOptions])
+
+  const loadDictionary = useCallback(async () => {
     try {
-      const result = await listActiveUsers()
-      setUserOptions(result)
+      const rows = await listDictionaryItems()
+      setDictionaryItems(rows)
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to load user options'
-      message.error(text)
+      message.error(
+        extractErrorMessage(error, t('pages.leadForm.loadDictionaryFail', { defaultValue: 'Failed to load dictionary options' })),
+      )
     }
-  }, [roles])
+  }, [t])
+
+  const applyDraftIfExists = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(draftKey) ?? localStorage.getItem(legacyDraftKey)
+      if (!raw) {
+        return
+      }
+
+      const parsed = JSON.parse(raw) as DraftLeadFormValues
+      form.setFieldsValue({
+        ...parsed,
+        next_followup_at: parsed.next_followup_at ? dayjs(parsed.next_followup_at) : undefined,
+      })
+    } catch {
+      // Ignore corrupted local draft and continue with server/default values.
+    }
+  }, [draftKey, form, legacyDraftKey])
 
   const loadDetail = useCallback(async () => {
     if (!leadId) {
-      if (user && !roles.includes('super_admin')) {
-        form.setFieldValue('assigned_bd_id', user.id)
-      }
+      applyDraftIfExists()
       return
     }
 
@@ -86,33 +151,53 @@ export function LeadFormPage() {
         city: detail.city ?? undefined,
         address: detail.address ?? undefined,
         source: detail.source ?? undefined,
-        intent_package: detail.intent_package ?? undefined,
-        intent_level: detail.intent_level ?? undefined,
-        bd_notes: detail.bd_notes ?? undefined,
         team_attention_note: detail.team_attention_note ?? undefined,
-        duplicate_note: detail.duplicate_note ?? undefined,
-        schedule_next_followup: detail.next_followup_at ? 'YES' : 'NO',
-        assigned_bd_id: detail.assigned_bd_id ?? undefined,
+        intent_level: detail.intent_level ?? undefined,
+        estimated_value: detail.estimated_value ?? undefined,
         next_followup_at: detail.next_followup_at ? dayjs(detail.next_followup_at) : undefined,
       })
+      applyDraftIfExists()
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to load lead detail'
-      message.error(text)
+      message.error(extractErrorMessage(error, t('pages.leadForm.loadDetailFail', { defaultValue: 'Failed to load lead detail' })))
     } finally {
       setLoading(false)
     }
-  }, [form, leadId, roles, user])
+  }, [applyDraftIfExists, form, leadId, t])
 
   useEffect(() => {
-    void loadUsers()
-  }, [loadUsers])
+    void loadDictionary()
+  }, [loadDictionary])
 
   useEffect(() => {
     void loadDetail()
   }, [loadDetail])
 
+  useEffect(() => {
+    if (!selectedRegion) {
+      form.setFieldValue('city', undefined)
+      return
+    }
+
+    if (cityOptions.length === 0) {
+      return
+    }
+
+    const currentCity = form.getFieldValue('city')
+    if (!currentCity || cityOptions.some((item) => item.value === currentCity)) {
+      return
+    }
+
+    const caseInsensitiveMatched = cityOptions.find((item) => item.value.toLowerCase() === String(currentCity).toLowerCase())
+    if (caseInsensitiveMatched) {
+      form.setFieldValue('city', caseInsensitiveMatched.value)
+      return
+    }
+
+    form.setFieldValue('city', undefined)
+  }, [cityOptions, form, selectedRegion])
+
   async function uploadAttachments(targetLeadId: string) {
-    if (!user || stagedFiles.length === 0) {
+    if (!user || stagedFiles.length === 0 || !canUploadAttachments) {
       return
     }
 
@@ -142,281 +227,260 @@ export function LeadFormPage() {
     setSaving(true)
 
     try {
-      const duplicates = await checkDuplicateLeadByCompanyName(values.company_name, leadId)
-      setDuplicateMatches(duplicates.map((item) => ({ id: item.id, lead_code: item.lead_code, company_name: item.company_name })))
-
-      if (duplicates.length > 0 && !values.duplicate_note?.trim()) {
-        message.warning(
-          t('page.leads.duplicateNoteRequired', {
-            defaultValue: 'This company name already exists. Please add a duplicate distinction note before saving.',
-          }),
-        )
-        setSaving(false)
-        return
-      }
-
-      const payload = {
-        company_name: values.company_name,
-        contact_person: values.contact_person,
-        contact_phone: values.contact_phone,
-        contact_email: values.contact_email,
-        industry: values.industry,
-        region: values.region,
-        city: values.city,
-        address: values.address,
-        source: values.source,
-        intent_package: values.intent_package,
+      const basePayload = {
+        company_name: normalizeText(values.company_name) ?? '',
+        contact_person: normalizeText(values.contact_person),
+        contact_phone: normalizeText(values.contact_phone),
+        contact_email: normalizeText(values.contact_email),
+        industry: normalizeText(values.industry),
+        region: normalizeText(values.region),
+        city: normalizeText(values.city),
+        address: normalizeText(values.address),
+        source: normalizeText(values.source),
         intent_level: values.intent_level,
-        bd_notes: values.bd_notes,
-        team_attention_note: values.team_attention_note,
-        duplicate_note: values.duplicate_note,
-        assigned_bd_id: values.assigned_bd_id,
-        next_followup_at:
-          values.schedule_next_followup === 'YES' && values.next_followup_at
-            ? values.next_followup_at.toISOString()
-            : undefined,
+        estimated_value: values.estimated_value,
+        next_followup_at: values.next_followup_at ? values.next_followup_at.toISOString() : undefined,
       }
+
+      const noteValue = normalizeText(values.team_attention_note)
+      const payload = canEditTeamAttentionOnThisPage
+        ? isEdit
+          ? { ...basePayload, team_attention_note: noteValue ?? null }
+          : noteValue
+            ? { ...basePayload, team_attention_note: noteValue }
+            : basePayload
+        : basePayload
 
       const lead = isEdit
         ? await updateLead({
             id: leadId ?? '',
             ...payload,
+            updated_by: user.id,
           })
         : await createLead({
             ...payload,
-            assigned_bd_id: roles.includes('super_admin') ? values.assigned_bd_id : user.id,
+            assigned_bd_id: user.id,
+            created_by: user.id,
+            updated_by: user.id,
           })
 
-      await uploadAttachments(lead.id)
+      localStorage.removeItem(draftKey)
+      localStorage.removeItem(legacyDraftKey)
+
+      if (canUploadAttachments && stagedFiles.length > 0) {
+        try {
+          await uploadAttachments(lead.id)
+        } catch (error) {
+          message.warning(
+            extractErrorMessage(
+              error,
+              t('pages.leadForm.uploadAfterSaveFail', { defaultValue: 'Lead saved, but attachments failed to upload' }),
+            ),
+          )
+        }
+      }
 
       message.success(
         isEdit
-          ? t('page.leads.updatedSuccess', { defaultValue: 'Lead updated successfully' })
-          : t('page.leads.createdSuccess', { defaultValue: 'Lead created successfully' }),
+          ? t('pages.leadForm.updateSuccess', { defaultValue: 'Lead updated successfully' })
+          : t('pages.leadForm.createSuccess', { defaultValue: 'Lead created successfully' }),
       )
       navigate(`/app/bd/leads/${lead.id}`)
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to save lead'
-      message.error(text)
+      message.error(extractErrorMessage(error, t('pages.leadForm.saveFail', { defaultValue: 'Failed to save lead' })))
     } finally {
       setSaving(false)
     }
   }
 
-  const assigneeOptions = useMemo(() => {
-    if (!roles.includes('super_admin')) {
-      return user
-        ? [
-            {
-              value: user.id,
-              label: 'Myself',
-            },
-          ]
-        : []
+  async function handleDeleteLead() {
+    if (!leadId) {
+      return
     }
 
-    return userOptions.map((item) => ({
-      value: item.id,
-      label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
-    }))
-  }, [roles, user, userOptions])
+    try {
+      await softDeleteLead(leadId)
+      localStorage.removeItem(draftKey)
+      localStorage.removeItem(legacyDraftKey)
+      message.success(t('pages.leadForm.deleteSuccess', { defaultValue: 'Lead moved to Recently Deleted' }))
+      navigate('/app/bd/leads')
+    } catch (error) {
+      message.error(extractErrorMessage(error, t('pages.leadForm.deleteFail', { defaultValue: 'Failed to delete lead' })))
+    }
+  }
 
-  const industryOptions = useMemo(() => {
-    return INDUSTRY_OPTIONS.map((item) => ({
-      value: item.value,
-      label:
-        item.value === 'Repair Workshop'
-          ? t('page.leads.industryRepairWorkshop', { defaultValue: 'Repair Workshop' })
-          : item.value === 'Parts Sales'
-            ? t('page.leads.industryPartsSales', { defaultValue: 'Parts Sales' })
-            : item.value === 'Car Wash'
-              ? t('page.leads.industryCarWash', { defaultValue: 'Car Wash' })
-              : item.value === 'Car Beauty'
-                ? t('page.leads.industryCarBeauty', { defaultValue: 'Car Beauty' })
-                : item.value === 'Body & Paint Specialist'
-                  ? t('page.leads.industryBodyPaint', { defaultValue: 'Body & Paint Specialist' })
-                  : t('page.leads.industryOther', { defaultValue: 'Other' }),
-    }))
-  }, [t])
+  function handleValuesChange(_changedValues: Partial<LeadFormValues>, allValues: LeadFormValues) {
+    const draft: DraftLeadFormValues = {
+      ...allValues,
+      company_name: allValues.company_name,
+      next_followup_at: allValues.next_followup_at ? allValues.next_followup_at.toISOString() : undefined,
+    }
+
+    localStorage.setItem(draftKey, JSON.stringify(draft))
+  }
 
   return (
     <>
       <PageTitleBar
-        title={isEdit ? t('page.leads.editTitle', { defaultValue: 'Edit Lead' }) : t('page.leads.createTitle', { defaultValue: 'Create Lead' })}
-        description={t('page.leads.formDesc', {
-          defaultValue: 'Capture core prospect profile, potential package intent, and collaboration notes.',
+        title={
+          isEdit
+            ? t('pages.leadForm.titleEdit', { defaultValue: 'Edit Lead' })
+            : t('pages.leadForm.titleCreate', { defaultValue: 'Create Lead' })
+        }
+        description={t('pages.leadForm.description', {
+          defaultValue: 'Capture core prospect profile and handoff-ready context for BD execution.',
         })}
       />
 
       <Card loading={loading}>
-        <Form<LeadFormValues> form={form} layout="vertical" requiredMark={false} onFinish={handleSubmit}>
-          {duplicateMatches.length > 0 ? (
-            <Alert
-              type="warning"
-              showIcon
-              className="mb-4"
-              message={t('page.leads.duplicateDetectedTitle', { defaultValue: 'Potential duplicate detected' })}
-              description={`${t('page.leads.duplicateDetectedDesc', {
-                defaultValue: 'Existing leads:',
-              })} ${duplicateMatches.map((item) => `${item.lead_code} (${item.company_name})`).join(', ')}`}
-            />
-          ) : null}
+        <Form<LeadFormValues>
+          form={form}
+          layout="vertical"
+          requiredMark={false}
+          onFinish={handleSubmit}
+          onValuesChange={handleValuesChange}
+        >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Form.Item
               name="company_name"
-              label={t('page.leads.companyName', { defaultValue: 'Company Name' })}
-              rules={[{ required: true, message: t('page.leads.companyRequired', { defaultValue: 'Company name is required' }) }]}
+              label={t('pages.leadForm.companyName', { defaultValue: 'Company Name' })}
+              rules={[{ required: true, message: t('pages.leadForm.companyNameRequired', { defaultValue: 'Company name is required' }) }]}
             >
-              <Input placeholder="PT Example Motor" />
+              <Input placeholder={t('pages.leadForm.companyNamePlaceholder', { defaultValue: 'PT Example Motor' })} />
             </Form.Item>
 
-            <Form.Item name="assigned_bd_id" label={t('page.leads.assignedBd', { defaultValue: 'Assigned BD' })}>
-              <Select allowClear options={assigneeOptions} placeholder={t('page.leads.selectAssignee', { defaultValue: 'Select assignee' })} />
-            </Form.Item>
-
-            <Form.Item name="contact_person" label={t('page.leads.contactPerson', { defaultValue: 'Contact Person' })}>
+            <Form.Item name="contact_person" label={t('pages.leadForm.contactPerson', { defaultValue: 'Contact Person' })}>
               <Input />
             </Form.Item>
 
-            <Form.Item name="contact_phone" label={t('page.leads.contactPhone', { defaultValue: 'Contact Phone' })}>
+            <Form.Item name="contact_phone" label={t('pages.leadForm.contactPhone', { defaultValue: 'Contact Phone' })}>
               <Input />
             </Form.Item>
 
             <Form.Item
               name="contact_email"
-              label={t('page.leads.contactEmail', { defaultValue: 'Contact Email' })}
-              rules={[{ type: 'email', message: t('page.leads.validEmail', { defaultValue: 'Enter a valid email' }) }]}
+              label={t('pages.leadForm.contactEmail', { defaultValue: 'Contact Email' })}
+              rules={[{ type: 'email', message: t('pages.leadForm.contactEmailInvalid', { defaultValue: 'Enter a valid email' }) }]}
             >
               <Input />
             </Form.Item>
 
-            <Form.Item name="industry" label={t('page.common.industry', { defaultValue: 'Industry' })}>
-              <Select
-                allowClear
-                options={industryOptions}
-                placeholder={t('page.leads.selectIndustry', { defaultValue: 'Select industry' })}
-              />
-            </Form.Item>
-
-            <Form.Item name="region" label={t('page.common.region', { defaultValue: 'Region' })}>
-              <Input placeholder="West Java" />
-            </Form.Item>
-
-            <Form.Item name="city" label={t('page.leads.city', { defaultValue: 'City' })}>
-              <Input placeholder="Bandung" />
-            </Form.Item>
-
-            <Form.Item name="source" label={t('page.leads.leadSource', { defaultValue: 'Lead Source' })}>
-              <Input placeholder="Cold visit / Referral / Event" />
+            <Form.Item name="industry" label={t('pages.leadForm.industry', { defaultValue: 'Industry' })}>
+              <Input placeholder={t('pages.leadForm.industryPlaceholder', { defaultValue: 'Automotive workshop' })} />
             </Form.Item>
 
             <Form.Item
-              name="intent_package"
-              label={t('page.leads.potentialPackage', { defaultValue: 'Potential Intent Package' })}
-              rules={[{ required: true, message: t('page.leads.packageRequired', { defaultValue: 'Please select a package' }) }]}
+              name="region"
+              label={t('pages.leadForm.region', { defaultValue: 'Region' })}
+              rules={[{ required: true, message: t('pages.leadForm.regionRequired', { defaultValue: 'Region is required' }) }]}
             >
               <Select
-                options={INTENT_PACKAGE_OPTIONS.map((item) => ({
-                  value: item.value,
-                  label:
-                    item.value === 'BCS'
-                      ? t('page.leads.packageBCS', { defaultValue: 'BCS' })
-                      : t('page.leads.packageProductsSales', { defaultValue: 'Products Sales' }),
-                }))}
-                placeholder={t('page.leads.selectPackage', { defaultValue: 'Select package' })}
-              />
-            </Form.Item>
-
-            <Form.Item name="intent_level" label={t('page.leads.intentLevel', { defaultValue: 'Intent Level (1-5)' })}>
-              <Select
-                allowClear
-                options={[1, 2, 3, 4, 5].map((value) => ({ value, label: String(value) }))}
-                placeholder={t('page.leads.selectIntentLevel', { defaultValue: 'Select level' })}
+                showSearch
+                options={regionOptions.map((item) => ({ value: item.value, label: item.label }))}
+                placeholder={t('pages.leadForm.selectRegion', { defaultValue: 'Select region' })}
+                optionFilterProp="label"
+                onChange={() => form.setFieldValue('city', undefined)}
               />
             </Form.Item>
 
             <Form.Item
-              name="schedule_next_followup"
-              label={t('page.leads.arrangeNextFollowup', { defaultValue: 'Arrange next follow-up?' })}
-              initialValue="NO"
+              name="city"
+              label={t('pages.leadForm.city', { defaultValue: 'City' })}
+              rules={[{ required: true, message: t('pages.leadForm.cityRequired', { defaultValue: 'City is required' }) }]}
             >
               <Select
-                options={NEXT_FOLLOWUP_ARRANGEMENT_OPTIONS.map((item) => ({
-                  value: item.value,
-                  label:
-                    item.value === 'YES'
-                      ? t('page.common.yes', { defaultValue: 'Yes' })
-                      : t('page.common.no', { defaultValue: 'No' }),
-                }))}
+                showSearch
+                options={cityOptions}
+                placeholder={
+                  selectedRegion
+                    ? t('pages.leadForm.selectCity', { defaultValue: 'Select city' })
+                    : t('pages.leadForm.selectRegionFirst', { defaultValue: 'Select region first' })
+                }
+                optionFilterProp="label"
+                disabled={!selectedRegion}
               />
             </Form.Item>
 
             <Form.Item
-              name="next_followup_at"
-              label={t('page.leads.nextFollowupTime', { defaultValue: 'Next Follow-up Time' })}
-              hidden={scheduleNextFollowup !== 'YES'}
-              rules={
-                scheduleNextFollowup === 'YES'
-                  ? [{ required: true, message: t('page.leads.nextFollowupRequired', { defaultValue: 'Please select next follow-up time' }) }]
-                  : []
-              }
+              name="source"
+              label={t('pages.leadForm.leadSource', { defaultValue: 'Lead Source' })}
+              rules={[{ required: true, message: t('pages.leadForm.leadSourceRequired', { defaultValue: 'Lead source is required' }) }]}
             >
+              <Select
+                showSearch
+                options={mergedSourceOptions}
+                placeholder={t('pages.leadForm.selectLeadSource', { defaultValue: 'Select lead source' })}
+                optionFilterProp="label"
+              />
+            </Form.Item>
+
+            <Form.Item name="intent_level" label={t('pages.leadForm.intentLevel', { defaultValue: 'Intent Level (1-5)' })}>
+              <InputNumber min={1} max={5} className="w-full" />
+            </Form.Item>
+
+            <Form.Item name="estimated_value" label={t('pages.leadForm.estimatedContractValue', { defaultValue: 'Estimated Contract Value' })}>
+              <InputNumber min={0} className="w-full" />
+            </Form.Item>
+
+            <Form.Item name="next_followup_at" label={t('pages.leadForm.nextFollowupTime', { defaultValue: 'Next Follow-up Time' })}>
               <DatePicker showTime className="w-full" />
-            </Form.Item>
-
-            <Form.Item name="duplicate_note" label={t('page.leads.duplicateNote', { defaultValue: 'Duplicate Distinction Note' })}>
-              <Input placeholder={t('page.leads.duplicateNotePlaceholder', { defaultValue: 'e.g., Same brand but different branch in North Jakarta' })} />
             </Form.Item>
           </div>
 
-          <Form.Item name="address" label={t('page.leads.address', { defaultValue: 'Address' })}>
+          <Form.Item name="address" label={t('pages.leadForm.address', { defaultValue: 'Address' })}>
             <Input.TextArea rows={2} />
           </Form.Item>
 
-          <Form.Item name="bd_notes" label={t('page.leads.bdNotes', { defaultValue: 'BD Notes' })}>
-            <Input.TextArea
-              rows={3}
-              placeholder={t('page.leads.bdNotesPlaceholder', {
-                defaultValue: 'Record customer characteristics, business preference, and communication highlights.',
-              })}
-            />
-          </Form.Item>
+          {canEditTeamAttentionOnThisPage ? (
+            <Form.Item name="team_attention_note" label={t('pages.leadForm.teamAttentionNote', { defaultValue: 'Team Attention Note' })}>
+              <Input.TextArea
+                rows={3}
+                placeholder={t('pages.leadForm.teamAttentionPlaceholder', {
+                  defaultValue: 'Internal notes for team attention and handoff context...',
+                })}
+              />
+            </Form.Item>
+          ) : null}
 
-          <Form.Item name="team_attention_note" label={t('page.leads.teamAttentionNote', { defaultValue: 'Team Attention Note' })}>
-            <Input.TextArea
-              rows={3}
-              placeholder={t('page.leads.teamAttentionPlaceholder', {
-                defaultValue: 'Shared note for all team members to pay attention to this customer.',
-              })}
-            />
-          </Form.Item>
+          {canUploadAttachments ? (
+            <div className="mb-4 rounded-lg border border-slate-200 p-4">
+              <p className="mb-2 font-medium">{t('pages.leadForm.attachments', { defaultValue: 'Attachments' })}</p>
+              <Upload
+                multiple
+                beforeUpload={() => false}
+                fileList={stagedFiles}
+                onChange={(info) => setStagedFiles(info.fileList)}
+                onRemove={(file) => {
+                  setStagedFiles((current) => current.filter((item) => item.uid !== file.uid))
+                }}
+              >
+                <Button>{t('pages.leadForm.selectFiles', { defaultValue: 'Select Files' })}</Button>
+              </Upload>
+              <p className="mb-0 mt-2 text-xs text-slate-500">
+                {t('pages.leadForm.attachmentsHint', {
+                  defaultValue: 'Files will be uploaded after lead save and linked to this lead record.',
+                })}
+              </p>
+            </div>
+          ) : null}
 
-          <div className="mb-4 rounded-lg border border-slate-200 p-4">
-            <p className="mb-2 font-medium">{t('page.leads.attachments', { defaultValue: 'Attachments' })}</p>
-            <Upload
-              multiple
-              beforeUpload={() => false}
-              fileList={stagedFiles}
-              onChange={(info) => setStagedFiles(info.fileList)}
-              onRemove={(file) => {
-                setStagedFiles((current) => current.filter((item) => item.uid !== file.uid))
-              }}
-            >
-              <Button>{t('page.leads.selectFiles', { defaultValue: 'Select Files' })}</Button>
-            </Upload>
-            <p className="mb-0 mt-2 text-xs text-slate-500">
-              {t('page.leads.attachmentsHint', {
-                defaultValue: 'Files will be uploaded after lead save and linked to this lead record.',
-              })}
-            </p>
-          </div>
-
-          <Space>
-            <Button onClick={() => navigate(-1)}>{t('page.usersRoles.cancel', { defaultValue: 'Cancel' })}</Button>
+          <Space wrap>
+            <Button onClick={() => navigate(-1)}>{t('common.cancel', { defaultValue: 'Cancel' })}</Button>
+            {isEdit ? (
+              <Popconfirm
+                title={t('pages.leadForm.deleteConfirmTitle', { defaultValue: 'Delete this lead?' })}
+                description={t('pages.leadForm.deleteConfirmDesc', { defaultValue: 'The lead will be moved to Recently Deleted.' })}
+                okText={t('labels.delete', { defaultValue: 'Delete' })}
+                cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
+                onConfirm={() => void handleDeleteLead()}
+              >
+                <Button danger>{t('labels.delete', { defaultValue: 'Delete' })}</Button>
+              </Popconfirm>
+            ) : null}
             <Button type="primary" htmlType="submit" loading={saving || uploading}>
               {isEdit
-                ? t('page.leads.saveChanges', { defaultValue: 'Save Changes' })
-                : t('page.leads.createLead', { defaultValue: 'Create Lead' })}
+                ? t('pages.leadForm.saveChanges', { defaultValue: 'Save Changes' })
+                : t('pages.leadForm.titleCreate', { defaultValue: 'Create Lead' })}
             </Button>
           </Space>
         </Form>

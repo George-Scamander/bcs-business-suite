@@ -31,11 +31,11 @@ export interface Lead {
   address: string | null
   source: string | null
   intent_package: IntentPackage | null
-  intent_level: number | null
-  estimated_value: number | null
   bd_notes: string | null
   team_attention_note: string | null
   duplicate_note: string | null
+  intent_level: number | null
+  estimated_value: number | null
   status: LeadStatus
   lost_reason_code: string | null
   lost_reason_note: string | null
@@ -162,7 +162,7 @@ export interface OnboardingStatusLog {
 export interface Project {
   id: string
   project_code: string
-  onboarding_case_id: string
+  onboarding_case_id: string | null
   signed_record_id: string | null
   lead_id: string | null
   name: string
@@ -177,6 +177,7 @@ export interface Project {
   is_delayed: boolean
   delay_reason: string | null
   closed_at: string | null
+  deleted_at: string | null
   created_at: string
   updated_at: string
 }

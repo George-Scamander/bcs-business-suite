@@ -44,12 +44,15 @@ export function BdProjectDetailPage() {
       setTasks(taskRows)
       setUpdates(updateRows.filter((item) => item.shared_with_bd))
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to load project detail'
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.bdProjectDetail.loadFail', { defaultValue: 'Failed to load project detail' })
       message.error(text)
     } finally {
       setLoading(false)
     }
-  }, [projectId])
+  }, [projectId, t])
 
   useEffect(() => {
     void loadData()
@@ -60,16 +63,18 @@ export function BdProjectDetailPage() {
       <PageTitleBar
         title={
           project
-            ? `${t('page.projectDetail.title', { defaultValue: 'Project Detail' })} · ${project.project_code}`
-            : t('page.projectDetail.title', { defaultValue: 'Project Detail' })
+            ? `${t('pages.bdProjectDetail.title', { defaultValue: 'Project Detail' })} · ${project.project_code}`
+            : t('pages.bdProjectDetail.title', { defaultValue: 'Project Detail' })
         }
-        description={t('page.bd.projectReadonlyDesc', {
+        description={t('pages.bdProjectDetail.description', {
           defaultValue: 'BD-facing read-only execution view for customer communication and expectation management.',
         })}
         extra={
           <Space>
-            <Button onClick={() => navigate('/app/bd/projects')}>{t('page.bd.backToProjects', { defaultValue: 'Back to Projects' })}</Button>
-            <Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
+            <Button onClick={() => navigate('/app/bd/projects')}>
+              {t('pages.bdProjectDetail.backToProjects', { defaultValue: 'Back to Projects' })}
+            </Button>
+            <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
           </Space>
         }
       />
@@ -77,17 +82,25 @@ export function BdProjectDetailPage() {
       <Card loading={loading} className="mb-5">
         {project ? (
           <Descriptions bordered size="small" column={{ xs: 1, md: 2, lg: 3 }}>
-            <Descriptions.Item label={t('page.pm.projectCode', { defaultValue: 'Project Code' })}>{project.project_code}</Descriptions.Item>
-            <Descriptions.Item label={t('page.common.status', { defaultValue: 'Status' })}>
+            <Descriptions.Item label={t('pages.bdProjectDetail.projectCode', { defaultValue: 'Project Code' })}>
+              {project.project_code}
+            </Descriptions.Item>
+            <Descriptions.Item label={t('pages.bdProjectDetail.status', { defaultValue: 'Status' })}>
               <StatusTag value={project.status} />
             </Descriptions.Item>
-            <Descriptions.Item label={t('page.projectOverview.completion', { defaultValue: 'Completion' })}>
+            <Descriptions.Item label={t('pages.bdProjectDetail.completion', { defaultValue: 'Completion' })}>
               {Number(project.completion_rate).toFixed(1)}%
             </Descriptions.Item>
-            <Descriptions.Item label={t('page.projectDetail.startDate', { defaultValue: 'Start Date' })}>{project.start_date ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label={t('page.projectOverview.targetEnd', { defaultValue: 'Target End' })}>{project.target_end_date ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label={t('page.projectDetail.actualEnd', { defaultValue: 'Actual End' })}>{project.actual_end_date ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label={t('page.projectDetail.descriptionField', { defaultValue: 'Description' })} span={3}>
+            <Descriptions.Item label={t('pages.bdProjectDetail.startDate', { defaultValue: 'Start Date' })}>
+              {project.start_date ?? '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label={t('pages.bdProjectDetail.targetEnd', { defaultValue: 'Target End' })}>
+              {project.target_end_date ?? '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label={t('pages.bdProjectDetail.actualEnd', { defaultValue: 'Actual End' })}>
+              {project.actual_end_date ?? '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label={t('pages.bdProjectDetail.descriptionLabel', { defaultValue: 'Description' })} span={3}>
               {project.description ?? '-'}
             </Descriptions.Item>
           </Descriptions>
@@ -95,28 +108,28 @@ export function BdProjectDetailPage() {
       </Card>
 
       <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Card title={t('page.projectProgress.milestoneTimeline', { defaultValue: 'Milestones' })}>
+        <Card title={t('pages.bdProjectDetail.milestones', { defaultValue: 'Milestones' })}>
           <Table
             rowKey="id"
             size="small"
             pagination={false}
             dataSource={milestones}
             columns={[
-              { title: t('page.projectProgress.milestone', { defaultValue: 'Milestone' }), dataIndex: 'title' },
+              { title: t('pages.bdProjectDetail.columns.milestone', { defaultValue: 'Milestone' }), dataIndex: 'title' },
               {
-                title: t('page.projectProgress.plannedDate', { defaultValue: 'Planned Date' }),
+                title: t('pages.bdProjectDetail.columns.plannedDate', { defaultValue: 'Planned Date' }),
                 dataIndex: 'planned_date',
                 width: 140,
                 render: (value: string | null) => value ?? '-',
               },
               {
-                title: t('page.common.status', { defaultValue: 'Status' }),
+                title: t('pages.bdProjectDetail.columns.status', { defaultValue: 'Status' }),
                 dataIndex: 'status',
                 width: 130,
                 render: (value: string) => <StatusTag value={value} />,
               },
               {
-                title: t('page.pm.progress', { defaultValue: 'Progress' }),
+                title: t('pages.bdProjectDetail.columns.progress', { defaultValue: 'Progress' }),
                 dataIndex: 'progress',
                 width: 110,
                 render: (value: number) => `${Number(value ?? 0).toFixed(0)}%`,
@@ -125,22 +138,22 @@ export function BdProjectDetailPage() {
           />
         </Card>
 
-        <Card title={t('page.projectDetail.taskSnapshot', { defaultValue: 'Task Snapshot' })}>
+        <Card title={t('pages.bdProjectDetail.taskSnapshot', { defaultValue: 'Task Snapshot' })}>
           <Table
             rowKey="id"
             size="small"
             pagination={{ pageSize: 8 }}
             dataSource={tasks}
             columns={[
-              { title: t('page.projectTasks.task', { defaultValue: 'Task' }), dataIndex: 'title' },
+              { title: t('pages.bdProjectDetail.columns.task', { defaultValue: 'Task' }), dataIndex: 'title' },
               {
-                title: t('page.common.status', { defaultValue: 'Status' }),
+                title: t('pages.bdProjectDetail.columns.status', { defaultValue: 'Status' }),
                 dataIndex: 'status',
                 width: 130,
                 render: (value: string) => <StatusTag value={value} />,
               },
               {
-                title: t('page.projectTasks.dueDate', { defaultValue: 'Due Date' }),
+                title: t('pages.bdProjectDetail.columns.dueDate', { defaultValue: 'Due Date' }),
                 dataIndex: 'due_date',
                 width: 130,
                 render: (value: string | null) => value ?? '-',
@@ -150,7 +163,7 @@ export function BdProjectDetailPage() {
         </Card>
       </div>
 
-      <Card title={t('page.projectDetail.updatesSharedToBd', { defaultValue: 'Updates Shared To BD' })}>
+      <Card title={t('pages.bdProjectDetail.updatesSharedToBd', { defaultValue: 'Updates Shared To BD' })}>
         <Timeline
           items={updates.map((item) => ({
             children: (
@@ -161,6 +174,7 @@ export function BdProjectDetailPage() {
             ),
           }))}
         />
+        {updates.length === 0 ? <p className="mb-0 text-sm text-slate-500">{t('pages.bdProjectDetail.noUpdates', { defaultValue: 'No updates shared yet' })}</p> : null}
       </Card>
     </>
   )

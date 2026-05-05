@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import dayjs from 'dayjs'
-import { Button, Card, DatePicker, Descriptions, Form, Input, Space, Timeline, message } from 'antd'
-import { useTranslation } from 'react-i18next'
+import { Button, Card, DatePicker, Descriptions, Form, Input, Popconfirm, Space, Timeline, message } from 'antd'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { StatusTag } from '../../../components/common/StatusTag'
-import { addProjectUpdate, getProjectById, listProjectUpdates, updateProject } from '../api'
+import { addProjectUpdate, getProjectById, listProjectUpdates, softDeleteProject, updateProject } from '../api'
 import type { Project, ProjectUpdate } from '../../../types/business'
 
 interface DetailFormValues {
@@ -21,10 +21,10 @@ interface UpdateFormValues {
 }
 
 export function PmProjectDetailPage() {
-  const { t } = useTranslation()
   const [detailForm] = Form.useForm<DetailFormValues>()
   const [updateForm] = Form.useForm<UpdateFormValues>()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { projectId } = useParams<{ projectId: string }>()
 
   const [loading, setLoading] = useState(true)
@@ -51,12 +51,12 @@ export function PmProjectDetailPage() {
         delay_reason: projectRow.delay_reason ?? undefined,
       })
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to load project detail'
+      const text = error instanceof Error ? error.message : t('pages.pmProjectDetail.loadFail', { defaultValue: 'Failed to load project detail' })
       message.error(text)
     } finally {
       setLoading(false)
     }
-  }, [detailForm, projectId])
+  }, [detailForm, projectId, t])
 
   useEffect(() => {
     void loadData()
@@ -77,10 +77,13 @@ export function PmProjectDetailPage() {
         target_end_date: values.target_end_date ? values.target_end_date.format('YYYY-MM-DD') : null,
         delay_reason: values.delay_reason ?? null,
       })
-      message.success(t('page.projectDetail.updated', { defaultValue: 'Project detail updated' }))
+      message.success(t('pages.pmProjectDetail.updateSuccess', { defaultValue: 'Project detail updated' }))
       await loadData()
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to update project detail'
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.pmProjectDetail.updateFail', { defaultValue: 'Failed to update project detail' })
       message.error(text)
     } finally {
       setSaving(false)
@@ -96,14 +99,29 @@ export function PmProjectDetailPage() {
 
     try {
       await addProjectUpdate(projectId, values.summary)
-      message.success(t('page.projectDetail.updatePublished', { defaultValue: 'Project update added and shared to BD' }))
+      message.success(t('pages.pmProjectDetail.addUpdateSuccess', { defaultValue: 'Project update added and shared to BD' }))
       updateForm.resetFields()
       await loadData()
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to add project update'
+      const text = error instanceof Error ? error.message : t('pages.pmProjectDetail.addUpdateFail', { defaultValue: 'Failed to add project update' })
       message.error(text)
     } finally {
       setUpdating(false)
+    }
+  }
+
+  async function handleDeleteProject() {
+    if (!projectId) {
+      return
+    }
+
+    try {
+      await softDeleteProject(projectId)
+      message.success(t('pages.pmProjectDetail.deleteSuccess', { defaultValue: 'Project moved to Recently Deleted' }))
+      navigate('/app/pm/projects')
+    } catch (error) {
+      const text = error instanceof Error ? error.message : t('pages.pmProjectDetail.deleteFail', { defaultValue: 'Failed to delete project' })
+      message.error(text)
     }
   }
 
@@ -112,18 +130,27 @@ export function PmProjectDetailPage() {
       <PageTitleBar
         title={
           project
-            ? `${t('page.projectDetail.title', { defaultValue: 'Project Detail' })} · ${project.project_code}`
-            : t('page.projectDetail.title', { defaultValue: 'Project Detail' })
+            ? `${t('pages.pmProjectDetail.title', { defaultValue: 'Project Detail' })} · ${project.project_code}`
+            : t('pages.pmProjectDetail.title', { defaultValue: 'Project Detail' })
         }
-        description={t('page.projectDetail.desc', {
+        description={t('pages.pmProjectDetail.description', {
           defaultValue: 'Maintain project base profile and publish progress summaries for BD sync.',
         })}
         extra={
           <Space>
             <Button onClick={() => navigate('/app/pm/projects')}>
-              {t('page.common.backToList', { defaultValue: 'Back to List' })}
+              {t('pages.pmProjectDetail.backToList', { defaultValue: 'Back to List' })}
             </Button>
-            <Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
+            <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
+            <Popconfirm
+              title={t('pages.pmProjectDetail.deleteConfirmTitle', { defaultValue: 'Delete this project?' })}
+              description={t('pages.pmProjectDetail.deleteConfirmDesc', { defaultValue: 'The project will be moved to Recently Deleted.' })}
+              okText={t('labels.delete', { defaultValue: 'Delete' })}
+              cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
+              onConfirm={() => void handleDeleteProject()}
+            >
+              <Button danger>{t('labels.delete', { defaultValue: 'Delete' })}</Button>
+            </Popconfirm>
           </Space>
         }
       />
@@ -131,16 +158,24 @@ export function PmProjectDetailPage() {
       <Card loading={loading} className="mb-5">
         {project ? (
           <Descriptions bordered size="small" column={{ xs: 1, md: 2, lg: 3 }} className="mb-4">
-            <Descriptions.Item label={t('page.pm.projectCode', { defaultValue: 'Project Code' })}>{project.project_code}</Descriptions.Item>
-            <Descriptions.Item label={t('page.common.status', { defaultValue: 'Status' })}>
+            <Descriptions.Item label={t('pages.pmProjectDetail.projectCode', { defaultValue: 'Project Code' })}>
+              {project.project_code}
+            </Descriptions.Item>
+            <Descriptions.Item label={t('pages.pmProjectDetail.status', { defaultValue: 'Status' })}>
               <StatusTag value={project.status} />
             </Descriptions.Item>
-            <Descriptions.Item label={t('page.projectOverview.completion', { defaultValue: 'Completion' })}>
+            <Descriptions.Item label={t('pages.pmProjectDetail.completion', { defaultValue: 'Completion' })}>
               {Number(project.completion_rate).toFixed(1)}%
             </Descriptions.Item>
-            <Descriptions.Item label={t('page.projectDetail.startDate', { defaultValue: 'Start Date' })}>{project.start_date ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label={t('page.projectOverview.targetEnd', { defaultValue: 'Target End' })}>{project.target_end_date ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label={t('page.projectDetail.actualEnd', { defaultValue: 'Actual End' })}>{project.actual_end_date ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.pmProjectDetail.startDate', { defaultValue: 'Start Date' })}>
+              {project.start_date ?? '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label={t('pages.pmProjectDetail.targetEnd', { defaultValue: 'Target End' })}>
+              {project.target_end_date ?? '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label={t('pages.pmProjectDetail.actualEnd', { defaultValue: 'Actual End' })}>
+              {project.actual_end_date ?? '-'}
+            </Descriptions.Item>
           </Descriptions>
         ) : null}
 
@@ -148,55 +183,55 @@ export function PmProjectDetailPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Form.Item
               name="name"
-              label={t('page.pm.projectName', { defaultValue: 'Project Name' })}
-              rules={[{ required: true, message: t('page.projectDetail.nameRequired', { defaultValue: 'Project name is required' }) }]}
+              label={t('pages.pmProjectDetail.projectName', { defaultValue: 'Project Name' })}
+              rules={[{ required: true, message: t('pages.pmProjectDetail.projectNameRequired', { defaultValue: 'Project name is required' }) }]}
             >
               <Input />
             </Form.Item>
-            <Form.Item name="target_end_date" label={t('page.projectDetail.targetEndDate', { defaultValue: 'Target End Date' })}>
+            <Form.Item name="target_end_date" label={t('pages.pmProjectDetail.targetEndDate', { defaultValue: 'Target End Date' })}>
               <DatePicker className="w-full" />
             </Form.Item>
           </div>
-          <Form.Item name="description" label={t('page.projectDetail.descriptionField', { defaultValue: 'Description' })}>
+          <Form.Item name="description" label={t('pages.pmProjectDetail.descriptionLabel', { defaultValue: 'Description' })}>
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Form.Item name="delay_reason" label={t('page.projectDetail.delayReason', { defaultValue: 'Delay Reason' })}>
+          <Form.Item name="delay_reason" label={t('pages.pmProjectDetail.delayReason', { defaultValue: 'Delay Reason' })}>
             <Input.TextArea rows={2} />
           </Form.Item>
 
           <Space>
             <Button onClick={() => navigate(`/app/pm/projects/${projectId}/progress`)}>
-              {t('page.projectDetail.goToProgress', { defaultValue: 'Go to Progress' })}
+              {t('pages.pmProjectDetail.goToProgress', { defaultValue: 'Go to Progress' })}
             </Button>
             <Button type="primary" htmlType="submit" loading={saving}>
-              {t('page.projectDetail.saveDetail', { defaultValue: 'Save Detail' })}
+              {t('pages.pmProjectDetail.saveDetail', { defaultValue: 'Save Detail' })}
             </Button>
           </Space>
         </Form>
       </Card>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Card title={t('page.projectDetail.publishUpdate', { defaultValue: 'Publish Update to BD' })}>
+        <Card title={t('pages.pmProjectDetail.publishUpdateToBd', { defaultValue: 'Publish Update to BD' })}>
           <Form<UpdateFormValues> form={updateForm} layout="vertical" onFinish={handleAddUpdate} requiredMark={false}>
             <Form.Item
               name="summary"
-              label={t('page.leads.summary', { defaultValue: 'Summary' })}
-              rules={[{ required: true, message: t('page.leads.summaryRequired', { defaultValue: 'Summary is required' }) }]}
+              label={t('pages.pmProjectDetail.summary', { defaultValue: 'Summary' })}
+              rules={[{ required: true, message: t('pages.pmProjectDetail.summaryRequired', { defaultValue: 'Summary is required' }) }]}
             >
               <Input.TextArea
                 rows={4}
-                placeholder={t('page.projectDetail.updatePlaceholder', {
+                placeholder={t('pages.pmProjectDetail.summaryPlaceholder', {
                   defaultValue: 'Site readiness reached 70%; equipment installation starts next Monday.',
                 })}
               />
             </Form.Item>
             <Button type="primary" htmlType="submit" loading={updating}>
-              {t('page.projectDetail.publish', { defaultValue: 'Publish Update' })}
+              {t('pages.pmProjectDetail.publishUpdate', { defaultValue: 'Publish Update' })}
             </Button>
           </Form>
         </Card>
 
-        <Card title={t('page.projectDetail.publishedUpdates', { defaultValue: 'Published Updates' })}>
+        <Card title={t('pages.pmProjectDetail.publishedUpdates', { defaultValue: 'Published Updates' })}>
           <Timeline
             items={updates.map((item) => ({
               color: item.shared_with_bd ? 'blue' : 'gray',

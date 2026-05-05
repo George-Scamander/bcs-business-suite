@@ -50,12 +50,15 @@ export function AdminDashboardPage() {
           })),
       )
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to load admin dashboard'
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.adminDashboard.loadFail', { defaultValue: 'Failed to load admin dashboard' })
       message.error(text)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void loadData()
@@ -64,37 +67,34 @@ export function AdminDashboardPage() {
   return (
     <>
       <PageTitleBar
-        title={t('page.admin.overviewTitle', { defaultValue: 'Admin Overview' })}
-        description={t('page.admin.overviewDesc', {
+        title={t('pages.adminDashboard.title', { defaultValue: 'Admin Overview' })}
+        description={t('pages.adminDashboard.description', {
           defaultValue: 'Global operational view across leads, onboarding, and projects.',
         })}
-        extra={<Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
+        extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <Row gutter={[16, 16]} className="mb-5">
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('page.admin.totalLeads', { defaultValue: 'Total Leads' })} value={metrics.totalLeads} />
+          <MetricCard title={t('pages.adminDashboard.metrics.totalLeads', { defaultValue: 'Total Leads' })} value={metrics.totalLeads} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('page.admin.signedLeads', { defaultValue: 'Signed Leads' })} value={metrics.signedLeads} />
+          <MetricCard title={t('pages.adminDashboard.metrics.signedLeads', { defaultValue: 'Signed Leads' })} value={metrics.signedLeads} />
         </Col>
         <Col xs={24} md={12} xl={4}>
           <MetricCard
-            title={t('page.admin.onboardingActive', { defaultValue: 'Onboarding Active' })}
+            title={t('pages.adminDashboard.metrics.onboardingActive', { defaultValue: 'Onboarding Active' })}
             value={metrics.activeOnboardingCases}
           />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('page.admin.totalProjects', { defaultValue: 'Total Projects' })} value={metrics.totalProjects} />
+          <MetricCard title={t('pages.adminDashboard.metrics.totalProjects', { defaultValue: 'Total Projects' })} value={metrics.totalProjects} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard
-            title={t('page.admin.delayedProjects', { defaultValue: 'Delayed Projects' })}
-            value={metrics.delayedProjects}
-          />
+          <MetricCard title={t('pages.adminDashboard.metrics.delayedProjects', { defaultValue: 'Delayed Projects' })} value={metrics.delayedProjects} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('page.admin.activeUsers', { defaultValue: 'Active Users' })} value={metrics.activeUsers} />
+          <MetricCard title={t('pages.adminDashboard.metrics.activeUsers', { defaultValue: 'Active Users' })} value={metrics.activeUsers} />
         </Col>
       </Row>
 
@@ -104,16 +104,16 @@ export function AdminDashboardPage() {
         bordered
         dataSource={pendingCases}
         pagination={false}
-        title={() => t('page.admin.pendingOnboardingQueue', { defaultValue: 'Pending Onboarding Queue' })}
+        title={() => t('pages.adminDashboard.pendingQueueTitle', { defaultValue: 'Pending Onboarding Queue' })}
         columns={[
-          { title: t('page.admin.caseNo', { defaultValue: 'Case No' }), dataIndex: 'case_no' },
+          { title: t('pages.adminDashboard.columns.caseNo', { defaultValue: 'Case No' }), dataIndex: 'case_no' },
           {
-            title: t('page.common.status', { defaultValue: 'Status' }),
+            title: t('pages.adminDashboard.columns.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
             render: (value: string) => <StatusTag value={value} />,
           },
           {
-            title: t('page.admin.slaDue', { defaultValue: 'SLA Due' }),
+            title: t('pages.adminDashboard.columns.slaDue', { defaultValue: 'SLA Due' }),
             dataIndex: 'sla_due_at',
             render: (value: string | null) => (value ? new Date(value).toLocaleString() : '-'),
           },

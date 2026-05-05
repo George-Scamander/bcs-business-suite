@@ -23,12 +23,15 @@ export function AdminReportExportPage() {
       const result = await listReportExports()
       setRows(result)
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to load report exports'
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.adminReportExport.loadFail', { defaultValue: 'Failed to load report exports' })
       message.error(text)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void loadData()
@@ -78,10 +81,13 @@ export function AdminReportExportPage() {
         exportRowsToCsv(`bcs-projects-${new Date().toISOString().slice(0, 10)}.csv`, result.data ?? [])
       }
 
-      message.success(t('page.reportExport.exportSuccess', { defaultValue: 'Report exported' }))
+      message.success(t('pages.adminReportExport.exportSuccess', { defaultValue: 'Report exported' }))
       await loadData()
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to export report'
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.adminReportExport.exportFail', { defaultValue: 'Failed to export report' })
       message.error(text)
     } finally {
       setExporting(false)
@@ -91,11 +97,11 @@ export function AdminReportExportPage() {
   return (
     <>
       <PageTitleBar
-        title={t('page.reportExport.title', { defaultValue: 'Report Export Center' })}
-        description={t('page.reportExport.desc', {
+        title={t('pages.adminReportExport.title', { defaultValue: 'Report Export Center' })}
+        description={t('pages.adminReportExport.description', {
           defaultValue: 'Generate operational exports for leads, onboarding, and project performance review.',
         })}
-        extra={<Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
+        extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <Card className="mb-5">
@@ -104,14 +110,14 @@ export function AdminReportExportPage() {
             value={moduleName}
             style={{ width: 220 }}
             options={[
-              { label: t('page.reportExport.leadReport', { defaultValue: 'Lead Report' }), value: 'leads' },
-              { label: t('page.reportExport.onboardingReport', { defaultValue: 'Onboarding Report' }), value: 'onboarding' },
-              { label: t('page.reportExport.projectReport', { defaultValue: 'Project Report' }), value: 'projects' },
+              { label: t('pages.adminReportExport.modules.leads', { defaultValue: 'Lead Report' }), value: 'leads' },
+              { label: t('pages.adminReportExport.modules.onboarding', { defaultValue: 'Onboarding Report' }), value: 'onboarding' },
+              { label: t('pages.adminReportExport.modules.projects', { defaultValue: 'Project Report' }), value: 'projects' },
             ]}
             onChange={(value) => setModuleName(value)}
           />
           <Button type="primary" loading={exporting} onClick={() => void handleExport()}>
-            {t('page.reportExport.exportCsv', { defaultValue: 'Export CSV' })}
+            {t('pages.adminReportExport.exportCsv', { defaultValue: 'Export CSV' })}
           </Button>
         </Space>
       </Card>
@@ -124,21 +130,21 @@ export function AdminReportExportPage() {
         pagination={{ pageSize: 12 }}
         columns={[
           {
-            title: t('page.reportExport.requestedAt', { defaultValue: 'Requested At' }),
+            title: t('pages.adminReportExport.columns.requestedAt', { defaultValue: 'Requested At' }),
             dataIndex: 'requested_at',
             width: 180,
             render: (value: string) => new Date(value).toLocaleString(),
           },
-          { title: t('page.reportExport.module', { defaultValue: 'Module' }), dataIndex: 'module', width: 140 },
-          { title: t('page.common.status', { defaultValue: 'Status' }), dataIndex: 'status', width: 120 },
+          { title: t('pages.adminReportExport.columns.module', { defaultValue: 'Module' }), dataIndex: 'module', width: 140 },
+          { title: t('pages.adminReportExport.columns.status', { defaultValue: 'Status' }), dataIndex: 'status', width: 120 },
           {
-            title: t('page.reportExport.requestedBy', { defaultValue: 'Requested By' }),
+            title: t('pages.adminReportExport.columns.requestedBy', { defaultValue: 'Requested By' }),
             dataIndex: 'requested_by',
             width: 300,
             render: (value: string | null) => value ?? '-',
           },
           {
-            title: t('page.reportExport.completedAt', { defaultValue: 'Completed At' }),
+            title: t('pages.adminReportExport.columns.completedAt', { defaultValue: 'Completed At' }),
             dataIndex: 'completed_at',
             width: 180,
             render: (value: string | null) => (value ? new Date(value).toLocaleString() : '-'),

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, Descriptions, Empty, Space, Table, Timeline, message } from 'antd'
+import { Button, Card, Descriptions, Empty, Input, Popconfirm, Space, Table, Timeline, message } from 'antd'
 import { EyeOutlined } from '@ant-design/icons'
-import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { StatusTag } from '../../../components/common/StatusTag'
@@ -11,18 +11,22 @@ import { supabase } from '../../../lib/supabase/client'
 import type { OnboardingCase, Project, SignedRecord } from '../../../types/business'
 import {
   getLeadById,
+  softDeleteLead,
   listLeadAttachments,
   listLeadFollowups,
   listLeadStatusLogs,
   listSignedRecords,
+  updateLead,
   type LeadAttachment,
 } from '../api'
 import type { Lead, LeadFollowup, LeadStatusLog } from '../../../types/business'
+import { useAuth } from '../../auth/auth-context'
 
 export function LeadDetailPage() {
-  const { t } = useTranslation()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { leadId } = useParams<{ leadId: string }>()
+  const { roles } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [lead, setLead] = useState<Lead | null>(null)
@@ -32,15 +36,10 @@ export function LeadDetailPage() {
   const [signedRecord, setSignedRecord] = useState<SignedRecord | null>(null)
   const [onboardingCase, setOnboardingCase] = useState<OnboardingCase | null>(null)
   const [project, setProject] = useState<Project | null>(null)
+  const [teamAttentionNote, setTeamAttentionNote] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
 
-  const industryLabelMap: Record<string, string> = {
-    'Repair Workshop': t('page.leads.industryRepairWorkshop', { defaultValue: 'Repair Workshop' }),
-    'Parts Sales': t('page.leads.industryPartsSales', { defaultValue: 'Parts Sales' }),
-    'Car Wash': t('page.leads.industryCarWash', { defaultValue: 'Car Wash' }),
-    'Car Beauty': t('page.leads.industryCarBeauty', { defaultValue: 'Car Beauty' }),
-    'Body & Paint Specialist': t('page.leads.industryBodyPaint', { defaultValue: 'Body & Paint Specialist' }),
-    Other: t('page.leads.industryOther', { defaultValue: 'Other' }),
-  }
+  const canEditAttentionNote = roles.includes('super_admin')
 
   const loadData = useCallback(async () => {
     if (!leadId) {
@@ -61,6 +60,7 @@ export function LeadDetailPage() {
       const signed = signedRows[0] ?? null
 
       setLead(leadResult)
+      setTeamAttentionNote(leadResult.team_attention_note ?? '')
       setFollowups(followupRows)
       setStatusLogs(statusRows)
       setAttachments(attachmentRows)
@@ -100,12 +100,39 @@ export function LeadDetailPage() {
         setProject(null)
       }
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to load lead detail'
+      const text = error instanceof Error ? error.message : t('pages.leadDetail.loadFail', { defaultValue: 'Failed to load lead detail' })
       message.error(text)
     } finally {
       setLoading(false)
     }
-  }, [leadId])
+  }, [leadId, t])
+
+  async function handleSaveAttentionNote() {
+    if (!lead || !canEditAttentionNote) {
+      return
+    }
+
+    setSavingNote(true)
+
+    try {
+      const result = await updateLead({
+        id: lead.id,
+        team_attention_note: teamAttentionNote.trim() || undefined,
+      })
+
+      setLead(result)
+      setTeamAttentionNote(result.team_attention_note ?? '')
+      message.success(t('pages.leadDetail.teamAttentionSaveSuccess', { defaultValue: 'Team attention note updated' }))
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.leadDetail.teamAttentionSaveFail', { defaultValue: 'Failed to update team attention note' })
+      message.error(text)
+    } finally {
+      setSavingNote(false)
+    }
+  }
 
   async function handlePreviewAttachment(row: LeadAttachment) {
     if (!row.object_path) {
@@ -116,7 +143,22 @@ export function LeadDetailPage() {
       const url = await createSignedFileUrl(row.object_path)
       window.open(url, '_blank', 'noopener,noreferrer')
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to preview attachment'
+      const text = error instanceof Error ? error.message : t('pages.leadDetail.previewAttachmentFail', { defaultValue: 'Failed to preview attachment' })
+      message.error(text)
+    }
+  }
+
+  async function handleDeleteLead() {
+    if (!lead) {
+      return
+    }
+
+    try {
+      await softDeleteLead(lead.id)
+      message.success(t('pages.leadDetail.deleteSuccess', { defaultValue: 'Lead moved to Recently Deleted' }))
+      navigate('/app/bd/leads')
+    } catch (error) {
+      const text = error instanceof Error ? error.message : t('pages.leadDetail.deleteFail', { defaultValue: 'Failed to delete lead' })
       message.error(text)
     }
   }
@@ -128,24 +170,29 @@ export function LeadDetailPage() {
   return (
     <>
       <PageTitleBar
-        title={
-          lead
-            ? `${t('page.leads.detailTitle', { defaultValue: 'Lead Detail' })} · ${lead.lead_code}`
-            : t('page.leads.detailTitle', { defaultValue: 'Lead Detail' })
-        }
-        description={t('page.leads.detailDesc', {
+        title={lead ? `${t('pages.leadDetail.title', { defaultValue: 'Lead Detail' })} · ${lead.lead_code}` : t('pages.leadDetail.title', { defaultValue: 'Lead Detail' })}
+        description={t('pages.leadDetail.description', {
           defaultValue: 'Review complete lead profile, progression history, signed linkage, and downstream delivery chain.',
         })}
         extra={
           <Space>
-            <Button onClick={() => navigate('/app/bd/leads')}>
-              {t('page.common.backToList', { defaultValue: 'Back to List' })}
-            </Button>
-            <Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
+            <Button onClick={() => navigate('/app/bd/leads')}>{t('pages.leadDetail.backToList', { defaultValue: 'Back to List' })}</Button>
+            <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
             {lead ? (
               <Button type="primary" onClick={() => navigate(`/app/bd/leads/${lead.id}/edit`)}>
-                {t('page.leads.edit', { defaultValue: 'Edit' })}
+                {t('pages.leadDetail.edit', { defaultValue: 'Edit' })}
               </Button>
+            ) : null}
+            {lead ? (
+              <Popconfirm
+                title={t('pages.leadDetail.deleteConfirmTitle', { defaultValue: 'Delete this lead?' })}
+                description={t('pages.leadDetail.deleteConfirmDesc', { defaultValue: 'The lead will be moved to Recently Deleted.' })}
+                okText={t('labels.delete', { defaultValue: 'Delete' })}
+                cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
+                onConfirm={() => void handleDeleteLead()}
+              >
+                <Button danger>{t('labels.delete', { defaultValue: 'Delete' })}</Button>
+              </Popconfirm>
             ) : null}
           </Space>
         }
@@ -154,77 +201,75 @@ export function LeadDetailPage() {
       <Card loading={loading} className="mb-5">
         {lead ? (
           <Descriptions bordered column={{ xs: 1, md: 2, lg: 3 }} size="small">
-            <Descriptions.Item label={t('page.admin.leadCode', { defaultValue: 'Lead Code' })}>{lead.lead_code}</Descriptions.Item>
-            <Descriptions.Item label={t('page.common.status', { defaultValue: 'Status' })}>
+            <Descriptions.Item label={t('pages.leadDetail.leadCode', { defaultValue: 'Lead Code' })}>{lead.lead_code}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.leadDetail.status', { defaultValue: 'Status' })}>
               <StatusTag value={lead.status} />
             </Descriptions.Item>
-            <Descriptions.Item label={t('page.common.company', { defaultValue: 'Company' })}>{lead.company_name}</Descriptions.Item>
-            <Descriptions.Item label={t('page.leads.contactPerson', { defaultValue: 'Contact Person' })}>
-              {lead.contact_person ?? '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('page.leads.contactPhone', { defaultValue: 'Contact Phone' })}>
-              {lead.contact_phone ?? '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('page.common.email', { defaultValue: 'Email' })}>{lead.contact_email ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label={t('page.common.industry', { defaultValue: 'Industry' })}>
-              {lead.industry ? industryLabelMap[lead.industry] ?? lead.industry : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('page.common.region', { defaultValue: 'Region' })}>{lead.region ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label={t('page.leads.city', { defaultValue: 'City' })}>{lead.city ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label={t('page.leads.potentialPackage', { defaultValue: 'Potential Intent Package' })}>
-              {lead.intent_package === 'BCS'
-                ? t('page.leads.packageBCS', { defaultValue: 'BCS' })
-                : lead.intent_package === 'PRODUCTS_SALES'
-                  ? t('page.leads.packageProductsSales', { defaultValue: 'Products Sales' })
-                  : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('page.leads.intentLevel', { defaultValue: 'Intent Level (1-5)' })}>
-              {lead.intent_level ?? '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('page.leads.nextFollowup', { defaultValue: 'Next Follow-up' })}>
+            <Descriptions.Item label={t('pages.leadDetail.company', { defaultValue: 'Company' })}>{lead.company_name}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.leadDetail.contact', { defaultValue: 'Contact' })}>{lead.contact_person ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.leadDetail.phone', { defaultValue: 'Phone' })}>{lead.contact_phone ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.leadDetail.email', { defaultValue: 'Email' })}>{lead.contact_email ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.leadDetail.industry', { defaultValue: 'Industry' })}>{lead.industry ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.leadDetail.region', { defaultValue: 'Region' })}>{lead.region ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.leadDetail.city', { defaultValue: 'City' })}>{lead.city ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.leadDetail.intentLevel', { defaultValue: 'Intent Level' })}>{lead.intent_level ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.leadDetail.estimatedValue', { defaultValue: 'Estimated Value' })}>{lead.estimated_value ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.leadDetail.nextFollowup', { defaultValue: 'Next Follow-up' })}>
               {lead.next_followup_at ? new Date(lead.next_followup_at).toLocaleString() : '-'}
             </Descriptions.Item>
-            <Descriptions.Item label={t('page.leads.duplicateNote', { defaultValue: 'Duplicate Distinction Note' })}>
-              {lead.duplicate_note ?? '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('page.leads.bdNotes', { defaultValue: 'BD Notes' })} span={3}>
-              {lead.bd_notes ?? '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('page.leads.teamAttentionNote', { defaultValue: 'Team Attention Note' })} span={3}>
-              {lead.team_attention_note ?? '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('page.leads.address', { defaultValue: 'Address' })} span={3}>
+            <Descriptions.Item label={t('pages.leadDetail.address', { defaultValue: 'Address' })} span={3}>
               {lead.address ?? '-'}
             </Descriptions.Item>
           </Descriptions>
         ) : (
-          <Empty description={t('page.leads.notFound', { defaultValue: 'Lead not found' })} />
+          <Empty description={t('pages.leadDetail.notFound', { defaultValue: 'Lead not found' })} />
         )}
       </Card>
 
+      {lead ? (
+        <Card title={t('pages.leadDetail.teamAttentionNote', { defaultValue: 'Team Attention Note' })} className="mb-5">
+          {canEditAttentionNote ? (
+            <>
+              <Input.TextArea
+                rows={4}
+                placeholder={t('pages.leadDetail.teamAttentionPlaceholder', {
+                  defaultValue: 'Add internal team attention guidance...',
+                })}
+                value={teamAttentionNote}
+                onChange={(event) => setTeamAttentionNote(event.target.value)}
+              />
+              <div className="mt-3">
+                <Button type="primary" loading={savingNote} onClick={() => void handleSaveAttentionNote()}>
+                  {t('pages.leadDetail.teamAttentionSave', { defaultValue: 'Save Note' })}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="mb-0 text-slate-700 whitespace-pre-wrap">{teamAttentionNote || '-'}</p>
+          )}
+        </Card>
+      ) : null}
+
       <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card
-          title={t('page.leads.followupTimeline', { defaultValue: 'Follow-up Timeline' })}
+          title={t('pages.leadDetail.followupTimeline', { defaultValue: 'Follow-up Timeline' })}
           extra={
             lead ? (
               <Button type="link" onClick={() => navigate(`/app/bd/leads/${lead.id}/followups`)}>
-                {t('page.leads.manageFollowups', { defaultValue: 'Manage' })}
+                {t('pages.leadDetail.manage', { defaultValue: 'Manage' })}
               </Button>
             ) : null
           }
         >
           {followups.length === 0 ? (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={t('page.leads.noFollowupRecords', { defaultValue: 'No follow-up records yet' })}
-            />
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.leadDetail.noFollowups', { defaultValue: 'No follow-up records yet' })} />
           ) : (
             <Timeline
               items={followups.slice(0, 8).map((item) => ({
                 color: 'blue',
                 children: (
                   <div>
-                    <p className="mb-1 font-medium">{t(`followupType.${item.followup_type}`, { defaultValue: item.followup_type })}</p>
+                    <p className="mb-1 font-medium">{item.followup_type}</p>
                     <p className="mb-1 text-slate-600">{item.summary}</p>
                     <p className="mb-0 text-xs text-slate-500">{new Date(item.followup_at).toLocaleString()}</p>
                   </div>
@@ -235,11 +280,11 @@ export function LeadDetailPage() {
         </Card>
 
         <Card
-          title={t('page.leads.statusChangeLogs', { defaultValue: 'Status Change Logs' })}
+          title={t('pages.leadDetail.statusChangeLogs', { defaultValue: 'Status Change Logs' })}
           extra={
             lead ? (
               <Button type="link" onClick={() => navigate(`/app/bd/leads/${lead.id}/status`)}>
-                {t('page.leads.updateStatus', { defaultValue: 'Update Status' })}
+                {t('pages.leadDetail.updateStatus', { defaultValue: 'Update Status' })}
               </Button>
             ) : null
           }
@@ -251,23 +296,23 @@ export function LeadDetailPage() {
             dataSource={statusLogs.slice(0, 8)}
             columns={[
               {
-                title: t('page.leads.changedAt', { defaultValue: 'Changed At' }),
+                title: t('pages.leadDetail.changedAt', { defaultValue: 'Changed At' }),
                 dataIndex: 'changed_at',
                 width: 180,
                 render: (value: string) => new Date(value).toLocaleString(),
               },
               {
-                title: t('page.onboarding.from', { defaultValue: 'From' }),
+                title: t('pages.leadDetail.from', { defaultValue: 'From' }),
                 dataIndex: 'from_status',
                 render: (value: string | null) => (value ? <StatusTag value={value} /> : '-'),
               },
               {
-                title: t('page.onboarding.to', { defaultValue: 'To' }),
+                title: t('pages.leadDetail.to', { defaultValue: 'To' }),
                 dataIndex: 'to_status',
                 render: (value: string) => <StatusTag value={value} />,
               },
               {
-                title: t('page.onboarding.reason', { defaultValue: 'Reason' }),
+                title: t('pages.leadDetail.reason', { defaultValue: 'Reason' }),
                 dataIndex: 'reason',
                 render: (value: string | null) => value ?? '-',
               },
@@ -277,23 +322,23 @@ export function LeadDetailPage() {
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <Card title={t('page.leads.attachments', { defaultValue: 'Attachments' })}>
+        <Card title={t('pages.leadDetail.attachments', { defaultValue: 'Attachments' })}>
           <Table
             rowKey="id"
             size="small"
             pagination={false}
             dataSource={attachments}
-            locale={{ emptyText: t('page.leads.noAttachments', { defaultValue: 'No attachments yet' }) }}
+            locale={{ emptyText: t('pages.leadDetail.noAttachments', { defaultValue: 'No attachments yet' }) }}
             columns={[
-              { title: t('page.files.fileName', { defaultValue: 'File Name' }), dataIndex: 'file_name' },
+              { title: t('pages.leadDetail.fileName', { defaultValue: 'File Name' }), dataIndex: 'file_name' },
               {
-                title: t('page.files.uploadedAt', { defaultValue: 'Uploaded At' }),
+                title: t('pages.leadDetail.uploadedAt', { defaultValue: 'Uploaded At' }),
                 dataIndex: 'uploaded_at',
                 width: 180,
                 render: (value: string) => new Date(value).toLocaleString(),
               },
               {
-                title: t('page.common.actions', { defaultValue: 'Actions' }),
+                title: t('pages.leadDetail.action', { defaultValue: 'Action' }),
                 width: 90,
                 render: (_: unknown, row: LeadAttachment) => (
                   <Button size="small" icon={<EyeOutlined />} onClick={() => void handlePreviewAttachment(row)} />
@@ -303,12 +348,12 @@ export function LeadDetailPage() {
           />
         </Card>
 
-        <Card title={t('page.leads.downstreamLinkage', { defaultValue: 'Downstream Linkage' })}>
+        <Card title={t('pages.leadDetail.downstreamLinkage', { defaultValue: 'Downstream Linkage' })}>
           <Descriptions bordered size="small" column={1}>
-            <Descriptions.Item label={t('page.leads.signedRecord', { defaultValue: 'Signed Record' })}>
+            <Descriptions.Item label={t('pages.leadDetail.signedRecord', { defaultValue: 'Signed Record' })}>
               {signedRecord?.contract_no ?? '-'}
             </Descriptions.Item>
-            <Descriptions.Item label={t('page.leads.onboardingCase', { defaultValue: 'Onboarding Case' })}>
+            <Descriptions.Item label={t('pages.leadDetail.onboardingCase', { defaultValue: 'Onboarding Case' })}>
               {onboardingCase ? (
                 <Space>
                   <span>{onboardingCase.case_no}</span>
@@ -318,13 +363,13 @@ export function LeadDetailPage() {
                 '-'
               )}
             </Descriptions.Item>
-            <Descriptions.Item label={t('page.onboarding.project', { defaultValue: 'Project' })}>
+            <Descriptions.Item label={t('pages.leadDetail.project', { defaultValue: 'Project' })}>
               {project ? (
                 <Space>
                   <span>{project.project_code}</span>
                   <StatusTag value={project.status} />
                   <Button size="small" onClick={() => navigate(`/app/bd/projects/${project.id}`)}>
-                    {t('page.common.view', { defaultValue: 'View' })}
+                    {t('pages.leadDetail.view', { defaultValue: 'View' })}
                   </Button>
                 </Space>
               ) : (

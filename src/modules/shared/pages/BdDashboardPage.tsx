@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Col, Row, Table, message } from 'antd'
-import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import { MetricCard } from '../../../components/common/MetricCard'
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
@@ -19,8 +19,8 @@ interface FollowupRow {
 }
 
 export function BdDashboardPage() {
-  const { t } = useTranslation()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [metrics, setMetrics] = useState({
     myLeads: 0,
@@ -54,12 +54,12 @@ export function BdDashboardPage() {
 
       setRows(dueRows)
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to load BD dashboard'
+      const text = error instanceof Error ? error.message : t('pages.bdDashboard.loadFail', { defaultValue: 'Failed to load BD dashboard' })
       message.error(text)
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [t, user])
 
   useEffect(() => {
     void loadData()
@@ -68,32 +68,29 @@ export function BdDashboardPage() {
   return (
     <>
       <PageTitleBar
-        title={t('page.bd.dashboardTitle', { defaultValue: 'BD Dashboard' })}
-        description={t('page.bd.dashboardDesc', {
+        title={t('pages.bdDashboard.title', { defaultValue: 'BD Dashboard' })}
+        description={t('pages.bdDashboard.description', {
           defaultValue: 'Track lead conversion, onboarding throughput, and follow-up commitments.',
         })}
-        extra={<Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
+        extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <Row gutter={[16, 16]} className="mb-5">
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('page.bd.myLeads', { defaultValue: 'My Leads' })} value={metrics.myLeads} />
+          <MetricCard title={t('pages.bdDashboard.metrics.myLeads', { defaultValue: 'My Leads' })} value={metrics.myLeads} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('page.bd.followupDue', { defaultValue: 'Follow-up Due' })} value={metrics.dueFollowups} />
+          <MetricCard title={t('pages.bdDashboard.metrics.followupDue', { defaultValue: 'Follow-up Due' })} value={metrics.dueFollowups} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('page.bd.signedMtd', { defaultValue: 'Signed (MTD)' })} value={metrics.signedThisMonth} />
+          <MetricCard title={t('pages.bdDashboard.metrics.signedMtd', { defaultValue: 'Signed (MTD)' })} value={metrics.signedThisMonth} />
+        </Col>
+        <Col xs={24} md={12} xl={6}>
+          <MetricCard title={t('pages.bdDashboard.metrics.myOnboardingCases', { defaultValue: 'My Onboarding Cases' })} value={metrics.myOnboardingCases} />
         </Col>
         <Col xs={24} md={12} xl={6}>
           <MetricCard
-            title={t('page.bd.myOnboardingCases', { defaultValue: 'My Onboarding Cases' })}
-            value={metrics.myOnboardingCases}
-          />
-        </Col>
-        <Col xs={24} md={12} xl={6}>
-          <MetricCard
-            title={t('page.bd.linkedActiveProjects', { defaultValue: 'Linked Active Projects' })}
+            title={t('pages.bdDashboard.metrics.linkedActiveProjects', { defaultValue: 'Linked Active Projects' })}
             value={metrics.activeProjectsLinked}
           />
         </Col>
@@ -103,22 +100,22 @@ export function BdDashboardPage() {
         loading={loading}
         rowKey="id"
         bordered
-        title={() => t('page.bd.upcomingFollowups', { defaultValue: 'Upcoming Follow-ups' })}
+        title={() => t('pages.bdDashboard.followupsTitle', { defaultValue: 'Upcoming Follow-ups' })}
         dataSource={rows}
         pagination={false}
         onRow={(record) => ({
           onClick: () => navigate(`/app/bd/leads/${record.id}`),
         })}
         columns={[
-          { title: t('page.admin.leadCode', { defaultValue: 'Lead Code' }), dataIndex: 'lead_code' },
-          { title: t('page.common.company', { defaultValue: 'Company' }), dataIndex: 'company_name' },
+          { title: t('pages.bdDashboard.columns.leadCode', { defaultValue: 'Lead Code' }), dataIndex: 'lead_code' },
+          { title: t('pages.bdDashboard.columns.company', { defaultValue: 'Company' }), dataIndex: 'company_name' },
           {
-            title: t('page.common.status', { defaultValue: 'Status' }),
+            title: t('pages.bdDashboard.columns.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
             render: (value: string) => <StatusTag value={value} />,
           },
           {
-            title: t('page.bd.nextFollowup', { defaultValue: 'Next Follow-up' }),
+            title: t('pages.bdDashboard.columns.nextFollowup', { defaultValue: 'Next Follow-up' }),
             dataIndex: 'next_followup_at',
             render: (value: string | null) => (value ? new Date(value).toLocaleString() : '-'),
           },

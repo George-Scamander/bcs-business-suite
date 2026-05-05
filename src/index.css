@@ -43,3 +43,24 @@ code,
 pre {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
+
+@media (max-width: 767px) {
+  .page-title-extra .ant-space {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .page-title-extra .ant-space-item {
+    margin-inline-end: 0 !important;
+  }
+
+  .ant-table-wrapper .ant-table-container {
+    overflow-x: auto;
+  }
+
+  .ant-table-wrapper .ant-table {
+    min-width: 720px;
+  }
+}

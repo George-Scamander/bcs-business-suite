@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getProjectStatusOptions } from '../../../lib/business-constants'
+import { PROJECT_STATUS_OPTIONS } from '../../../lib/business-constants'
 import { StatusTag } from '../../../components/common/StatusTag'
 import { useAuth } from '../../auth/auth-context'
 import { listProjects, type ProjectFilters } from '../api'
@@ -35,12 +35,15 @@ export function BdRelatedProjectsPage() {
       })
       setRows(result)
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to load projects'
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.bdRelatedProjects.loadFail', { defaultValue: 'Failed to load projects' })
       message.error(text)
     } finally {
       setLoading(false)
     }
-  }, [filters, keyword, roles, user])
+  }, [filters, keyword, roles, t, user])
 
   useEffect(() => {
     void loadData()
@@ -49,33 +52,33 @@ export function BdRelatedProjectsPage() {
   return (
     <>
       <PageTitleBar
-        title={t('page.bd.linkedProjectsTitle', { defaultValue: 'Linked Projects' })}
-        description={t('page.bd.linkedProjectsDesc', {
+        title={t('pages.bdRelatedProjects.title', { defaultValue: 'Linked Projects' })}
+        description={t('pages.bdRelatedProjects.description', {
           defaultValue: 'Read execution progress for projects handed over from your signed leads.',
         })}
-        extra={<Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
+        extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
         <Space wrap>
           <Select
             allowClear
-            placeholder={t('page.common.status', { defaultValue: 'Status' })}
+            placeholder={t('pages.bdRelatedProjects.statusPlaceholder', { defaultValue: 'Status' })}
             style={{ width: 220 }}
-            options={getProjectStatusOptions(t)}
+            options={PROJECT_STATUS_OPTIONS}
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
           />
           <Input.Search
             allowClear
-            placeholder={t('page.projects.keywordPlaceholder', { defaultValue: 'Project code/name' })}
+            placeholder={t('pages.bdRelatedProjects.keywordPlaceholder', { defaultValue: 'Project code/name' })}
             style={{ width: 280 }}
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             onSearch={() => void loadData()}
           />
           <Button type="primary" onClick={() => void loadData()}>
-            {t('page.common.apply', { defaultValue: 'Apply' })}
+            {t('labels.apply', { defaultValue: 'Apply' })}
           </Button>
         </Space>
       </div>
@@ -87,32 +90,32 @@ export function BdRelatedProjectsPage() {
         dataSource={rows}
         pagination={{ pageSize: 12 }}
         columns={[
-          { title: t('page.pm.projectCode', { defaultValue: 'Project Code' }), dataIndex: 'project_code', width: 180 },
-          { title: t('page.pm.projectName', { defaultValue: 'Name' }), dataIndex: 'name' },
+          { title: t('pages.bdRelatedProjects.columns.projectCode', { defaultValue: 'Project Code' }), dataIndex: 'project_code', width: 180 },
+          { title: t('pages.bdRelatedProjects.columns.name', { defaultValue: 'Name' }), dataIndex: 'name' },
           {
-            title: t('page.common.status', { defaultValue: 'Status' }),
+            title: t('pages.bdRelatedProjects.columns.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
             width: 160,
             render: (value: string) => <StatusTag value={value} />,
           },
           {
-            title: t('page.pm.progress', { defaultValue: 'Completion' }),
+            title: t('pages.bdRelatedProjects.columns.completion', { defaultValue: 'Completion' }),
             dataIndex: 'completion_rate',
             width: 130,
             render: (value: number) => `${Number(value ?? 0).toFixed(1)}%`,
           },
           {
-            title: t('page.projectOverview.targetEnd', { defaultValue: 'Target End' }),
+            title: t('pages.bdRelatedProjects.columns.targetEnd', { defaultValue: 'Target End' }),
             dataIndex: 'target_end_date',
             width: 150,
             render: (value: string | null) => value ?? '-',
           },
           {
-            title: t('page.common.actions', { defaultValue: 'Actions' }),
+            title: t('pages.bdRelatedProjects.columns.action', { defaultValue: 'Action' }),
             width: 120,
             render: (_: unknown, row: Project) => (
               <Button size="small" onClick={() => navigate(`/app/bd/projects/${row.id}`)}>
-                {t('page.common.view', { defaultValue: 'View' })}
+                {t('pages.bdRelatedProjects.view', { defaultValue: 'View' })}
               </Button>
             ),
           },

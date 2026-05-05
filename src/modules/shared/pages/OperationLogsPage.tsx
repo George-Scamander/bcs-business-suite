@@ -31,12 +31,12 @@ export function OperationLogsPage() {
     setLoading(false)
 
     if (result.error) {
-      message.error(result.error.message)
+      message.error(result.error.message || t('pages.operationLogs.loadFail', { defaultValue: 'Failed to load operation logs' }))
       return
     }
 
     setRows((result.data ?? []) as OperationLogWithActor[])
-  }, [])
+  }, [t])
 
   const filtered = useMemo(() => {
     const value = keyword.trim().toLowerCase()
@@ -57,21 +57,23 @@ export function OperationLogsPage() {
   return (
     <>
       <PageTitleBar
-        title={t('page.logs.title', { defaultValue: 'Operation Logs' })}
-        description={t('page.logs.desc', {
+        title={t('pages.operationLogs.title', { defaultValue: 'Operation Logs' })}
+        description={t('pages.operationLogs.description', {
           defaultValue: 'Track high-risk actions for audit and compliance verification.',
         })}
         extra={
           <Space>
             <Input.Search
-              placeholder={t('page.logs.searchPlaceholder', { defaultValue: 'Search by module/action/email' })}
+              placeholder={t('pages.operationLogs.searchPlaceholder', {
+                defaultValue: 'Search by module/action/email',
+              })}
               allowClear
               style={{ width: 280 }}
               onSearch={(value) => setKeyword(value)}
               onChange={(event) => setKeyword(event.target.value)}
               value={keyword}
             />
-            <Button onClick={() => void loadRows()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
+            <Button onClick={() => void loadRows()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
           </Space>
         }
       />
@@ -84,31 +86,32 @@ export function OperationLogsPage() {
         pagination={{ pageSize: 12 }}
         columns={[
           {
-            title: t('page.logs.time', { defaultValue: 'Time' }),
+            title: t('pages.operationLogs.columns.time', { defaultValue: 'Time' }),
             dataIndex: 'created_at',
             width: 210,
             render: (value: string) => new Date(value).toLocaleString(),
           },
           {
-            title: t('page.logs.actor', { defaultValue: 'Actor' }),
+            title: t('pages.operationLogs.columns.actor', { defaultValue: 'Actor' }),
             dataIndex: 'actor',
             width: 220,
-            render: (value: OperationLogWithActor['actor']) => value?.full_name ?? value?.email ?? t('page.logs.system', { defaultValue: 'System' }),
+            render: (value: OperationLogWithActor['actor']) =>
+              value?.full_name ?? value?.email ?? t('pages.operationLogs.systemActor', { defaultValue: 'System' }),
           },
           {
-            title: t('page.logs.module', { defaultValue: 'Module' }),
+            title: t('pages.operationLogs.columns.module', { defaultValue: 'Module' }),
             dataIndex: 'module',
             width: 140,
-            render: (value: string) => <Tag color="blue">{t(`operationModule.${value}`, { defaultValue: value })}</Tag>,
+            render: (value: string) => <Tag color="blue">{value}</Tag>,
           },
           {
-            title: t('page.common.actions', { defaultValue: 'Actions' }),
+            title: t('pages.operationLogs.columns.action', { defaultValue: 'Action' }),
             dataIndex: 'action',
             width: 160,
-            render: (value: string) => <Tag>{t(`operationAction.${value}`, { defaultValue: value })}</Tag>,
+            render: (value: string) => <Tag>{value}</Tag>,
           },
           {
-            title: t('page.logs.entity', { defaultValue: 'Entity' }),
+            title: t('pages.operationLogs.columns.entity', { defaultValue: 'Entity' }),
             key: 'entity',
             render: (_: unknown, row: OperationLogWithActor) => `${row.entity_type}:${row.entity_id ?? '-'}`,
           },

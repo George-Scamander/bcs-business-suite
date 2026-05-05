@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Col, Progress, Row, Table, message } from 'antd'
-import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import { MetricCard } from '../../../components/common/MetricCard'
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
@@ -19,8 +19,8 @@ interface ProjectRow {
 }
 
 export function PmDashboardPage() {
-  const { t } = useTranslation()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [metrics, setMetrics] = useState({
     myProjects: 0,
@@ -48,12 +48,15 @@ export function PmDashboardPage() {
       setMetrics(metricData)
       setRows(projects.slice(0, 8))
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to load project dashboard'
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.pmDashboard.loadFail', { defaultValue: 'Failed to load project dashboard' })
       message.error(text)
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [t, user])
 
   useEffect(() => {
     void loadData()
@@ -62,31 +65,25 @@ export function PmDashboardPage() {
   return (
     <>
       <PageTitleBar
-        title={t('page.pm.dashboardTitle', { defaultValue: 'Project Dashboard' })}
-        description={t('page.pm.dashboardDesc', {
+        title={t('pages.pmDashboard.title', { defaultValue: 'Project Dashboard' })}
+        description={t('pages.pmDashboard.description', {
           defaultValue: 'Monitor execution progress, overdue risk, and closure readiness.',
         })}
-        extra={<Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
+        extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <Row gutter={[16, 16]} className="mb-5">
         <Col xs={24} md={12} xl={6}>
-          <MetricCard title={t('page.pm.myProjects', { defaultValue: 'My Projects' })} value={metrics.myProjects} />
+          <MetricCard title={t('pages.pmDashboard.metrics.myProjects', { defaultValue: 'My Projects' })} value={metrics.myProjects} />
         </Col>
         <Col xs={24} md={12} xl={6}>
-          <MetricCard
-            title={t('page.pm.delayedProjects', { defaultValue: 'Delayed Projects' })}
-            value={metrics.delayedProjects}
-          />
+          <MetricCard title={t('pages.pmDashboard.metrics.delayedProjects', { defaultValue: 'Delayed Projects' })} value={metrics.delayedProjects} />
         </Col>
         <Col xs={24} md={12} xl={6}>
-          <MetricCard
-            title={t('page.pm.tasksDueThisWeek', { defaultValue: 'Tasks Due This Week' })}
-            value={metrics.tasksDueThisWeek}
-          />
+          <MetricCard title={t('pages.pmDashboard.metrics.tasksDueThisWeek', { defaultValue: 'Tasks Due This Week' })} value={metrics.tasksDueThisWeek} />
         </Col>
         <Col xs={24} md={12} xl={6}>
-          <MetricCard title={t('page.pm.avgCompletion', { defaultValue: 'Avg Completion' })} value={metrics.avgCompletionRate} suffix="%" />
+          <MetricCard title={t('pages.pmDashboard.metrics.avgCompletion', { defaultValue: 'Avg Completion' })} value={metrics.avgCompletionRate} suffix="%" />
         </Col>
       </Row>
 
@@ -94,22 +91,22 @@ export function PmDashboardPage() {
         loading={loading}
         rowKey="id"
         bordered
-        title={() => t('page.pm.projectExecutionSnapshot', { defaultValue: 'Project Execution Snapshot' })}
+        title={() => t('pages.pmDashboard.snapshotTitle', { defaultValue: 'Project Execution Snapshot' })}
         dataSource={rows}
         pagination={false}
         onRow={(record) => ({
           onClick: () => navigate(`/app/pm/projects/${record.id}`),
         })}
         columns={[
-          { title: t('page.pm.projectCode', { defaultValue: 'Project Code' }), dataIndex: 'project_code' },
-          { title: t('page.pm.projectName', { defaultValue: 'Project Name' }), dataIndex: 'name' },
+          { title: t('pages.pmDashboard.columns.projectCode', { defaultValue: 'Project Code' }), dataIndex: 'project_code' },
+          { title: t('pages.pmDashboard.columns.projectName', { defaultValue: 'Project Name' }), dataIndex: 'name' },
           {
-            title: t('page.common.status', { defaultValue: 'Status' }),
+            title: t('pages.pmDashboard.columns.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
             render: (value: string) => <StatusTag value={value} />,
           },
           {
-            title: t('page.pm.progress', { defaultValue: 'Progress' }),
+            title: t('pages.pmDashboard.columns.progress', { defaultValue: 'Progress' }),
             dataIndex: 'completion_rate',
             render: (value: number) => <Progress percent={Number(value.toFixed(1))} size="small" />,
           },

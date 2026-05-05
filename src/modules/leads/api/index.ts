@@ -21,6 +21,7 @@ export interface LeadFilters {
 }
 
 export interface CreateLeadInput {
+  id?: string
   company_name: string
   contact_person?: string
   contact_phone?: string
@@ -30,13 +31,12 @@ export interface CreateLeadInput {
   city?: string
   address?: string
   source?: string
-  intent_package?: IntentPackage
+  team_attention_note?: string | null
   intent_level?: number
   estimated_value?: number
-  bd_notes?: string
-  team_attention_note?: string
-  duplicate_note?: string
   assigned_bd_id?: string
+  created_by?: string
+  updated_by?: string
   next_followup_at?: string
 }
 
@@ -87,6 +87,38 @@ export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
   return (result.data ?? []) as Lead[]
 }
 
+export async function listDeletedLeads(filters: LeadFilters = {}): Promise<Lead[]> {
+  let query = supabase.from('leads').select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false })
+
+  if (filters.status) {
+    query = query.eq('status', filters.status)
+  }
+
+  if (filters.region) {
+    query = query.ilike('region', `%${filters.region}%`)
+  }
+
+  if (filters.industry) {
+    query = query.ilike('industry', `%${filters.industry}%`)
+  }
+
+  if (filters.assignedBdId) {
+    query = query.eq('assigned_bd_id', filters.assignedBdId)
+  }
+
+  if (filters.keyword) {
+    query = query.or(`company_name.ilike.%${filters.keyword}%,lead_code.ilike.%${filters.keyword}%,contact_person.ilike.%${filters.keyword}%`)
+  }
+
+  const result = await query
+
+  if (result.error) {
+    throw result.error
+  }
+
+  return (result.data ?? []) as Lead[]
+}
+
 export async function getLeadById(leadId: string): Promise<Lead> {
   const result = await supabase.from('leads').select('*').eq('id', leadId).single<Lead>()
 
@@ -98,14 +130,14 @@ export async function getLeadById(leadId: string): Promise<Lead> {
 }
 
 export async function createLead(input: CreateLeadInput): Promise<Lead> {
+  const leadId = input.id ?? crypto.randomUUID()
   const insertResult = await supabase
     .from('leads')
     .insert({
+      id: leadId,
       ...input,
       status: 'NEW',
     })
-    .select('*')
-    .single<Lead>()
 
   if (insertResult.error) {
     throw insertResult.error
@@ -114,12 +146,16 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
   await recordOperationLog({
     module: 'leads',
     entityType: 'leads',
-    entityId: insertResult.data.id,
+    entityId: leadId,
     action: 'create_lead',
-    afterData: insertResult.data,
+    afterData: {
+      id: leadId,
+      ...input,
+      status: 'NEW',
+    },
   })
 
-  return insertResult.data
+  return { id: leadId } as Lead
 }
 
 export async function updateLead(input: UpdateLeadInput): Promise<Lead> {
@@ -154,6 +190,93 @@ export async function softDeleteLead(leadId: string): Promise<void> {
     entityType: 'leads',
     entityId: leadId,
     action: 'soft_delete_lead',
+  })
+}
+
+export async function softDeleteLeads(leadIds: string[]): Promise<void> {
+  if (leadIds.length === 0) {
+    return
+  }
+
+  const result = await supabase.from('leads').update({ deleted_at: new Date().toISOString() }).in('id', leadIds)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'leads',
+    entityType: 'leads',
+    action: 'soft_delete_leads_bulk',
+    afterData: { lead_ids: leadIds },
+  })
+}
+
+export async function hardDeleteLead(leadId: string): Promise<void> {
+  const result = await supabase.from('leads').delete().eq('id', leadId)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'leads',
+    entityType: 'leads',
+    entityId: leadId,
+    action: 'hard_delete_lead',
+  })
+}
+
+export async function hardDeleteLeads(leadIds: string[]): Promise<void> {
+  if (leadIds.length === 0) {
+    return
+  }
+
+  const result = await supabase.from('leads').delete().in('id', leadIds)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'leads',
+    entityType: 'leads',
+    action: 'hard_delete_leads_bulk',
+    afterData: { lead_ids: leadIds },
+  })
+}
+
+export async function restoreLead(leadId: string): Promise<void> {
+  const result = await supabase.from('leads').update({ deleted_at: null }).eq('id', leadId)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'leads',
+    entityType: 'leads',
+    entityId: leadId,
+    action: 'restore_lead',
+  })
+}
+
+export async function restoreLeads(leadIds: string[]): Promise<void> {
+  if (leadIds.length === 0) {
+    return
+  }
+
+  const result = await supabase.from('leads').update({ deleted_at: null }).in('id', leadIds)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'leads',
+    entityType: 'leads',
+    action: 'restore_leads_bulk',
+    afterData: { lead_ids: leadIds },
   })
 }
 
@@ -313,33 +436,6 @@ export async function changeLeadStatus(input: ChangeLeadStatusInput): Promise<{ 
   return {
     signedRecordId: (result.data as string | null) ?? null,
   }
-}
-
-export async function checkDuplicateLeadByCompanyName(companyName: string, excludeLeadId?: string): Promise<Lead[]> {
-  const normalized = companyName.trim()
-
-  if (!normalized) {
-    return []
-  }
-
-  let query = supabase
-    .from('leads')
-    .select('*')
-    .is('deleted_at', null)
-    .ilike('company_name', normalized)
-    .order('updated_at', { ascending: false })
-
-  if (excludeLeadId) {
-    query = query.neq('id', excludeLeadId)
-  }
-
-  const result = await query
-
-  if (result.error) {
-    throw result.error
-  }
-
-  return (result.data ?? []) as Lead[]
 }
 
 export async function createLeadAttachment(leadId: string, fileRecordId: string, fileName: string, objectPath: string): Promise<void> {

@@ -43,12 +43,12 @@ export function FileCenterPage() {
       const result = await listMyUploadedFiles(user.id)
       setRows(result)
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to load files'
+      const text = error instanceof Error ? error.message : t('pages.fileCenter.loadFail', { defaultValue: 'Failed to load files' })
       message.error(text)
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [t, user])
 
   async function handleUploadNow() {
     if (!user) {
@@ -56,7 +56,7 @@ export function FileCenterPage() {
     }
 
     if (stagedFiles.length === 0) {
-      message.warning(t('page.files.selectAtLeastOne', { defaultValue: 'Select at least one file' }))
+      message.warning(t('pages.fileCenter.selectAtLeastOne', { defaultValue: 'Select at least one file' }))
       return
     }
 
@@ -68,11 +68,11 @@ export function FileCenterPage() {
         }
       }
 
-      message.success(t('page.files.uploadSuccess', { defaultValue: 'Files uploaded successfully' }))
+      message.success(t('pages.fileCenter.uploadSuccess', { defaultValue: 'Files uploaded successfully' }))
       setStagedFiles([])
       await loadRows()
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Upload failed'
+      const text = error instanceof Error ? error.message : t('pages.fileCenter.uploadFail', { defaultValue: 'Upload failed' })
       message.error(text)
     } finally {
       setUploading(false)
@@ -84,7 +84,7 @@ export function FileCenterPage() {
       const signedUrl = await createSignedFileUrl(row.object_path)
       window.open(signedUrl, '_blank', 'noopener,noreferrer')
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Failed to preview file'
+      const text = error instanceof Error ? error.message : t('pages.fileCenter.previewFail', { defaultValue: 'Failed to preview file' })
       message.error(text)
     }
   }
@@ -92,10 +92,10 @@ export function FileCenterPage() {
   async function handleDelete(row: UploadFileRecord) {
     try {
       await deleteUploadedFile(row)
-      message.success('File deleted')
+      message.success(t('pages.fileCenter.deleteSuccess', { defaultValue: 'File deleted' }))
       await loadRows()
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Delete failed'
+      const text = error instanceof Error ? error.message : t('pages.fileCenter.deleteFail', { defaultValue: 'Delete failed' })
       message.error(text)
     }
   }
@@ -107,13 +107,13 @@ export function FileCenterPage() {
   return (
     <>
       <PageTitleBar
-        title={t('page.files.title', { defaultValue: 'File Center' })}
-        description={t('page.files.desc', {
+        title={t('pages.fileCenter.title', { defaultValue: 'File Center' })}
+        description={t('pages.fileCenter.description', {
           defaultValue: 'Upload private business documents with row-level and storage-level access control.',
         })}
         extra={
           <Button type="primary" icon={<UploadOutlined />} onClick={() => void handleUploadNow()} loading={uploading}>
-            {t('page.files.uploadSelected', { defaultValue: 'Upload Selected' })}
+            {t('pages.fileCenter.uploadSelected', { defaultValue: 'Upload Selected' })}
           </Button>
         }
       />
@@ -131,9 +131,9 @@ export function FileCenterPage() {
           <p className="ant-upload-drag-icon">
             <InboxOutlined />
           </p>
-          <p className="ant-upload-text">{t('page.files.dropHint', { defaultValue: 'Drop files here or click to select' })}</p>
+          <p className="ant-upload-text">{t('pages.fileCenter.draggerText', { defaultValue: 'Drop files here or click to select' })}</p>
           <p className="ant-upload-hint">
-            {t('page.files.policyHint', {
+            {t('pages.fileCenter.draggerHint', {
               defaultValue: 'Files are uploaded to private Supabase storage bucket with access policies.',
             })}
           </p>
@@ -147,24 +147,24 @@ export function FileCenterPage() {
         dataSource={rows}
         pagination={{ pageSize: 8 }}
         columns={[
-          { title: t('page.files.fileName', { defaultValue: 'File Name' }), dataIndex: 'file_name' },
+          { title: t('pages.fileCenter.columns.fileName', { defaultValue: 'File Name' }), dataIndex: 'file_name' },
           {
-            title: t('page.files.fileType', { defaultValue: 'Type' }),
+            title: t('pages.fileCenter.columns.type', { defaultValue: 'Type' }),
             dataIndex: 'mime_type',
-            render: (value: string | null) => <Tag>{value ?? t('page.files.unknown', { defaultValue: 'unknown' })}</Tag>,
+            render: (value: string | null) => <Tag>{value ?? t('pages.fileCenter.unknownType', { defaultValue: 'unknown' })}</Tag>,
           },
           {
-            title: t('page.files.fileSize', { defaultValue: 'Size' }),
+            title: t('pages.fileCenter.columns.size', { defaultValue: 'Size' }),
             dataIndex: 'size_bytes',
             render: (value: number | null) => formatFileSize(value),
           },
           {
-            title: t('page.files.uploadedAt', { defaultValue: 'Uploaded At' }),
+            title: t('pages.fileCenter.columns.uploadedAt', { defaultValue: 'Uploaded At' }),
             dataIndex: 'created_at',
             render: (value: string) => new Date(value).toLocaleString(),
           },
           {
-            title: t('page.common.actions', { defaultValue: 'Actions' }),
+            title: t('pages.fileCenter.columns.actions', { defaultValue: 'Actions' }),
             key: 'actions',
             render: (_value: unknown, row: UploadFileRecord) => (
               <Space>

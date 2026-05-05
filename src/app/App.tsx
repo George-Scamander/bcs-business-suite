@@ -24,6 +24,7 @@ import { PmDashboardPage } from '../modules/shared/pages/PmDashboardPage'
 import { ProfileSettingsPage } from '../modules/shared/pages/ProfileSettingsPage'
 import { UnauthorizedPage } from '../modules/shared/pages/UnauthorizedPage'
 import { BdLeadsListPage } from '../modules/leads/pages/BdLeadsListPage'
+import { BdDeletedLeadsPage } from '../modules/leads/pages/BdDeletedLeadsPage'
 import { LeadFormPage } from '../modules/leads/pages/LeadFormPage'
 import { LeadDetailPage } from '../modules/leads/pages/LeadDetailPage'
 import { LeadFollowupTimelinePage } from '../modules/leads/pages/LeadFollowupTimelinePage'
@@ -35,12 +36,15 @@ import { BdOnboardingDetailPage } from '../modules/onboarding/pages/BdOnboarding
 import { BdProjectDetailPage } from '../modules/projects/pages/BdProjectDetailPage'
 import { BdRelatedProjectsPage } from '../modules/projects/pages/BdRelatedProjectsPage'
 import { PmProjectsListPage } from '../modules/projects/pages/PmProjectsListPage'
+import { PmDeletedProjectsPage } from '../modules/projects/pages/PmDeletedProjectsPage'
+import { PmProjectCreatePage } from '../modules/projects/pages/PmProjectCreatePage'
 import { PmProjectDetailPage } from '../modules/projects/pages/PmProjectDetailPage'
 import { PmProjectProgressPage } from '../modules/projects/pages/PmProjectProgressPage'
 import { PmProjectTasksPage } from '../modules/projects/pages/PmProjectTasksPage'
 import { PmProjectMembersPage } from '../modules/projects/pages/PmProjectMembersPage'
 import { PmProjectRisksPage } from '../modules/projects/pages/PmProjectRisksPage'
 import { PmProjectClosurePage } from '../modules/projects/pages/PmProjectClosurePage'
+import { PmLeadImportPage } from '../modules/leads/pages/PmLeadImportPage'
 
 export default function App() {
   return (
@@ -138,8 +142,16 @@ export default function App() {
             <Route
               path="bd/leads/new"
               element={
-                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
+                <RoleGuard allowRoles={['bd_user']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
                   <LeadFormPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="bd/leads/deleted"
+              element={
+                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
+                  <BdDeletedLeadsPage />
                 </RoleGuard>
               }
             />
@@ -244,6 +256,33 @@ export default function App() {
               }
             />
             <Route
+              path="pm/projects/new"
+              element={
+                <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_WRITE]}>
+                  <PmProjectCreatePage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="pm/projects/deleted"
+              element={
+                <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_WRITE]}>
+                  <PmDeletedProjectsPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="pm/leads/import"
+              element={
+                <RoleGuard
+                  allowRoles={['project_manager', 'super_admin']}
+                  requiredPermissions={[PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_WRITE, PERMISSIONS.LEADS_IMPORT]}
+                >
+                  <PmLeadImportPage />
+                </RoleGuard>
+              }
+            />
+            <Route
               path="pm/projects/:projectId"
               element={
                 <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
@@ -301,7 +340,7 @@ export default function App() {
             <Route
               path="files"
               element={
-                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.FILES_UPLOAD]}>
+                <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.FILES_UPLOAD]}>
                   <FileCenterPage />
                 </RoleGuard>
               }

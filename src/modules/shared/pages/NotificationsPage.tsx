@@ -36,12 +36,12 @@ export function NotificationsPage() {
     setLoading(false)
 
     if (result.error) {
-      message.error(result.error.message)
+      message.error(result.error.message || t('pages.notifications.loadFail', { defaultValue: 'Failed to load notifications' }))
       return
     }
 
     setItems((result.data ?? []) as NotificationRow[])
-  }, [user])
+  }, [t, user])
 
   async function markAsRead(notificationId: string) {
     const result = await supabase
@@ -50,7 +50,7 @@ export function NotificationsPage() {
       .eq('id', notificationId)
 
     if (result.error) {
-      message.error(result.error.message)
+      message.error(result.error.message || t('pages.notifications.markReadFail', { defaultValue: 'Failed to mark notification as read' }))
       return
     }
 
@@ -64,30 +64,30 @@ export function NotificationsPage() {
   return (
     <>
       <PageTitleBar
-        title={t('page.notifications.title', { defaultValue: 'Notification Center' })}
-        description={t('page.notifications.desc', {
+        title={t('pages.notifications.title', { defaultValue: 'Notification Center' })}
+        description={t('pages.notifications.description', {
           defaultValue: 'Receive reminders for pending actions, review requests, and status updates.',
         })}
-        extra={<Button onClick={() => void loadNotifications()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
+        extra={<Button onClick={() => void loadNotifications()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <List
           loading={loading}
           dataSource={items}
-          locale={{ emptyText: t('page.notifications.empty', { defaultValue: 'No notifications yet.' }) }}
+          locale={{ emptyText: t('pages.notifications.empty', { defaultValue: 'No notifications yet.' }) }}
           renderItem={(item) => (
             <List.Item
               actions={
                 item.is_read
                   ? [
                       <Tag color="green" key="read">
-                        {t('page.notifications.read', { defaultValue: 'Read' })}
+                        {t('pages.notifications.read', { defaultValue: 'Read' })}
                       </Tag>,
                     ]
                   : [
                       <Button key="mark-read" type="link" onClick={() => void markAsRead(item.id)}>
-                        {t('page.notifications.markRead', { defaultValue: 'Mark as read' })}
+                        {t('pages.notifications.markAsRead', { defaultValue: 'Mark as read' })}
                       </Button>,
                     ]
               }
