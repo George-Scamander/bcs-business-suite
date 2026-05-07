@@ -203,6 +203,9 @@ export function PmProjectDetailPage() {
             <Button onClick={() => navigate(`/app/pm/projects/${projectId}/progress`)}>
               {t('pages.pmProjectDetail.goToProgress', { defaultValue: 'Go to Progress' })}
             </Button>
+            <Button onClick={() => navigate(`/app/pm/projects/${projectId}/tasks`)}>
+              {t('pages.pmProjects.actionTasks', { defaultValue: 'Tasks' })}
+            </Button>
             <Button type="primary" htmlType="submit" loading={saving}>
               {t('pages.pmProjectDetail.saveDetail', { defaultValue: 'Save Detail' })}
             </Button>

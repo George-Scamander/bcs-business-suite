@@ -48,6 +48,7 @@ const iconMap: Record<string, React.ReactNode> = {
   'lead-pool': <UnorderedListOutlined />,
   'onboarding-review': <ReconciliationOutlined />,
   'project-overview': <DeploymentUnitOutlined />,
+  'recently-deleted': <DeleteOutlined />,
   'report-export': <LineChartOutlined />,
   'system-config': <SettingFilled />,
   logs: <FileTextOutlined />,
@@ -57,13 +58,12 @@ const iconMap: Record<string, React.ReactNode> = {
   'bd-dashboard': <HomeOutlined />,
   'bd-leads': <UnorderedListOutlined />,
   'bd-new-lead': <SolutionOutlined />,
-  'bd-deleted-leads': <DeleteOutlined />,
   'bd-onboarding': <ContainerOutlined />,
   'bd-projects': <BranchesOutlined />,
   'pm-dashboard': <DashboardOutlined />,
+  'pm-lead-pool': <UnorderedListOutlined />,
   'pm-projects': <BranchesOutlined />,
   'pm-new-project': <PlusSquareOutlined />,
-  'pm-deleted-projects': <DeleteOutlined />,
   'pm-leads-import': <CloudUploadOutlined />,
 }
 

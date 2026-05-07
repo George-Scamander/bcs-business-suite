@@ -1,4 +1,5 @@
-import { Button, Card, Form, Input, Typography, message } from 'antd'
+import { useEffect, useMemo, useState } from 'react'
+import { AutoComplete, Button, Card, Form, Input, Space, Tag, Typography, message } from 'antd'
 import { LockOutlined, MailOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
@@ -11,11 +12,44 @@ interface LoginFormValues {
   password: string
 }
 
+const LOGIN_DOMAIN = 'xmotorsid.onmicrosoft.com'
+const RECENT_EMAILS_KEY = 'login-recent-emails'
+const MAX_RECENT_EMAILS = 5
+
+function normalizeEmailInput(rawEmail: string): string {
+  const value = rawEmail.trim()
+  if (!value) {
+    return value
+  }
+
+  if (value.includes('@')) {
+    return value
+  }
+
+  return `${value}@${LOGIN_DOMAIN}`
+}
+
+function isEmailLike(value: string): boolean {
+  const input = value.trim()
+  if (!input) {
+    return false
+  }
+
+  if (!input.includes('@')) {
+    return /^[A-Za-z0-9._%+-]+$/.test(input)
+  }
+
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input)
+}
+
 export function LoginPage() {
+  const [form] = Form.useForm<LoginFormValues>()
   const { t } = useTranslation()
   const { isAuthenticated, signIn } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [recentEmails, setRecentEmails] = useState<string[]>([])
+  const [emailInput, setEmailInput] = useState('')
 
   if (isAuthenticated) {
     return <Navigate to="/app" replace />
@@ -23,9 +57,65 @@ export function LoginPage() {
 
   const fromPath = (location.state as { from?: string } | null)?.from ?? '/app'
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(RECENT_EMAILS_KEY)
+      if (!raw) {
+        return
+      }
+
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed)) {
+        return
+      }
+
+      const emails = parsed
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+      setRecentEmails(emails.slice(0, MAX_RECENT_EMAILS))
+    } catch {
+      setRecentEmails([])
+    }
+  }, [])
+
+  const autoCompleteOptions = useMemo(() => {
+    const input = emailInput.trim().toLowerCase()
+    const suggestions = new Set<string>()
+
+    if (input) {
+      if (input.includes('@')) {
+        suggestions.add(emailInput.trim())
+      } else {
+        suggestions.add(`${emailInput.trim()}@${LOGIN_DOMAIN}`)
+      }
+    }
+
+    for (const email of recentEmails) {
+      if (!input || email.toLowerCase().includes(input)) {
+        suggestions.add(email)
+      }
+    }
+
+    return Array.from(suggestions).map((value) => ({ value }))
+  }, [emailInput, recentEmails])
+
+  function persistRecentEmail(email: string) {
+    const normalized = email.trim().toLowerCase()
+    if (!normalized) {
+      return
+    }
+
+    const next = [normalized, ...recentEmails.filter((item) => item.toLowerCase() !== normalized)].slice(0, MAX_RECENT_EMAILS)
+    setRecentEmails(next)
+    localStorage.setItem(RECENT_EMAILS_KEY, JSON.stringify(next))
+  }
+
   async function handleFinish(values: LoginFormValues) {
     try {
-      await signIn(values.email, values.password)
+      const normalizedEmail = normalizeEmailInput(values.email)
+      await signIn(normalizedEmail, values.password)
+      persistRecentEmail(normalizedEmail)
       message.success(t('auth.login.success', { defaultValue: 'Signed in successfully' }))
       navigate(fromPath, { replace: true })
     } catch (error) {
@@ -48,17 +138,61 @@ export function LoginPage() {
           </Typography.Paragraph>
         </div>
 
-        <Form<LoginFormValues> layout="vertical" onFinish={handleFinish} requiredMark={false} autoComplete="off">
+        <Form<LoginFormValues> form={form} layout="vertical" onFinish={handleFinish} requiredMark={false} autoComplete="off">
           <Form.Item
             label={t('page.common.email', { defaultValue: 'Email' })}
             name="email"
             rules={[
               { required: true, message: t('auth.login.emailRequired', { defaultValue: 'Email is required' }) },
-              { type: 'email', message: t('auth.login.emailInvalid', { defaultValue: 'Invalid email format' }) },
+              {
+                validator: async (_rule, value: string) => {
+                  if (!value || isEmailLike(value)) {
+                    return
+                  }
+                  throw new Error(t('auth.login.emailInvalid', { defaultValue: 'Invalid email format' }))
+                },
+              },
             ]}
           >
-            <Input prefix={<MailOutlined />} placeholder={t('auth.login.emailPlaceholder', { defaultValue: 'you@bosch.com' })} />
+            <AutoComplete
+              options={autoCompleteOptions}
+              onSearch={(value) => setEmailInput(value)}
+              onChange={(value) => setEmailInput(value)}
+              onSelect={(value) => {
+                setEmailInput(value)
+                form.setFieldValue('email', value)
+              }}
+              filterOption={false}
+            >
+              <Input
+                prefix={<MailOutlined />}
+                addonAfter={!emailInput.includes('@') ? `@${LOGIN_DOMAIN}` : undefined}
+                placeholder={t('auth.login.emailPlaceholder', { defaultValue: 'yourname' })}
+              />
+            </AutoComplete>
           </Form.Item>
+
+          {recentEmails.length > 0 ? (
+            <div className="mb-3">
+              <div className="mb-2 text-xs text-slate-500">
+                {t('auth.login.recentAccounts', { defaultValue: 'Recent accounts' })}
+              </div>
+              <Space size={[8, 8]} wrap>
+                {recentEmails.map((email) => (
+                  <Tag
+                    key={email}
+                    className="cursor-pointer"
+                    onClick={() => {
+                      form.setFieldValue('email', email)
+                      setEmailInput(email)
+                    }}
+                  >
+                    {email}
+                  </Tag>
+                ))}
+              </Space>
+            </div>
+          ) : null}
 
           <Form.Item
             label={t('auth.login.password', { defaultValue: 'Password' })}

@@ -256,7 +256,7 @@ export function BdLeadsListPage() {
         extra={
           <Space>
             <Button onClick={() => void loadRows()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
-            <Button onClick={() => navigate('/app/bd/leads/deleted')}>
+            <Button onClick={() => navigate('/app/recently-deleted')}>
               {t('pages.bdLeads.recentlyDeleted', { defaultValue: 'Recently Deleted' })}
             </Button>
             <Popconfirm

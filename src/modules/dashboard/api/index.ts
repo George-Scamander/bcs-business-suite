@@ -24,11 +24,16 @@ export interface PmDashboardMetrics {
   avgCompletionRate: number
 }
 
-async function count(table: string, filters?: Array<{ column: string; value: string | number | boolean; op?: 'eq' | 'neq' }>): Promise<number> {
+async function count(
+  table: string,
+  filters?: Array<{ column: string; value: string | number | boolean | null; op?: 'eq' | 'neq' | 'is' }>,
+): Promise<number> {
   let query = supabase.from(table).select('*', { count: 'exact', head: true })
 
   for (const filter of filters ?? []) {
-    if (filter.op === 'neq') {
+    if (filter.op === 'is') {
+      query = query.is(filter.column, filter.value)
+    } else if (filter.op === 'neq') {
       query = query.neq(filter.column, filter.value)
     } else {
       query = query.eq(filter.column, filter.value)
@@ -53,11 +58,17 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardMetrics>
     delayedProjects,
     activeUsers,
   ] = await Promise.all([
-    count('leads'),
-    count('leads', [{ column: 'status', value: 'SIGNED' }]),
+    count('leads', [{ column: 'deleted_at', value: null, op: 'is' }]),
+    count('leads', [
+      { column: 'deleted_at', value: null, op: 'is' },
+      { column: 'status', value: 'SIGNED' },
+    ]),
     count('onboarding_cases', [{ column: 'status', value: 'COMPLETED', op: 'neq' }]),
-    count('projects'),
-    count('projects', [{ column: 'status', value: 'DELAYED' }]),
+    count('projects', [{ column: 'deleted_at', value: null, op: 'is' }]),
+    count('projects', [
+      { column: 'deleted_at', value: null, op: 'is' },
+      { column: 'status', value: 'DELAYED' },
+    ]),
     count('profiles', [{ column: 'is_active', value: true }]),
   ])
 
@@ -77,20 +88,22 @@ export async function getBdDashboardMetrics(userId: string): Promise<BdDashboard
   startOfMonth.setHours(0, 0, 0, 0)
 
   const [myLeadsResult, dueFollowupsResult, signedResult, onboardingResult, linkedProjectsResult] = await Promise.all([
-    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('assigned_bd_id', userId),
+    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('assigned_bd_id', userId).is('deleted_at', null),
     supabase
       .from('leads')
       .select('*', { count: 'exact', head: true })
       .eq('assigned_bd_id', userId)
+      .is('deleted_at', null)
       .not('next_followup_at', 'is', null)
       .lt('next_followup_at', new Date().toISOString()),
     supabase
       .from('signed_records')
       .select('id, leads!inner(assigned_bd_id)', { count: 'exact', head: true })
       .eq('leads.assigned_bd_id', userId)
+      .is('leads.deleted_at', null)
       .gte('created_at', startOfMonth.toISOString()),
     supabase.from('onboarding_cases').select('*', { count: 'exact', head: true }).eq('owner_user_id', userId),
-    supabase.from('projects').select('*', { count: 'exact', head: true }).eq('bd_owner_id', userId),
+    supabase.from('projects').select('*', { count: 'exact', head: true }).eq('bd_owner_id', userId).is('deleted_at', null),
   ])
 
   for (const result of [myLeadsResult, dueFollowupsResult, signedResult, onboardingResult, linkedProjectsResult]) {
@@ -113,20 +126,23 @@ export async function getPmDashboardMetrics(userId: string): Promise<PmDashboard
   endOfWeek.setDate(endOfWeek.getDate() + 7)
 
   const [projectsResult, delayedResult, dueTasksResult, completionResult] = await Promise.all([
-    supabase.from('projects').select('*', { count: 'exact', head: true }).eq('pm_owner_id', userId),
+    supabase.from('projects').select('*', { count: 'exact', head: true }).eq('pm_owner_id', userId).is('deleted_at', null),
     supabase
       .from('projects')
       .select('*', { count: 'exact', head: true })
       .eq('pm_owner_id', userId)
+      .is('deleted_at', null)
       .eq('status', 'DELAYED'),
     supabase
       .from('project_tasks')
       .select('id, projects!inner(pm_owner_id)', { count: 'exact', head: true })
       .eq('projects.pm_owner_id', userId)
+      .is('projects.deleted_at', null)
+      .is('deleted_at', null)
       .not('due_date', 'is', null)
       .lte('due_date', endOfWeek.toISOString().slice(0, 10))
       .neq('status', 'DONE'),
-    supabase.from('projects').select('completion_rate').eq('pm_owner_id', userId),
+    supabase.from('projects').select('completion_rate').eq('pm_owner_id', userId).is('deleted_at', null),
   ])
 
   for (const result of [projectsResult, delayedResult, dueTasksResult]) {

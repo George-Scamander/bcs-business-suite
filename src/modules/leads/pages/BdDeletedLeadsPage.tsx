@@ -13,6 +13,7 @@ export function BdDeletedLeadsPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { user, roles } = useAuth()
+  const backPath = roles.includes('super_admin') ? '/app/admin/leads/pool' : '/app/bd/leads'
 
   const [rows, setRows] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
@@ -127,7 +128,7 @@ export function BdDeletedLeadsPage() {
         })}
         extra={
           <Space>
-            <Button onClick={() => navigate('/app/bd/leads')}>
+            <Button onClick={() => navigate(backPath)}>
               {t('pages.bdDeletedLeads.backToList', { defaultValue: 'Back to Lead List' })}
             </Button>
             <Popconfirm

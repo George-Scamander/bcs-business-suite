@@ -38,6 +38,7 @@ export interface CreateLeadInput {
   created_by?: string
   updated_by?: string
   next_followup_at?: string
+  created_at?: string
 }
 
 export interface UpdateLeadInput extends Partial<CreateLeadInput> {
@@ -53,6 +54,12 @@ export interface ChangeLeadStatusInput {
   contractDate?: string
   contractValue?: number
   contractPackage?: IntentPackage
+}
+
+export interface DuplicateLeadCompanyRow {
+  id: string
+  lead_code: string
+  company_name: string
 }
 
 export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
@@ -158,6 +165,24 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
   return { id: leadId } as Lead
 }
 
+export async function findDuplicateLeadCompanies(companyName: string, excludeLeadId?: string): Promise<DuplicateLeadCompanyRow[]> {
+  const normalized = companyName.trim()
+  if (!normalized) {
+    return []
+  }
+
+  const result = await supabase.rpc('find_duplicate_lead_companies', {
+    p_company_name: normalized,
+    p_exclude_lead_id: excludeLeadId ?? null,
+  })
+
+  if (result.error) {
+    throw result.error
+  }
+
+  return (result.data ?? []) as DuplicateLeadCompanyRow[]
+}
+
 export async function updateLead(input: UpdateLeadInput): Promise<Lead> {
   const { id, ...data } = input
 
@@ -247,7 +272,9 @@ export async function hardDeleteLeads(leadIds: string[]): Promise<void> {
 }
 
 export async function restoreLead(leadId: string): Promise<void> {
-  const result = await supabase.from('leads').update({ deleted_at: null }).eq('id', leadId)
+  const result = await supabase.rpc('restore_deleted_lead', {
+    p_lead_id: leadId,
+  })
 
   if (result.error) {
     throw result.error
@@ -266,10 +293,17 @@ export async function restoreLeads(leadIds: string[]): Promise<void> {
     return
   }
 
-  const result = await supabase.from('leads').update({ deleted_at: null }).in('id', leadIds)
+  const result = await supabase.rpc('restore_deleted_leads_bulk', {
+    p_lead_ids: leadIds,
+  })
 
   if (result.error) {
     throw result.error
+  }
+
+  const restoredCount = Number(result.data ?? 0)
+  if (restoredCount !== leadIds.length) {
+    throw new Error(`Restore partially failed: restored ${restoredCount}/${leadIds.length} lead(s).`)
   }
 
   await recordOperationLog({

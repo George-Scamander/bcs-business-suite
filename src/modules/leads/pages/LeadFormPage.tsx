@@ -6,7 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { createLead, createLeadAttachment, getLeadById, softDeleteLead, updateLead } from '../api'
+import { createLead, createLeadAttachment, findDuplicateLeadCompanies, getLeadById, softDeleteLead, updateLead } from '../api'
 import { useAuth } from '../../auth/auth-context'
 import { uploadPrivateDocument } from '../../../lib/supabase/storage'
 import { listDictionaryItems, type DictionaryItem } from '../../shared/api/dictionary'
@@ -102,6 +102,11 @@ export function LeadFormPage() {
 
     return [{ label: selectedSource, value: selectedSource }, ...sourceOptions]
   }, [selectedSource, sourceOptions])
+
+  const intentLevelOptions = useMemo(
+    () => Array.from({ length: 6 }, (_, level) => ({ value: level, label: `H${level}` })),
+    [],
+  )
 
   const loadDictionary = useCallback(async () => {
     try {
@@ -240,6 +245,17 @@ export function LeadFormPage() {
         intent_level: values.intent_level,
         estimated_value: values.estimated_value,
         next_followup_at: values.next_followup_at ? values.next_followup_at.toISOString() : undefined,
+      }
+
+      const duplicates = await findDuplicateLeadCompanies(basePayload.company_name, leadId)
+      if (duplicates.length > 0) {
+        const existing = duplicates[0]
+        message.error(
+          t('pages.leadForm.duplicateCompanyBlocked', {
+            defaultValue: `Company name already exists: ${existing.company_name} (${existing.lead_code}).`,
+          }),
+        )
+        return
       }
 
       const noteValue = normalizeText(values.team_attention_note)
@@ -414,8 +430,11 @@ export function LeadFormPage() {
               />
             </Form.Item>
 
-            <Form.Item name="intent_level" label={t('pages.leadForm.intentLevel', { defaultValue: 'Intent Level (1-5)' })}>
-              <InputNumber min={1} max={5} className="w-full" />
+            <Form.Item name="intent_level" label={t('pages.leadForm.intentLevel', { defaultValue: 'Intent Level (H0-H5)' })}>
+              <Select
+                options={intentLevelOptions}
+                placeholder={t('pages.leadForm.intentLevelPlaceholder', { defaultValue: 'Select intent level' })}
+              />
             </Form.Item>
 
             <Form.Item name="estimated_value" label={t('pages.leadForm.estimatedContractValue', { defaultValue: 'Estimated Contract Value' })}>

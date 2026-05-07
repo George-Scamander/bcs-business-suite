@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Input, Popconfirm, Progress, Select, Space, Table, message } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -7,8 +7,17 @@ import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { PROJECT_STATUS_OPTIONS } from '../../../lib/business-constants'
 import { StatusTag } from '../../../components/common/StatusTag'
 import { useAuth } from '../../auth/auth-context'
-import { listProjects, markDelayedProjects, softDeleteProject, softDeleteProjects, type ProjectFilters } from '../api'
-import type { Project } from '../../../types/business'
+import { changeProjectStatus, listProjects, markDelayedProjects, softDeleteProject, softDeleteProjects, type ProjectFilters } from '../api'
+import type { Project, ProjectStatus } from '../../../types/business'
+
+const STATUS_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
+  NOT_STARTED: ['IN_PROGRESS', 'ON_HOLD', 'DELAYED'],
+  IN_PROGRESS: ['ON_HOLD', 'DELAYED', 'COMPLETED'],
+  ON_HOLD: ['IN_PROGRESS', 'DELAYED', 'CLOSED'],
+  DELAYED: ['IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CLOSED'],
+  COMPLETED: ['CLOSED'],
+  CLOSED: [],
+}
 
 export function PmProjectsListPage() {
   const navigate = useNavigate()
@@ -84,6 +93,54 @@ export function PmProjectsListPage() {
     }
   }
 
+  async function handleStatusChange(row: Project, nextStatus: ProjectStatus) {
+    if (nextStatus === row.status) {
+      return
+    }
+
+    let reason: string | undefined
+    if (nextStatus === 'DELAYED') {
+      const input = window.prompt(
+        t('pages.pmProjects.delayReasonPrompt', { defaultValue: 'Please enter delay reason' }),
+        row.delay_reason ?? '',
+      )
+      if (input === null) {
+        return
+      }
+
+      reason = input.trim()
+      if (!reason) {
+        message.warning(t('pages.pmProjects.delayReasonRequired', { defaultValue: 'Delay reason is required' }))
+        return
+      }
+    }
+
+    try {
+      await changeProjectStatus(row.id, nextStatus, reason)
+      message.success(t('pages.pmProjects.statusUpdateSuccess', { defaultValue: 'Project status updated' }))
+      await loadData()
+    } catch (error) {
+      const text = error instanceof Error ? error.message : t('pages.pmProjects.statusUpdateFail', { defaultValue: 'Failed to update status' })
+      message.error(text)
+    }
+  }
+
+  function getStatusOptionsForRow(status: ProjectStatus) {
+    const transitionTargets = STATUS_TRANSITIONS[status] ?? []
+    const values = [status, ...transitionTargets].filter((item, index, current) => current.indexOf(item) === index)
+    return values
+      .filter((value) => value !== 'COMPLETED')
+      .map((value) => ({
+        value,
+        label: t(`status.${value}`, { defaultValue: value }),
+      }))
+  }
+
+  const projectFilterStatusOptions = useMemo(
+    () => PROJECT_STATUS_OPTIONS.filter((item) => item.value !== 'COMPLETED'),
+    [],
+  )
+
   return (
     <>
       <PageTitleBar
@@ -94,7 +151,7 @@ export function PmProjectsListPage() {
         extra={
           <Space>
             <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
-            <Button onClick={() => navigate('/app/pm/projects/deleted')}>
+            <Button onClick={() => navigate('/app/recently-deleted')}>
               {t('pages.pmProjects.recentlyDeleted', { defaultValue: 'Recently Deleted' })}
             </Button>
             <Popconfirm
@@ -136,7 +193,7 @@ export function PmProjectsListPage() {
             allowClear
             placeholder={t('pages.pmProjects.statusPlaceholder', { defaultValue: 'Status' })}
             style={{ width: 220 }}
-            options={PROJECT_STATUS_OPTIONS}
+            options={projectFilterStatusOptions}
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
           />
@@ -171,7 +228,21 @@ export function PmProjectsListPage() {
             title: t('pages.pmProjects.columns.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
             width: 150,
-            render: (value: string) => <StatusTag value={value} />,
+            render: (value: ProjectStatus, row: Project) => {
+              if (value === 'COMPLETED' || value === 'CLOSED') {
+                return <StatusTag value={value} />
+              }
+
+              return (
+                <Select
+                  size="small"
+                  value={value}
+                  options={getStatusOptionsForRow(value)}
+                  onChange={(nextValue) => void handleStatusChange(row, nextValue as ProjectStatus)}
+                  style={{ width: '100%' }}
+                />
+              )
+            },
           },
           {
             title: t('pages.pmProjects.columns.progress', { defaultValue: 'Progress' }),
@@ -187,7 +258,7 @@ export function PmProjectsListPage() {
           },
           {
             title: t('pages.pmProjects.actions', { defaultValue: 'Actions' }),
-            width: 420,
+            width: 360,
             render: (_: unknown, row: Project) => (
               <Space wrap>
                 <Button size="small" onClick={() => navigate(`/app/pm/projects/${row.id}`)}>
@@ -201,9 +272,6 @@ export function PmProjectsListPage() {
                 </Button>
                 <Button size="small" onClick={() => navigate(`/app/pm/projects/${row.id}/members`)}>
                   {t('pages.pmProjects.actionMembers', { defaultValue: 'Members' })}
-                </Button>
-                <Button size="small" onClick={() => navigate(`/app/pm/projects/${row.id}/risks`)}>
-                  {t('pages.pmProjects.actionRisks', { defaultValue: 'Risks' })}
                 </Button>
                 <Button size="small" onClick={() => navigate(`/app/pm/projects/${row.id}/closure`)}>
                   {t('pages.pmProjects.actionClosure', { defaultValue: 'Closure' })}

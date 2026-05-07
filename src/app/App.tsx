@@ -22,9 +22,9 @@ import { NotificationsPage } from '../modules/shared/pages/NotificationsPage'
 import { OperationLogsPage } from '../modules/shared/pages/OperationLogsPage'
 import { PmDashboardPage } from '../modules/shared/pages/PmDashboardPage'
 import { ProfileSettingsPage } from '../modules/shared/pages/ProfileSettingsPage'
+import { RecentlyDeletedPage } from '../modules/shared/pages/RecentlyDeletedPage'
 import { UnauthorizedPage } from '../modules/shared/pages/UnauthorizedPage'
 import { BdLeadsListPage } from '../modules/leads/pages/BdLeadsListPage'
-import { BdDeletedLeadsPage } from '../modules/leads/pages/BdDeletedLeadsPage'
 import { LeadFormPage } from '../modules/leads/pages/LeadFormPage'
 import { LeadDetailPage } from '../modules/leads/pages/LeadDetailPage'
 import { LeadFollowupTimelinePage } from '../modules/leads/pages/LeadFollowupTimelinePage'
@@ -36,15 +36,14 @@ import { BdOnboardingDetailPage } from '../modules/onboarding/pages/BdOnboarding
 import { BdProjectDetailPage } from '../modules/projects/pages/BdProjectDetailPage'
 import { BdRelatedProjectsPage } from '../modules/projects/pages/BdRelatedProjectsPage'
 import { PmProjectsListPage } from '../modules/projects/pages/PmProjectsListPage'
-import { PmDeletedProjectsPage } from '../modules/projects/pages/PmDeletedProjectsPage'
 import { PmProjectCreatePage } from '../modules/projects/pages/PmProjectCreatePage'
 import { PmProjectDetailPage } from '../modules/projects/pages/PmProjectDetailPage'
 import { PmProjectProgressPage } from '../modules/projects/pages/PmProjectProgressPage'
 import { PmProjectTasksPage } from '../modules/projects/pages/PmProjectTasksPage'
 import { PmProjectMembersPage } from '../modules/projects/pages/PmProjectMembersPage'
-import { PmProjectRisksPage } from '../modules/projects/pages/PmProjectRisksPage'
 import { PmProjectClosurePage } from '../modules/projects/pages/PmProjectClosurePage'
 import { PmLeadImportPage } from '../modules/leads/pages/PmLeadImportPage'
+import { PmLeadPoolPage } from '../modules/leads/pages/PmLeadPoolPage'
 
 export default function App() {
   return (
@@ -83,6 +82,18 @@ export default function App() {
               }
             />
             <Route
+              path="recently-deleted"
+              element={
+                <RoleGuard allowRoles={['bd_user', 'project_manager', 'super_admin']}>
+                  <RecentlyDeletedPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/leads/deleted"
+              element={<Navigate to="/app/recently-deleted" replace />}
+            />
+            <Route
               path="admin/onboarding/review-center"
               element={
                 <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.ONBOARDING_REVIEW]}>
@@ -97,6 +108,10 @@ export default function App() {
                   <AdminProjectOverviewPage />
                 </RoleGuard>
               }
+            />
+            <Route
+              path="admin/projects/deleted"
+              element={<Navigate to="/app/recently-deleted" replace />}
             />
             <Route
               path="admin/reports/export"
@@ -149,11 +164,7 @@ export default function App() {
             />
             <Route
               path="bd/leads/deleted"
-              element={
-                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
-                  <BdDeletedLeadsPage />
-                </RoleGuard>
-              }
+              element={<Navigate to="/app/recently-deleted" replace />}
             />
             <Route
               path="bd/leads/:leadId/edit"
@@ -265,9 +276,16 @@ export default function App() {
             />
             <Route
               path="pm/projects/deleted"
+              element={<Navigate to="/app/recently-deleted" replace />}
+            />
+            <Route
+              path="pm/leads/pool"
               element={
-                <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_WRITE]}>
-                  <PmDeletedProjectsPage />
+                <RoleGuard
+                  allowRoles={['project_manager', 'super_admin']}
+                  requiredPermissions={[PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_WRITE]}
+                >
+                  <PmLeadPoolPage />
                 </RoleGuard>
               }
             />
@@ -317,14 +335,6 @@ export default function App() {
                   requiredPermissions={[PERMISSIONS.PROJECTS_MEMBER_MANAGE]}
                 >
                   <PmProjectMembersPage />
-                </RoleGuard>
-              }
-            />
-            <Route
-              path="pm/projects/:projectId/risks"
-              element={
-                <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_WRITE]}>
-                  <PmProjectRisksPage />
                 </RoleGuard>
               }
             />

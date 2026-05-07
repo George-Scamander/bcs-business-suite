@@ -33,6 +33,32 @@ interface DraftTask {
   progress: number
 }
 
+interface PersistedProjectFormValues {
+  onboarding_case_id?: string
+  name?: string
+  description?: string
+  bd_owner_id?: string
+  start_date?: string
+  target_end_date?: string
+}
+
+interface PersistedDraftTask {
+  key: string
+  title: string
+  description?: string
+  assignee_id?: string
+  start_date?: string
+  due_date?: string
+  priority: TaskPriority
+  status: TaskStatus
+  progress: number
+}
+
+interface PersistedProjectDraft {
+  form: PersistedProjectFormValues
+  tasks: PersistedDraftTask[]
+}
+
 interface SupabaseLikeError {
   message?: string
   code?: string
@@ -70,6 +96,64 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
+function buildDraftStorageKey(userId: string) {
+  return `pm-project-create-draft:${userId}`
+}
+
+function serializeFormValues(values: CreateProjectFormValues): PersistedProjectFormValues {
+  return {
+    onboarding_case_id: values.onboarding_case_id,
+    name: values.name,
+    description: values.description,
+    bd_owner_id: values.bd_owner_id,
+    start_date: values.start_date ? values.start_date.format('YYYY-MM-DD') : undefined,
+    target_end_date: values.target_end_date ? values.target_end_date.format('YYYY-MM-DD') : undefined,
+  }
+}
+
+function serializeTasks(tasks: DraftTask[]): PersistedDraftTask[] {
+  return tasks.map((task) => ({
+    key: task.key,
+    title: task.title,
+    description: task.description,
+    assignee_id: task.assignee_id,
+    start_date: task.start_date ? task.start_date.format('YYYY-MM-DD') : undefined,
+    due_date: task.due_date ? task.due_date.format('YYYY-MM-DD') : undefined,
+    priority: task.priority,
+    status: task.status,
+    progress: task.progress,
+  }))
+}
+
+function deserializeFormValues(values: PersistedProjectFormValues): Partial<CreateProjectFormValues> {
+  return {
+    onboarding_case_id: values.onboarding_case_id,
+    name: values.name,
+    description: values.description,
+    bd_owner_id: values.bd_owner_id,
+    start_date: values.start_date ? dayjs(values.start_date) : undefined,
+    target_end_date: values.target_end_date ? dayjs(values.target_end_date) : undefined,
+  }
+}
+
+function deserializeTasks(tasks: PersistedDraftTask[] | undefined): DraftTask[] {
+  if (!tasks || tasks.length === 0) {
+    return [buildEmptyTask(0)]
+  }
+
+  return tasks.map((task, index) => ({
+    key: task.key || `${Date.now()}-${index}`,
+    title: task.title ?? '',
+    description: task.description ?? '',
+    assignee_id: task.assignee_id,
+    start_date: task.start_date ? dayjs(task.start_date) : undefined,
+    due_date: task.due_date ? dayjs(task.due_date) : undefined,
+    priority: task.priority ?? 'MEDIUM',
+    status: task.status ?? 'TODO',
+    progress: Number.isFinite(task.progress) ? task.progress : 0,
+  }))
+}
+
 export function PmProjectCreatePage() {
   const [form] = Form.useForm<CreateProjectFormValues>()
   const navigate = useNavigate()
@@ -81,6 +165,8 @@ export function PmProjectCreatePage() {
   const [caseOptions, setCaseOptions] = useState<OnboardingCase[]>([])
   const [userOptions, setUserOptions] = useState<UserOption[]>([])
   const [tasks, setTasks] = useState<DraftTask[]>([buildEmptyTask(0)])
+  const [draftHydrated, setDraftHydrated] = useState(false)
+  const watchedFormValues = Form.useWatch([], form)
 
   const loadOptions = useCallback(async () => {
     if (!user) {
@@ -107,6 +193,45 @@ export function PmProjectCreatePage() {
   useEffect(() => {
     void loadOptions()
   }, [loadOptions])
+
+  useEffect(() => {
+    if (!user) {
+      return
+    }
+
+    const storageKey = buildDraftStorageKey(user.id)
+    const rawDraft = localStorage.getItem(storageKey)
+
+    if (!rawDraft) {
+      setDraftHydrated(true)
+      return
+    }
+
+    try {
+      const parsed = JSON.parse(rawDraft) as PersistedProjectDraft
+      form.setFieldsValue(deserializeFormValues(parsed.form ?? {}))
+      setTasks(deserializeTasks(parsed.tasks))
+    } catch (error) {
+      console.error('Failed to parse PM project create draft', error)
+      localStorage.removeItem(storageKey)
+      setTasks([buildEmptyTask(0)])
+    } finally {
+      setDraftHydrated(true)
+    }
+  }, [form, user])
+
+  useEffect(() => {
+    if (!user || !draftHydrated) {
+      return
+    }
+
+    const storageKey = buildDraftStorageKey(user.id)
+    const payload: PersistedProjectDraft = {
+      form: serializeFormValues((watchedFormValues ?? {}) as CreateProjectFormValues),
+      tasks: serializeTasks(tasks),
+    }
+    localStorage.setItem(storageKey, JSON.stringify(payload))
+  }, [draftHydrated, tasks, user, watchedFormValues])
 
   const caseSelectOptions = useMemo(() => {
     return caseOptions.map((item) => ({
@@ -195,6 +320,7 @@ export function PmProjectCreatePage() {
         })
       }
 
+      localStorage.removeItem(buildDraftStorageKey(user.id))
       message.success(t('pages.pmProjectCreate.createSuccess', { defaultValue: 'Project created successfully' }))
       navigate(`/app/pm/projects/${project.id}`)
     } catch (error) {

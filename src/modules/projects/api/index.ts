@@ -247,7 +247,9 @@ export async function hardDeleteProjects(projectIds: string[]): Promise<void> {
 }
 
 export async function restoreProject(projectId: string): Promise<void> {
-  const result = await supabase.from('projects').update({ deleted_at: null }).eq('id', projectId)
+  const result = await supabase.rpc('restore_deleted_project', {
+    p_project_id: projectId,
+  })
 
   if (result.error) {
     throw result.error
@@ -266,10 +268,17 @@ export async function restoreProjects(projectIds: string[]): Promise<void> {
     return
   }
 
-  const result = await supabase.from('projects').update({ deleted_at: null }).in('id', projectIds)
+  const result = await supabase.rpc('restore_deleted_projects_bulk', {
+    p_project_ids: projectIds,
+  })
 
   if (result.error) {
     throw result.error
+  }
+
+  const restoredCount = Number(result.data ?? 0)
+  if (restoredCount !== projectIds.length) {
+    throw new Error(`Restore partially failed: restored ${restoredCount}/${projectIds.length} project(s).`)
   }
 
   await recordOperationLog({
@@ -444,6 +453,14 @@ export async function upsertProjectTask(input: {
   dueDate?: string
   progress?: number
 }): Promise<ProjectTask> {
+  const normalizedProgressBase = Math.max(0, Math.min(100, Number(input.progress ?? 0)))
+  const normalizedProgress =
+    (input.status ?? 'TODO') === 'DONE'
+      ? 100
+      : normalizedProgressBase >= 100
+        ? 99
+        : normalizedProgressBase
+
   const payload = {
     project_id: input.projectId,
     milestone_id: input.milestoneId ?? null,
@@ -454,8 +471,8 @@ export async function upsertProjectTask(input: {
     assignee_id: input.assigneeId ?? null,
     start_date: input.startDate ?? null,
     due_date: input.dueDate ?? null,
-    progress: input.progress ?? 0,
-    completed_at: input.status === 'DONE' ? new Date().toISOString() : null,
+    progress: normalizedProgress,
+    completed_at: (input.status ?? 'TODO') === 'DONE' ? new Date().toISOString() : null,
   }
 
   if (input.id) {

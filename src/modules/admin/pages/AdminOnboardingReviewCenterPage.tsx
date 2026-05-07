@@ -99,7 +99,7 @@ export function AdminOnboardingReviewCenterPage() {
         })
       }
 
-      message.success(t('page.onboardingReview.reviewSubmitted', { defaultValue: 'Review decision submitted' }))
+      message.success(t('pages.adminOnboardingReview.reviewSubmitted', { defaultValue: 'Review decision submitted' }))
       await loadData()
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Failed to submit review decision'
@@ -120,18 +120,18 @@ export function AdminOnboardingReviewCenterPage() {
   return (
     <>
       <PageTitleBar
-        title={t('page.onboardingReview.title', { defaultValue: 'Onboarding Review Center' })}
-        description={t('page.onboardingReview.desc', {
+        title={t('pages.adminOnboardingReview.title', { defaultValue: 'Onboarding Review Center' })}
+        description={t('pages.adminOnboardingReview.description', {
           defaultValue: 'Central queue for compliance checks, document approval decisions, and revision control.',
         })}
-        extra={<Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
+        extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
         <Space wrap>
           <Select
             allowClear
-            placeholder={t('page.common.status', { defaultValue: 'Status' })}
+            placeholder={t('pages.adminOnboardingReview.statusPlaceholder', { defaultValue: 'Status' })}
             style={{ width: 220 }}
             options={getOnboardingStatusOptions(t)}
             value={filters.status}
@@ -139,14 +139,14 @@ export function AdminOnboardingReviewCenterPage() {
           />
           <Input.Search
             allowClear
-            placeholder={t('page.onboardingReview.caseKeyword', { defaultValue: 'Case no.' })}
+            placeholder={t('pages.adminOnboardingReview.caseKeyword', { defaultValue: 'Case no.' })}
             style={{ width: 280 }}
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             onSearch={() => void loadData()}
           />
           <Button type="primary" onClick={() => void loadData()}>
-            {t('page.common.apply', { defaultValue: 'Apply' })}
+            {t('labels.apply', { defaultValue: 'Apply' })}
           </Button>
         </Space>
       </div>
@@ -158,15 +158,15 @@ export function AdminOnboardingReviewCenterPage() {
         dataSource={rows}
         pagination={{ pageSize: 12 }}
         columns={[
-          { title: t('page.admin.caseNo', { defaultValue: 'Case No' }), dataIndex: 'case_no', width: 190 },
+          { title: t('pages.adminOnboardingReview.columns.caseNo', { defaultValue: 'Case No' }), dataIndex: 'case_no', width: 190 },
           {
-            title: t('page.common.status', { defaultValue: 'Status' }),
+            title: t('pages.adminOnboardingReview.columns.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
             width: 160,
             render: (value: string) => <StatusTag value={value} />,
           },
           {
-            title: t('page.onboardingReview.pendingDocs', { defaultValue: 'Pending Docs' }),
+            title: t('pages.adminOnboardingReview.columns.pendingDocs', { defaultValue: 'Pending Docs' }),
             key: 'pending_docs',
             width: 130,
             render: (_: unknown, row: OnboardingCase) => {
@@ -176,20 +176,20 @@ export function AdminOnboardingReviewCenterPage() {
             },
           },
           {
-            title: t('page.admin.slaDue', { defaultValue: 'SLA Due' }),
+            title: t('pages.adminOnboardingReview.columns.slaDue', { defaultValue: 'SLA Due' }),
             dataIndex: 'sla_due_at',
             width: 190,
             render: (value: string | null) => (value ? new Date(value).toLocaleString() : '-'),
           },
           {
-            title: t('page.common.actions', { defaultValue: 'Actions' }),
+            title: t('pages.adminOnboardingReview.columns.actions', { defaultValue: 'Actions' }),
             width: 120,
             render: (_: unknown, row: OnboardingCase) => (
               <Button size="small" onClick={() => {
                 setSelectedCase(row)
                 setDrawerOpen(true)
               }}>
-                {t('page.onboardingReview.review', { defaultValue: 'Review' })}
+                {t('pages.adminOnboardingReview.review', { defaultValue: 'Review' })}
               </Button>
             ),
           },
@@ -199,8 +199,8 @@ export function AdminOnboardingReviewCenterPage() {
       <Drawer
         title={
           selectedCase
-            ? `${t('page.onboardingReview.reviewCase', { defaultValue: 'Review Case' })} ${selectedCase.case_no}`
-            : t('page.onboardingReview.reviewCase', { defaultValue: 'Review Case' })
+            ? `${t('pages.adminOnboardingReview.reviewCase', { defaultValue: 'Review Case' })} ${selectedCase.case_no}`
+            : t('pages.adminOnboardingReview.reviewCase', { defaultValue: 'Review Case' })
         }
         open={drawerOpen}
         width={760}
@@ -216,20 +216,20 @@ export function AdminOnboardingReviewCenterPage() {
           dataSource={selectedDocs}
           pagination={{ pageSize: 8 }}
           columns={[
-            { title: t('page.onboardingReview.documentType', { defaultValue: 'Document Type' }), dataIndex: 'doc_type' },
+            { title: t('pages.adminOnboardingReview.columns.documentType', { defaultValue: 'Document Type' }), dataIndex: 'doc_type' },
             {
-              title: t('page.files.fileName', { defaultValue: 'File Name' }),
+              title: t('pages.adminOnboardingReview.columns.fileName', { defaultValue: 'File Name' }),
               dataIndex: 'file_name',
               render: (value: string | null) => value ?? '-',
             },
             {
-              title: t('page.onboardingReview.reviewStatus', { defaultValue: 'Review Status' }),
+              title: t('pages.adminOnboardingReview.columns.reviewStatus', { defaultValue: 'Review Status' }),
               dataIndex: 'review_status',
               width: 160,
               render: (value: string) => <StatusTag value={value} />,
             },
             {
-              title: t('page.common.actions', { defaultValue: 'Actions' }),
+              title: t('pages.adminOnboardingReview.columns.actions', { defaultValue: 'Actions' }),
               width: 260,
               render: (_: unknown, row: OnboardingDocument) => (
                 <Space>
@@ -238,20 +238,20 @@ export function AdminOnboardingReviewCenterPage() {
                     type="primary"
                     onClick={() => void handleDocumentReview(row.id, row.onboarding_case_id, 'APPROVED')}
                   >
-                    {t('page.onboardingReview.approve', { defaultValue: 'Approve' })}
+                    {t('pages.adminOnboardingReview.approve', { defaultValue: 'Approve' })}
                   </Button>
                   <Button
                     size="small"
                     onClick={() => void handleDocumentReview(row.id, row.onboarding_case_id, 'REVISION_REQUIRED')}
                   >
-                    {t('page.onboardingReview.revise', { defaultValue: 'Revise' })}
+                    {t('pages.adminOnboardingReview.revise', { defaultValue: 'Revise' })}
                   </Button>
                   <Button
                     size="small"
                     danger
                     onClick={() => void handleDocumentReview(row.id, row.onboarding_case_id, 'REJECTED')}
                   >
-                    {t('page.onboardingReview.reject', { defaultValue: 'Reject' })}
+                    {t('pages.adminOnboardingReview.reject', { defaultValue: 'Reject' })}
                   </Button>
                 </Space>
               ),

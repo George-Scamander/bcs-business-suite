@@ -13,6 +13,7 @@ export function PmDeletedProjectsPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { user, roles } = useAuth()
+  const backPath = roles.includes('super_admin') ? '/app/admin/projects/overview' : '/app/pm/projects'
 
   const [rows, setRows] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
@@ -129,7 +130,7 @@ export function PmDeletedProjectsPage() {
         })}
         extra={
           <Space>
-            <Button onClick={() => navigate('/app/pm/projects')}>
+            <Button onClick={() => navigate(backPath)}>
               {t('pages.pmDeletedProjects.backToList', { defaultValue: 'Back to Project List' })}
             </Button>
             <Popconfirm

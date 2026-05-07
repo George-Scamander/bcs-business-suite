@@ -9,10 +9,11 @@ import { StatusTag } from '../../../components/common/StatusTag'
 import {
   getProjectById,
   listProjectMilestones,
+  listProjectTasks,
   refreshProjectProgress,
   upsertProjectMilestone,
 } from '../api'
-import type { Project, ProjectMilestone } from '../../../types/business'
+import type { Project, ProjectMilestone, ProjectTask } from '../../../types/business'
 
 interface MilestoneFormValues {
   title: string
@@ -31,6 +32,7 @@ export function PmProjectProgressPage() {
   const [saving, setSaving] = useState(false)
   const [project, setProject] = useState<Project | null>(null)
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([])
+  const [tasks, setTasks] = useState<ProjectTask[]>([])
 
   const loadData = useCallback(async () => {
     if (!projectId) {
@@ -41,9 +43,14 @@ export function PmProjectProgressPage() {
 
     try {
       await refreshProjectProgress(projectId)
-      const [projectRow, milestoneRows] = await Promise.all([getProjectById(projectId), listProjectMilestones(projectId)])
+      const [projectRow, milestoneRows, taskRows] = await Promise.all([
+        getProjectById(projectId),
+        listProjectMilestones(projectId),
+        listProjectTasks(projectId),
+      ])
       setProject(projectRow)
       setMilestones(milestoneRows)
+      setTasks(taskRows)
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Failed to load progress data'
       message.error(text)
@@ -98,6 +105,9 @@ export function PmProjectProgressPage() {
           <Space>
             <Button onClick={() => navigate(`/app/pm/projects/${projectId}`)}>
               {t('page.common.backToDetail', { defaultValue: 'Back to Detail' })}
+            </Button>
+            <Button onClick={() => navigate(`/app/pm/projects/${projectId}/tasks`)}>
+              {t('page.projectTasks.title', { defaultValue: 'Task Management' })}
             </Button>
             <Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
           </Space>
@@ -174,6 +184,32 @@ export function PmProjectProgressPage() {
           />
         </Card>
       </div>
+
+      <Card className="mt-5" title={t('pages.pmProjects.actionProgress', { defaultValue: 'Progress' })}>
+        <Table
+          rowKey="id"
+          size="small"
+          pagination={false}
+          dataSource={tasks}
+          locale={{ emptyText: t('page.projectTasks.noTaskYet', { defaultValue: 'No task yet' }) }}
+          columns={[
+            { title: t('page.projectTasks.task', { defaultValue: 'Task' }), dataIndex: 'title' },
+            {
+              title: t('page.common.status', { defaultValue: 'Status' }),
+              dataIndex: 'status',
+              width: 130,
+              render: (value: string) => <StatusTag value={value} />,
+            },
+            {
+              title: t('page.projectTasks.progress', { defaultValue: 'Progress (%)' }),
+              dataIndex: 'progress',
+              width: 120,
+              render: (value: number | null) => `${Number(value ?? 0).toFixed(0)}%`,
+            },
+            { title: t('page.projectTasks.dueDate', { defaultValue: 'Due Date' }), dataIndex: 'due_date', width: 130, render: (value: string | null) => value ?? '-' },
+          ]}
+        />
+      </Card>
     </>
   )
 }

@@ -72,7 +72,7 @@ export function UserRoleManagementPage() {
     const roleId = selectedRoleByUser[userId]
 
     if (!roleId) {
-      message.warning(t('page.common.selectRoleFirst', { defaultValue: 'Please select a role first.' }))
+      message.warning(t('pages.userRoles.selectRoleFirst', { defaultValue: 'Please select a role first.' }))
       return
     }
 
@@ -96,7 +96,7 @@ export function UserRoleManagementPage() {
       },
     })
 
-    message.success(t('page.common.roleAssigned', { defaultValue: 'Role assigned' }))
+    message.success(t('pages.userRoles.roleAssigned', { defaultValue: 'Role assigned' }))
     await loadData()
   }
 
@@ -123,7 +123,7 @@ export function UserRoleManagementPage() {
       },
     })
 
-    message.success(t('page.common.roleRevoked', { defaultValue: 'Role revoked' }))
+    message.success(t('pages.userRoles.roleRevoked', { defaultValue: 'Role revoked' }))
     await loadData()
   }
 
@@ -138,11 +138,11 @@ export function UserRoleManagementPage() {
   return (
     <>
       <PageTitleBar
-        title={t('page.usersRoles.title', { defaultValue: 'User & Role Management' })}
-        description={t('page.usersRoles.desc', {
+        title={t('pages.userRoles.title', { defaultValue: 'User & Role Management' })}
+        description={t('pages.userRoles.description', {
           defaultValue: 'Assign or revoke role access for internal users with full audit logging.',
         })}
-        extra={<Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
+        extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <Table
@@ -153,39 +153,39 @@ export function UserRoleManagementPage() {
         pagination={{ pageSize: 10 }}
         columns={[
           {
-            title: t('page.common.user', { defaultValue: 'User' }),
+            title: t('pages.userRoles.columns.user', { defaultValue: 'User' }),
             key: 'user',
             render: (_: unknown, row: UserWithRoles) => row.full_name ?? row.email,
           },
           {
-            title: t('page.common.email', { defaultValue: 'Email' }),
+            title: t('pages.userRoles.columns.email', { defaultValue: 'Email' }),
             dataIndex: 'email',
           },
           {
-            title: t('page.common.status', { defaultValue: 'Status' }),
+            title: t('pages.userRoles.columns.status', { defaultValue: 'Status' }),
             dataIndex: 'is_active',
             render: (value: boolean) => (
               <Tag color={value ? 'green' : 'red'}>
                 {value
-                  ? t('page.common.active', { defaultValue: 'Active' })
-                  : t('page.common.disabled', { defaultValue: 'Disabled' })}
+                  ? t('pages.userRoles.active', { defaultValue: 'Active' })
+                  : t('pages.userRoles.disabled', { defaultValue: 'Disabled' })}
               </Tag>
             ),
           },
           {
-            title: t('page.usersRoles.currentRoles', { defaultValue: 'Current Roles' }),
+            title: t('pages.userRoles.columns.currentRoles', { defaultValue: 'Current Roles' }),
             dataIndex: 'user_role_relations',
             render: (relations: UserWithRoles['user_role_relations'], row: UserWithRoles) => (
               <Space wrap>
-                {relations.length === 0 ? <Tag>{t('page.common.none', { defaultValue: 'None' })}</Tag> : null}
+                {relations.length === 0 ? <Tag>{t('pages.userRoles.none', { defaultValue: 'None' })}</Tag> : null}
                 {relations.map((relation) => {
                   const roleCode = relation.role?.code ?? 'bd_user'
                   return (
                     <Popconfirm
                       key={relation.id}
-                      title={t('page.common.revokeRoleConfirm', { defaultValue: 'Revoke this role?' })}
-                      okText={t('page.usersRoles.revoke', { defaultValue: 'Revoke' })}
-                      cancelText={t('page.usersRoles.cancel', { defaultValue: 'Cancel' })}
+                      title={t('pages.userRoles.revokeRoleConfirm', { defaultValue: 'Revoke this role?' })}
+                      okText={t('pages.userRoles.revoke', { defaultValue: 'Revoke' })}
+                      cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
                       onConfirm={() => void revokeRole(row.id, relation.role_id, roleCode)}
                     >
                       <Tag color="blue" className="cursor-pointer hover:opacity-80">
@@ -198,13 +198,13 @@ export function UserRoleManagementPage() {
             ),
           },
           {
-            title: t('page.common.assignRole', { defaultValue: 'Assign Role' }),
+            title: t('pages.userRoles.columns.assignRole', { defaultValue: 'Assign Role' }),
             key: 'assign',
             width: 320,
             render: (_: unknown, row: UserWithRoles) => (
               <Space>
                 <Select
-                  placeholder={t('page.usersRoles.selectRole', { defaultValue: 'Select role' })}
+                  placeholder={t('pages.userRoles.selectRole', { defaultValue: 'Select role' })}
                   style={{ width: 180 }}
                   options={roleOptions}
                   value={selectedRoleByUser[row.id]}
@@ -216,7 +216,7 @@ export function UserRoleManagementPage() {
                   }
                 />
                 <Button type="primary" onClick={() => void assignRole(row.id)}>
-                  {t('page.common.assign', { defaultValue: 'Assign' })}
+                  {t('pages.userRoles.assign', { defaultValue: 'Assign' })}
                 </Button>
               </Space>
             ),

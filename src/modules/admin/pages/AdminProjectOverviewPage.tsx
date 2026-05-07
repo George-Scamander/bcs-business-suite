@@ -61,16 +61,16 @@ export function AdminProjectOverviewPage() {
   return (
     <>
       <PageTitleBar
-        title={t('page.projectOverview.title', { defaultValue: 'Project Overview' })}
-        description={t('page.projectOverview.desc', {
+        title={t('pages.adminProjectOverview.title', { defaultValue: 'Project Overview' })}
+        description={t('pages.adminProjectOverview.description', {
           defaultValue: 'Global execution visibility across all active and closed implementation projects.',
         })}
-        extra={<Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>}
+        extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
       <Row gutter={[16, 16]} className="mb-5">
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('page.admin.totalProjects', { defaultValue: 'Total Projects' })} value={metrics.total} />
+          <MetricCard title={t('pages.adminProjectOverview.metrics.totalProjects', { defaultValue: 'Total Projects' })} value={metrics.total} />
         </Col>
         <Col xs={24} md={12} xl={4}>
           <MetricCard title={t('status.IN_PROGRESS', { defaultValue: 'In Progress' })} value={metrics.inProgress} />
@@ -79,10 +79,10 @@ export function AdminProjectOverviewPage() {
           <MetricCard title={t('status.DELAYED', { defaultValue: 'Delayed' })} value={metrics.delayed} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('page.projectOverview.completedClosed', { defaultValue: 'Completed/Closed' })} value={metrics.completed} />
+          <MetricCard title={t('pages.adminProjectOverview.metrics.completedClosed', { defaultValue: 'Completed/Closed' })} value={metrics.completed} />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('page.pm.avgCompletion', { defaultValue: 'Avg Completion' })} value={metrics.avgCompletion} suffix="%" />
+          <MetricCard title={t('pages.adminProjectOverview.metrics.avgCompletion', { defaultValue: 'Avg Completion' })} value={metrics.avgCompletion} suffix="%" />
         </Col>
       </Row>
 
@@ -90,7 +90,7 @@ export function AdminProjectOverviewPage() {
         <Space wrap>
           <Select
             allowClear
-            placeholder={t('page.common.status', { defaultValue: 'Status' })}
+            placeholder={t('pages.adminProjectOverview.statusPlaceholder', { defaultValue: 'Status' })}
             style={{ width: 220 }}
             options={getProjectStatusOptions(t)}
             value={filters.status}
@@ -98,14 +98,14 @@ export function AdminProjectOverviewPage() {
           />
           <Input.Search
             allowClear
-            placeholder={t('page.projectOverview.keywordPlaceholder', { defaultValue: 'Project keyword' })}
+            placeholder={t('pages.adminProjectOverview.keywordPlaceholder', { defaultValue: 'Project keyword' })}
             style={{ width: 280 }}
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             onSearch={() => void loadData()}
           />
           <Button type="primary" onClick={() => void loadData()}>
-            {t('page.common.apply', { defaultValue: 'Apply' })}
+            {t('labels.apply', { defaultValue: 'Apply' })}
           </Button>
         </Space>
       </div>
@@ -117,32 +117,32 @@ export function AdminProjectOverviewPage() {
         dataSource={rows}
         pagination={{ pageSize: 12 }}
         columns={[
-          { title: t('page.pm.projectCode', { defaultValue: 'Project Code' }), dataIndex: 'project_code', width: 170 },
-          { title: t('page.pm.projectName', { defaultValue: 'Name' }), dataIndex: 'name' },
+          { title: t('pages.adminProjectOverview.columns.projectCode', { defaultValue: 'Project Code' }), dataIndex: 'project_code', width: 170 },
+          { title: t('pages.adminProjectOverview.columns.projectName', { defaultValue: 'Name' }), dataIndex: 'name' },
           {
-            title: t('page.common.status', { defaultValue: 'Status' }),
+            title: t('pages.adminProjectOverview.columns.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
             width: 150,
             render: (value: string) => <StatusTag value={value} />,
           },
           {
-            title: t('page.projectOverview.completion', { defaultValue: 'Completion' }),
+            title: t('pages.adminProjectOverview.columns.completion', { defaultValue: 'Completion' }),
             dataIndex: 'completion_rate',
             width: 220,
             render: (value: number) => <Progress percent={Number(Number(value ?? 0).toFixed(1))} size="small" />,
           },
           {
-            title: t('page.projectOverview.targetEnd', { defaultValue: 'Target End' }),
+            title: t('pages.adminProjectOverview.columns.targetEnd', { defaultValue: 'Target End' }),
             dataIndex: 'target_end_date',
             width: 130,
             render: (value: string | null) => value ?? '-',
           },
           {
-            title: t('page.common.actions', { defaultValue: 'Actions' }),
+            title: t('pages.adminProjectOverview.columns.actions', { defaultValue: 'Actions' }),
             width: 120,
             render: (_: unknown, row: Project) => (
               <Button size="small" onClick={() => navigate(`/app/pm/projects/${row.id}`)}>
-                {t('page.projectOverview.open', { defaultValue: 'Open' })}
+                {t('pages.adminProjectOverview.open', { defaultValue: 'Open' })}
               </Button>
             ),
           },
