@@ -19,6 +19,7 @@ import {
   SettingOutlined,
   PlusSquareOutlined,
   SolutionOutlined,
+  ShoppingOutlined,
   TeamOutlined,
   UnorderedListOutlined,
   UserOutlined,
@@ -28,7 +29,7 @@ import { message } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
-import { APP_NAME, NAV_ITEMS_BY_ROLE, ROLE_LABELS, SUPPORTED_LOCALES } from '../../lib/constants'
+import { APP_NAME, APP_VERSION, NAV_ITEMS_BY_ROLE, ROLE_LABELS, SUPPORTED_LOCALES } from '../../lib/constants'
 import type { LocaleCode, RoleCode } from '../../types/rbac'
 import { useAuth } from '../../modules/auth/auth-context'
 import { supabase } from '../../lib/supabase/client'
@@ -37,6 +38,7 @@ import {
   RELEASE_ANNOUNCEMENT_ID,
   RELEASE_ANNOUNCEMENT_TYPE,
   getReleaseAnnouncementContent,
+  getReleaseAnnouncementNotificationContent,
 } from '../../modules/shared/release-announcement'
 import i18n from '../../lib/i18n'
 
@@ -46,6 +48,7 @@ const iconMap: Record<string, React.ReactNode> = {
   'admin-dashboard': <DashboardOutlined />,
   'users-roles': <TeamOutlined />,
   'lead-pool': <UnorderedListOutlined />,
+  'admin-onboard-merchants': <ContainerOutlined />,
   'onboarding-review': <ReconciliationOutlined />,
   'project-overview': <DeploymentUnitOutlined />,
   'recently-deleted': <DeleteOutlined />,
@@ -58,11 +61,14 @@ const iconMap: Record<string, React.ReactNode> = {
   'bd-dashboard': <HomeOutlined />,
   'bd-leads': <UnorderedListOutlined />,
   'bd-new-lead': <SolutionOutlined />,
+  'bd-sales-new': <ShoppingOutlined />,
   'bd-onboarding': <ContainerOutlined />,
   'bd-projects': <BranchesOutlined />,
   'pm-dashboard': <DashboardOutlined />,
   'pm-lead-pool': <UnorderedListOutlined />,
   'pm-projects': <BranchesOutlined />,
+  'pm-onboard-merchants': <ContainerOutlined />,
+  'sales-supervision': <LineChartOutlined />,
   'pm-new-project': <PlusSquareOutlined />,
   'pm-leads-import': <CloudUploadOutlined />,
 }
@@ -150,6 +156,7 @@ export function AppLayout() {
 
     async function ensureAndShowAnnouncement() {
       const localizedAnnouncement = getReleaseAnnouncementContent(currentProfile.locale)
+      const notificationAnnouncement = getReleaseAnnouncementNotificationContent()
 
       const existingResult = await supabase
         .from('notifications')
@@ -178,8 +185,8 @@ export function AppLayout() {
           .insert({
             user_id: currentUser.id,
             type: RELEASE_ANNOUNCEMENT_TYPE,
-            title: localizedAnnouncement.title,
-            body: localizedAnnouncement.body,
+            title: notificationAnnouncement.title,
+            body: notificationAnnouncement.body,
             entity_type: RELEASE_ANNOUNCEMENT_ENTITY_TYPE,
             entity_id: RELEASE_ANNOUNCEMENT_ID,
             is_read: false,
@@ -204,8 +211,8 @@ export function AppLayout() {
 
       if (!notificationRow.is_read) {
         setAnnouncementNotificationId(notificationRow.id)
-        setAnnouncementTitle(notificationRow.title || localizedAnnouncement.title)
-        setAnnouncementBody(notificationRow.body || localizedAnnouncement.body)
+        setAnnouncementTitle(localizedAnnouncement.title)
+        setAnnouncementBody(localizedAnnouncement.body)
         setAnnouncementOpen(true)
       }
     }
@@ -276,9 +283,14 @@ export function AppLayout() {
             <Typography.Title level={4} className="mb-1">
               {t('common.appName', { defaultValue: APP_NAME })}
             </Typography.Title>
-            <Tag color="red" className="m-0">
-              {t(`role.${primaryRole}`, { defaultValue: ROLE_LABELS[primaryRole] })}
-            </Tag>
+            <Space size={8} align="center">
+              <Tag color="red" className="m-0">
+                {t(`role.${primaryRole}`, { defaultValue: ROLE_LABELS[primaryRole] })}
+              </Tag>
+              <Typography.Text type="secondary" className="text-xs">
+                {APP_VERSION}
+              </Typography.Text>
+            </Space>
           </div>
           {sideMenu}
         </Sider>

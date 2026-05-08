@@ -6,11 +6,18 @@ import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { StatusTag } from '../../../components/common/StatusTag'
 import { useAuth } from '../../auth/auth-context'
 import { PERMISSIONS } from '../../../lib/permissions'
-import type { Lead, Project } from '../../../types/business'
+import type { Lead, OnboardMerchant, OnboardMerchantType, Project } from '../../../types/business'
 import { hardDeleteLead, hardDeleteLeads, listDeletedLeads, restoreLead, restoreLeads } from '../../leads/api'
 import { hardDeleteProject, hardDeleteProjects, listDeletedProjects, restoreProject, restoreProjects } from '../../projects/api'
+import {
+  hardDeleteOnboardMerchant,
+  hardDeleteOnboardMerchants,
+  listDeletedOnboardMerchants,
+  restoreOnboardMerchant,
+  restoreOnboardMerchants,
+} from '../../onboarding/api'
 
-type DeletedTabKey = 'leads' | 'projects'
+type DeletedTabKey = 'leads' | 'projects' | 'merchants'
 
 function resolveErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) {
@@ -34,6 +41,7 @@ export function RecentlyDeletedPage() {
 
   const canManageDeletedLeads = hasPermission(PERMISSIONS.LEADS_READ) && hasPermission(PERMISSIONS.LEADS_WRITE)
   const canManageDeletedProjects = hasPermission(PERMISSIONS.PROJECTS_READ) && hasPermission(PERMISSIONS.PROJECTS_WRITE)
+  const canManageDeletedMerchants = hasPermission(PERMISSIONS.ONBOARDING_READ) && hasPermission(PERMISSIONS.ONBOARDING_WRITE)
 
   const availableTabs = useMemo<DeletedTabKey[]>(() => {
     const tabs: DeletedTabKey[] = []
@@ -43,8 +51,11 @@ export function RecentlyDeletedPage() {
     if (canManageDeletedProjects) {
       tabs.push('projects')
     }
+    if (canManageDeletedMerchants) {
+      tabs.push('merchants')
+    }
     return tabs
-  }, [canManageDeletedLeads, canManageDeletedProjects])
+  }, [canManageDeletedLeads, canManageDeletedProjects, canManageDeletedMerchants])
 
   const [activeTab, setActiveTab] = useState<DeletedTabKey>(availableTabs[0] ?? 'leads')
   const [keyword, setKeyword] = useState('')
@@ -56,6 +67,9 @@ export function RecentlyDeletedPage() {
   const [projectRows, setProjectRows] = useState<Project[]>([])
   const [projectLoading, setProjectLoading] = useState(false)
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
+  const [merchantRows, setMerchantRows] = useState<OnboardMerchant[]>([])
+  const [merchantLoading, setMerchantLoading] = useState(false)
+  const [selectedMerchantIds, setSelectedMerchantIds] = useState<string[]>([])
 
   useEffect(() => {
     if (availableTabs.length === 0) {
@@ -111,13 +125,39 @@ export function RecentlyDeletedPage() {
     }
   }, [canManageDeletedProjects, isSuperAdmin, keyword, roles, t, user])
 
+  const loadDeletedMerchants = useCallback(async () => {
+    if (!user || !canManageDeletedMerchants) {
+      return
+    }
+
+    setMerchantLoading(true)
+    try {
+      const bdOwnerId = !isSuperAdmin && roles.includes('bd_user') ? user.id : undefined
+      const rows = await listDeletedOnboardMerchants({
+        keyword: keyword.trim() || undefined,
+        bdOwnerId,
+      })
+      setMerchantRows(rows)
+      setSelectedMerchantIds([])
+    } catch (error) {
+      const text = resolveErrorMessage(error, t('pages.onboardMerchantDeleted.loadFail', { defaultValue: 'Failed to load deleted onboard merchants' }))
+      message.error(text)
+    } finally {
+      setMerchantLoading(false)
+    }
+  }, [canManageDeletedMerchants, isSuperAdmin, keyword, roles, t, user])
+
   const loadCurrentTab = useCallback(async () => {
     if (activeTab === 'leads') {
       await loadDeletedLeads()
       return
     }
-    await loadDeletedProjects()
-  }, [activeTab, loadDeletedLeads, loadDeletedProjects])
+    if (activeTab === 'projects') {
+      await loadDeletedProjects()
+      return
+    }
+    await loadDeletedMerchants()
+  }, [activeTab, loadDeletedLeads, loadDeletedProjects, loadDeletedMerchants])
 
   useEffect(() => {
     void loadCurrentTab()
@@ -233,9 +273,68 @@ export function RecentlyDeletedPage() {
     }
   }
 
+  async function handleMerchantRestore(ids: string[]) {
+    if (ids.length === 0) {
+      message.warning(t('pages.onboardMerchantDeleted.selectWarning', { defaultValue: 'Please select at least one merchant' }))
+      return
+    }
+
+    try {
+      if (ids.length === 1) {
+        await restoreOnboardMerchant(ids[0])
+        message.success(t('pages.onboardMerchantDeleted.restoreSuccess', { defaultValue: 'Merchant restored' }))
+      } else {
+        await restoreOnboardMerchants(ids)
+        message.success(
+          t('pages.onboardMerchantDeleted.batchRestoreSuccess', {
+            defaultValue: 'Restored {{count}} merchant(s)',
+            count: ids.length,
+          }),
+        )
+      }
+      await loadDeletedMerchants()
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.onboardMerchantDeleted.restoreFail', { defaultValue: 'Failed to restore merchant' })
+      message.error(text)
+    }
+  }
+
+  async function handleMerchantPermanentDelete(ids: string[]) {
+    if (ids.length === 0) {
+      message.warning(t('pages.onboardMerchantDeleted.selectWarning', { defaultValue: 'Please select at least one merchant' }))
+      return
+    }
+
+    try {
+      if (ids.length === 1) {
+        await hardDeleteOnboardMerchant(ids[0])
+        message.success(t('pages.onboardMerchantDeleted.permanentDeleteSuccess', { defaultValue: 'Merchant permanently deleted' }))
+      } else {
+        await hardDeleteOnboardMerchants(ids)
+        message.success(
+          t('pages.onboardMerchantDeleted.batchPermanentDeleteSuccess', {
+            defaultValue: 'Permanently deleted {{count}} merchant(s)',
+            count: ids.length,
+          }),
+        )
+      }
+      await loadDeletedMerchants()
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.onboardMerchantDeleted.permanentDeleteFail', { defaultValue: 'Failed to permanently delete merchant' })
+      message.error(text)
+    }
+  }
+
   const isLeadTab = activeTab === 'leads'
-  const currentRowsCount = isLeadTab ? leadRows.length : projectRows.length
-  const selectedCount = isLeadTab ? selectedLeadIds.length : selectedProjectIds.length
+  const isProjectTab = activeTab === 'projects'
+  const currentRowsCount = isLeadTab ? leadRows.length : isProjectTab ? projectRows.length : merchantRows.length
+  const selectedCount = isLeadTab ? selectedLeadIds.length : isProjectTab ? selectedProjectIds.length : selectedMerchantIds.length
   const tabItems: Array<{ key: DeletedTabKey; label: string; children: ReactNode }> = []
 
   if (canManageDeletedLeads) {
@@ -390,6 +489,76 @@ export function RecentlyDeletedPage() {
     })
   }
 
+  if (canManageDeletedMerchants) {
+    tabItems.push({
+      key: 'merchants',
+      label: t('pages.onboardMerchant.title', { defaultValue: 'Onboard Merchants' }),
+      children: (
+        <Table
+          rowKey="id"
+          loading={merchantLoading}
+          bordered
+          dataSource={merchantRows}
+          rowSelection={{
+            selectedRowKeys: selectedMerchantIds,
+            onChange: (keys) => setSelectedMerchantIds(keys as string[]),
+          }}
+          pagination={{ pageSize: 12 }}
+          columns={[
+            { title: t('pages.onboardMerchant.columns.merchantNo', { defaultValue: 'Merchant No' }), dataIndex: 'merchant_no', width: 190 },
+            { title: t('pages.onboardMerchant.columns.company', { defaultValue: 'Company' }), dataIndex: 'company_name' },
+            {
+              title: t('pages.onboardMerchant.columns.type', { defaultValue: 'Type' }),
+              dataIndex: 'onboarding_type',
+              width: 170,
+              render: (value: OnboardMerchantType) => t(`onboardMerchantType.${value}`, { defaultValue: value }),
+            },
+            { title: t('pages.onboardMerchant.columns.region', { defaultValue: 'Region' }), dataIndex: 'region', width: 140 },
+            { title: t('pages.onboardMerchant.columns.city', { defaultValue: 'City' }), dataIndex: 'city', width: 140 },
+            {
+              title: t('pages.onboardMerchantDeleted.deletedAt', { defaultValue: 'Deleted At' }),
+              dataIndex: 'deleted_at',
+              width: 190,
+              render: (value: string | null) => (value ? new Date(value).toLocaleString() : '-'),
+            },
+            {
+              title: t('pages.onboardMerchant.columns.actions', { defaultValue: 'Actions' }),
+              width: 280,
+              render: (_: unknown, row: OnboardMerchant) => (
+                <Space wrap>
+                  <Popconfirm
+                    title={t('pages.onboardMerchantDeleted.restoreConfirmTitle', { defaultValue: 'Restore this merchant?' })}
+                    description={t('pages.onboardMerchantDeleted.restoreConfirmDesc', {
+                      defaultValue: 'The merchant will be moved back to active list.',
+                    })}
+                    okText={t('labels.restore', { defaultValue: 'Restore' })}
+                    cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
+                    onConfirm={() => void handleMerchantRestore([row.id])}
+                  >
+                    <Button size="small">{t('labels.restore', { defaultValue: 'Restore' })}</Button>
+                  </Popconfirm>
+                  <Popconfirm
+                    title={t('pages.onboardMerchantDeleted.permanentDeleteConfirmTitle', { defaultValue: 'Permanently delete this merchant?' })}
+                    description={t('pages.onboardMerchantDeleted.permanentDeleteConfirmDesc', {
+                      defaultValue: 'This action cannot be undone.',
+                    })}
+                    okText={t('labels.permanentDelete', { defaultValue: 'Permanent Delete' })}
+                    cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
+                    onConfirm={() => void handleMerchantPermanentDelete([row.id])}
+                  >
+                    <Button size="small" danger>
+                      {t('labels.permanentDelete', { defaultValue: 'Permanent Delete' })}
+                    </Button>
+                  </Popconfirm>
+                </Space>
+              ),
+            },
+          ]}
+        />
+      ),
+    })
+  }
+
   return (
     <>
       <PageTitleBar
@@ -404,21 +573,31 @@ export function RecentlyDeletedPage() {
               title={
                 isLeadTab
                   ? t('pages.bdDeletedLeads.batchRestoreConfirmTitle', { defaultValue: 'Restore selected leads?' })
-                  : t('pages.pmDeletedProjects.batchRestoreConfirmTitle', { defaultValue: 'Restore selected projects?' })
+                  : isProjectTab
+                    ? t('pages.pmDeletedProjects.batchRestoreConfirmTitle', { defaultValue: 'Restore selected projects?' })
+                    : t('pages.onboardMerchantDeleted.batchRestoreConfirmTitle', { defaultValue: 'Restore selected merchants?' })
               }
               description={
                 isLeadTab
                   ? t('pages.bdDeletedLeads.batchRestoreConfirmDesc', {
                       defaultValue: 'Selected leads will be moved back to the active lead list.',
                     })
-                  : t('pages.pmDeletedProjects.batchRestoreConfirmDesc', {
-                      defaultValue: 'Selected projects will be moved back to the active project list.',
-                    })
+                  : isProjectTab
+                    ? t('pages.pmDeletedProjects.batchRestoreConfirmDesc', {
+                        defaultValue: 'Selected projects will be moved back to the active project list.',
+                      })
+                    : t('pages.onboardMerchantDeleted.batchRestoreConfirmDesc', {
+                        defaultValue: 'Selected merchants will be moved back to the active merchant list.',
+                      })
               }
               okText={t('labels.restore', { defaultValue: 'Restore' })}
               cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
               onConfirm={() =>
-                void (isLeadTab ? handleLeadRestore(selectedLeadIds) : handleProjectRestore(selectedProjectIds))
+                void (isLeadTab
+                  ? handleLeadRestore(selectedLeadIds)
+                  : isProjectTab
+                    ? handleProjectRestore(selectedProjectIds)
+                    : handleMerchantRestore(selectedMerchantIds))
               }
             >
               <Button disabled={selectedCount === 0}>{t('labels.restore', { defaultValue: 'Restore' })}</Button>
@@ -427,21 +606,29 @@ export function RecentlyDeletedPage() {
               title={
                 isLeadTab
                   ? t('pages.bdDeletedLeads.batchPermanentDeleteConfirmTitle', { defaultValue: 'Permanently delete selected leads?' })
-                  : t('pages.pmDeletedProjects.batchPermanentDeleteConfirmTitle', {
-                      defaultValue: 'Permanently delete selected projects?',
-                    })
+                  : isProjectTab
+                    ? t('pages.pmDeletedProjects.batchPermanentDeleteConfirmTitle', {
+                        defaultValue: 'Permanently delete selected projects?',
+                      })
+                    : t('pages.onboardMerchantDeleted.batchPermanentDeleteConfirmTitle', {
+                        defaultValue: 'Permanently delete selected merchants?',
+                      })
               }
               description={
                 isLeadTab
                   ? t('pages.bdDeletedLeads.batchPermanentDeleteConfirmDesc', { defaultValue: 'This action cannot be undone.' })
-                  : t('pages.pmDeletedProjects.batchPermanentDeleteConfirmDesc', { defaultValue: 'This action cannot be undone.' })
+                  : isProjectTab
+                    ? t('pages.pmDeletedProjects.batchPermanentDeleteConfirmDesc', { defaultValue: 'This action cannot be undone.' })
+                    : t('pages.onboardMerchantDeleted.batchPermanentDeleteConfirmDesc', { defaultValue: 'This action cannot be undone.' })
               }
               okText={t('labels.permanentDelete', { defaultValue: 'Permanent Delete' })}
               cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
               onConfirm={() =>
                 void (isLeadTab
                   ? handleLeadPermanentDelete(selectedLeadIds)
-                  : handleProjectPermanentDelete(selectedProjectIds))
+                  : isProjectTab
+                    ? handleProjectPermanentDelete(selectedProjectIds)
+                    : handleMerchantPermanentDelete(selectedMerchantIds))
               }
             >
               <Button danger disabled={selectedCount === 0}>
@@ -452,25 +639,35 @@ export function RecentlyDeletedPage() {
               title={
                 isLeadTab
                   ? t('pages.bdDeletedLeads.batchPermanentDeleteAllConfirmTitle', { defaultValue: 'Permanently delete all filtered leads?' })
-                  : t('pages.pmDeletedProjects.batchPermanentDeleteAllConfirmTitle', {
-                      defaultValue: 'Permanently delete all filtered projects?',
-                    })
+                  : isProjectTab
+                    ? t('pages.pmDeletedProjects.batchPermanentDeleteAllConfirmTitle', {
+                        defaultValue: 'Permanently delete all filtered projects?',
+                      })
+                    : t('pages.onboardMerchantDeleted.batchPermanentDeleteAllConfirmTitle', {
+                        defaultValue: 'Permanently delete all filtered merchants?',
+                      })
               }
               description={
                 isLeadTab
                   ? t('pages.bdDeletedLeads.batchPermanentDeleteAllConfirmDesc', {
                       defaultValue: 'All currently filtered leads will be permanently deleted.',
                     })
-                  : t('pages.pmDeletedProjects.batchPermanentDeleteAllConfirmDesc', {
-                      defaultValue: 'All currently filtered projects will be permanently deleted.',
-                    })
+                  : isProjectTab
+                    ? t('pages.pmDeletedProjects.batchPermanentDeleteAllConfirmDesc', {
+                        defaultValue: 'All currently filtered projects will be permanently deleted.',
+                      })
+                    : t('pages.onboardMerchantDeleted.batchPermanentDeleteAllConfirmDesc', {
+                        defaultValue: 'All currently filtered merchants will be permanently deleted.',
+                      })
               }
               okText={t('labels.permanentDelete', { defaultValue: 'Permanent Delete' })}
               cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
               onConfirm={() =>
                 void (isLeadTab
                   ? handleLeadPermanentDelete(leadRows.map((item) => item.id))
-                  : handleProjectPermanentDelete(projectRows.map((item) => item.id)))
+                  : isProjectTab
+                    ? handleProjectPermanentDelete(projectRows.map((item) => item.id))
+                    : handleMerchantPermanentDelete(merchantRows.map((item) => item.id)))
               }
             >
               <Button danger disabled={currentRowsCount === 0}>
@@ -488,7 +685,9 @@ export function RecentlyDeletedPage() {
             placeholder={
               isLeadTab
                 ? t('pages.bdDeletedLeads.keywordPlaceholder', { defaultValue: 'Keyword (lead code/company/contact)' })
-                : t('pages.pmDeletedProjects.keywordPlaceholder', { defaultValue: 'Project code/name' })
+                : isProjectTab
+                  ? t('pages.pmDeletedProjects.keywordPlaceholder', { defaultValue: 'Project code/name' })
+                  : t('pages.onboardMerchantDeleted.keywordPlaceholder', { defaultValue: 'Keyword (merchant no/company/region/city)' })
             }
             style={{ width: 320 }}
             value={keyword}

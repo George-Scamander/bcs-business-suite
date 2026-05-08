@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Input, Modal, Select, Space, Table, message } from 'antd'
+import dayjs from 'dayjs'
+import { Button, DatePicker, Input, Modal, Select, Space, Table, message } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../../lib/supabase/client'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { LEAD_STATUS_OPTIONS } from '../../../lib/business-constants'
+import { getIntentPackageOptions, getLeadStatusOptions } from '../../../lib/business-constants'
 import { StatusTag } from '../../../components/common/StatusTag'
 import { assignLead, listLeads, type LeadFilters } from '../api'
 import { listActiveUsers, type UserOption } from '../../shared/api/users'
@@ -40,6 +41,8 @@ export function PmLeadPoolPage() {
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string>()
+  const leadStatusOptions = useMemo(() => getLeadStatusOptions(t), [t])
+  const intentPackageOptions = useMemo(() => getIntentPackageOptions(t), [t])
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -143,7 +146,7 @@ export function PmLeadPoolPage() {
             allowClear
             style={{ width: 200 }}
             placeholder={t('pages.bdLeads.statusPlaceholder', { defaultValue: 'Status' })}
-            options={LEAD_STATUS_OPTIONS}
+            options={leadStatusOptions}
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
           />
@@ -157,16 +160,48 @@ export function PmLeadPoolPage() {
             allowClear
             showSearch
             style={{ width: 280 }}
-            placeholder={t('pages.pmLeadPool.subordinateBd', { defaultValue: 'Subordinate BD' })}
+            placeholder={t('pages.pmLeadPool.salesPlaceholder', { defaultValue: 'Sales / BD Owner' })}
             value={filters.assignedBdId}
             options={bdUserOptions}
             onChange={(value) => setFilters((current) => ({ ...current, assignedBdId: value || undefined }))}
             optionFilterProp="label"
           />
+          <Select
+            allowClear
+            style={{ width: 200 }}
+            placeholder={t('pages.pmLeadPool.intentPackagePlaceholder', { defaultValue: 'BCS Business' })}
+            options={intentPackageOptions}
+            value={filters.intentPackage}
+            onChange={(value) => setFilters((current) => ({ ...current, intentPackage: value || undefined }))}
+          />
+          <DatePicker
+            style={{ width: 170 }}
+            placeholder={t('pages.pmLeadPool.createdFrom', { defaultValue: 'Created From' })}
+            value={filters.createdFrom ? dayjs(filters.createdFrom) : undefined}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                createdFrom: value ? value.startOf('day').toISOString() : undefined,
+              }))
+            }
+          />
+          <DatePicker
+            style={{ width: 170 }}
+            placeholder={t('pages.pmLeadPool.createdTo', { defaultValue: 'Created To' })}
+            value={filters.createdTo ? dayjs(filters.createdTo) : undefined}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                createdTo: value ? value.endOf('day').toISOString() : undefined,
+              }))
+            }
+          />
           <Input.Search
             allowClear
             style={{ width: 280 }}
-            placeholder={t('pages.bdLeads.keywordPlaceholder', { defaultValue: 'Keyword (lead code/company/contact)' })}
+            placeholder={t('pages.pmLeadPool.keywordPlaceholder', {
+              defaultValue: 'Keyword (lead code/company/contact/source)',
+            })}
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             onSearch={() => void loadData()}
@@ -184,24 +219,24 @@ export function PmLeadPoolPage() {
         dataSource={rows}
         pagination={{ pageSize: 12 }}
         columns={[
-          { title: 'Lead Code', dataIndex: 'lead_code', width: 170 },
-          { title: 'Company', dataIndex: 'company_name' },
+          { title: t('pages.pmLeadPool.columns.leadCode', { defaultValue: 'Lead Code' }), dataIndex: 'lead_code', width: 170 },
+          { title: t('pages.pmLeadPool.columns.company', { defaultValue: 'Company' }), dataIndex: 'company_name' },
           {
             title: t('pages.pmLeadPool.assignedBd', { defaultValue: 'Assigned BD' }),
             dataIndex: 'assigned_bd_id',
             width: 260,
             render: (value: string | null) => (value ? userNameById.get(value) ?? value : '-'),
           },
-          { title: 'Region', dataIndex: 'region', width: 140 },
-          { title: 'Industry', dataIndex: 'industry', width: 170 },
+          { title: t('pages.pmLeadPool.columns.region', { defaultValue: 'Region' }), dataIndex: 'region', width: 140 },
+          { title: t('pages.pmLeadPool.columns.industry', { defaultValue: 'Industry' }), dataIndex: 'industry', width: 170 },
           {
-            title: 'Status',
+            title: t('pages.pmLeadPool.columns.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
             width: 140,
             render: (value: string) => <StatusTag value={value} />,
           },
           {
-            title: 'Actions',
+            title: t('pages.pmLeadPool.columns.actions', { defaultValue: 'Actions' }),
             width: 160,
             render: (_: unknown, row: Lead) => (
               <Button size="small" onClick={() => openAssignModal(row)}>
@@ -223,7 +258,9 @@ export function PmLeadPoolPage() {
         okText={t('pages.bdLeads.actionAssign', { defaultValue: 'Assign' })}
       >
         <Space direction="vertical" className="w-full">
-          <p className="mb-0 text-sm text-slate-600">Lead: {selectedLead?.lead_code}</p>
+          <p className="mb-0 text-sm text-slate-600">
+            {t('pages.pmLeadPool.assignLeadLabel', { defaultValue: 'Lead' })}: {selectedLead?.lead_code}
+          </p>
           <Select
             showSearch
             optionFilterProp="label"

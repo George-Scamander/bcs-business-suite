@@ -128,8 +128,11 @@ export function UserRoleManagementPage() {
   }
 
   const roleOptions = useMemo(() => {
-    return roles.map((role) => ({ value: role.id, label: role.name }))
-  }, [roles])
+    return roles.map((role) => ({
+      value: role.id,
+      label: t(`role.${role.code}`, { defaultValue: role.name }),
+    }))
+  }, [roles, t])
 
   useEffect(() => {
     void loadData()
@@ -189,7 +192,7 @@ export function UserRoleManagementPage() {
                       onConfirm={() => void revokeRole(row.id, relation.role_id, roleCode)}
                     >
                       <Tag color="blue" className="cursor-pointer hover:opacity-80">
-                        {ROLE_LABELS[roleCode]} ×
+                        {t(`role.${roleCode}`, { defaultValue: ROLE_LABELS[roleCode] })} ×
                       </Tag>
                     </Popconfirm>
                   )

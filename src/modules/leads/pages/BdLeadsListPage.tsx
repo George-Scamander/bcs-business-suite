@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Input, Modal, Popconfirm, Select, Space, Table, Upload, message } from 'antd'
+import dayjs from 'dayjs'
+import { Button, DatePicker, Input, Modal, Popconfirm, Select, Space, Table, Upload, message } from 'antd'
 import type { UploadFile } from 'antd'
 import { PlusOutlined, UploadOutlined } from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { LEAD_STATUS_OPTIONS } from '../../../lib/business-constants'
+import { getIntentPackageOptions, getLeadStatusOptions } from '../../../lib/business-constants'
 import { PERMISSIONS } from '../../../lib/permissions'
 import { createLead, listLeads, softDeleteLead, softDeleteLeads, assignLead as assignLeadApi, type LeadFilters } from '../api'
 import { StatusTag } from '../../../components/common/StatusTag'
 import { useAuth } from '../../auth/auth-context'
 import { listActiveUsers, type UserOption } from '../../shared/api/users'
-import type { Lead } from '../../../types/business'
+import type { IntentPackage, Lead, LeadStatus } from '../../../types/business'
 
 interface ImportLeadRow {
   company_name: string
@@ -62,15 +63,71 @@ function parseCsv(content: string): ImportLeadRow[] {
   })
 }
 
+const LEAD_STATUS_VALUES: LeadStatus[] = ['NEW', 'TO_FOLLOW', 'FOLLOWING', 'NEGOTIATING', 'ON_HOLD', 'LOST', 'SIGNED', 'REJECTED']
+const INTENT_PACKAGE_VALUES: IntentPackage[] = ['BCS', 'PRODUCTS_SALES']
+
+function getCurrentMonthRangeIso(): { startIso: string; endIso: string } {
+  const now = new Date()
+  const start = new Date(now)
+  start.setDate(1)
+  start.setHours(0, 0, 0, 0)
+
+  return {
+    startIso: start.toISOString(),
+    endIso: now.toISOString(),
+  }
+}
+
+function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: LeadFilters; keyword: string } {
+  const statusParam = searchParams.get('status')
+  const intentPackageParam = searchParams.get('intentPackage')
+  const followupParam = searchParams.get('followup')
+  const signedParam = searchParams.get('signed')
+
+  const status = statusParam && LEAD_STATUS_VALUES.includes(statusParam as LeadStatus) ? (statusParam as LeadStatus) : undefined
+  const intentPackage =
+    intentPackageParam && INTENT_PACKAGE_VALUES.includes(intentPackageParam as IntentPackage)
+      ? (intentPackageParam as IntentPackage)
+      : undefined
+  const region = searchParams.get('region') ?? undefined
+  const industry = searchParams.get('industry') ?? undefined
+  const createdFrom = searchParams.get('createdFrom') ?? undefined
+  const createdTo = searchParams.get('createdTo') ?? undefined
+  const keyword = searchParams.get('q') ?? ''
+
+  const filters: LeadFilters = {
+    status,
+    intentPackage,
+    region: region || undefined,
+    industry: industry || undefined,
+    createdFrom: createdFrom || undefined,
+    createdTo: createdTo || undefined,
+  }
+
+  if (followupParam === 'due') {
+    filters.followupDue = true
+    filters.followupDueBefore = new Date().toISOString()
+  }
+
+  if (signedParam === 'mtd') {
+    const { startIso, endIso } = getCurrentMonthRangeIso()
+    filters.signedFrom = startIso
+    filters.signedTo = endIso
+  }
+
+  return { filters, keyword }
+}
+
 export function BdLeadsListPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { t } = useTranslation()
   const { user, roles, hasPermission } = useAuth()
 
   const [rows, setRows] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState<LeadFilters>({})
-  const [keyword, setKeyword] = useState('')
+  const [filters, setFilters] = useState<LeadFilters>(() => parseLeadFiltersFromSearch(searchParams).filters)
+  const [keyword, setKeyword] = useState(() => parseLeadFiltersFromSearch(searchParams).keyword)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [importing, setImporting] = useState(false)
   const [importFileList, setImportFileList] = useState<UploadFile[]>([])
@@ -83,6 +140,8 @@ export function BdLeadsListPage() {
   const canAssign = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_ASSIGN)
   const canImport = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_IMPORT)
   const canCreateLead = roles.includes('bd_user')
+  const leadStatusOptions = useMemo(() => getLeadStatusOptions(t), [t])
+  const intentPackageOptions = useMemo(() => getIntentPackageOptions(t), [t])
 
   const loadRows = useCallback(async () => {
     if (!user) {
@@ -128,6 +187,12 @@ export function BdLeadsListPage() {
   useEffect(() => {
     void loadRows()
   }, [loadRows])
+
+  useEffect(() => {
+    const parsed = parseLeadFiltersFromSearch(searchParams)
+    setFilters((current) => (JSON.stringify(current) === JSON.stringify(parsed.filters) ? current : parsed.filters))
+    setKeyword((current) => (current === parsed.keyword ? current : parsed.keyword))
+  }, [searchParams])
 
   useEffect(() => {
     void loadUsers()
@@ -330,7 +395,7 @@ export function BdLeadsListPage() {
             allowClear
             placeholder={t('pages.bdLeads.statusPlaceholder', { defaultValue: 'Status' })}
             style={{ width: 180 }}
-            options={LEAD_STATUS_OPTIONS}
+            options={leadStatusOptions}
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
           />
@@ -346,9 +411,39 @@ export function BdLeadsListPage() {
             value={filters.industry}
             onChange={(event) => setFilters((current) => ({ ...current, industry: event.target.value || undefined }))}
           />
+          <Select
+            allowClear
+            placeholder={t('pages.bdLeads.intentPackagePlaceholder', { defaultValue: 'BCS Business' })}
+            style={{ width: 200 }}
+            options={intentPackageOptions}
+            value={filters.intentPackage}
+            onChange={(value) => setFilters((current) => ({ ...current, intentPackage: value || undefined }))}
+          />
+          <DatePicker
+            style={{ width: 170 }}
+            placeholder={t('pages.bdLeads.createdFrom', { defaultValue: 'Created From' })}
+            value={filters.createdFrom ? dayjs(filters.createdFrom) : undefined}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                createdFrom: value ? value.startOf('day').toISOString() : undefined,
+              }))
+            }
+          />
+          <DatePicker
+            style={{ width: 170 }}
+            placeholder={t('pages.bdLeads.createdTo', { defaultValue: 'Created To' })}
+            value={filters.createdTo ? dayjs(filters.createdTo) : undefined}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                createdTo: value ? value.endOf('day').toISOString() : undefined,
+              }))
+            }
+          />
           <Input.Search
             allowClear
-            placeholder={t('pages.bdLeads.keywordPlaceholder', { defaultValue: 'Keyword (lead code/company/contact)' })}
+            placeholder={t('pages.bdLeads.keywordPlaceholder', { defaultValue: 'Keyword (lead code/company/contact/source)' })}
             style={{ width: 280 }}
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}

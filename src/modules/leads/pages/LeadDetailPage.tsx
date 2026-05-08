@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Card, Descriptions, Empty, Input, Popconfirm, Space, Table, Timeline, message } from 'antd'
 import { EyeOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -6,9 +6,10 @@ import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { StatusTag } from '../../../components/common/StatusTag'
+import { getSalesProductCategoryOptions } from '../../../lib/business-constants'
 import { createSignedFileUrl } from '../../../lib/supabase/storage'
 import { supabase } from '../../../lib/supabase/client'
-import type { OnboardingCase, Project, SignedRecord } from '../../../types/business'
+import type { OnboardingCase, Project, SalesProductCategory, SignedRecord } from '../../../types/business'
 import {
   getLeadById,
   softDeleteLead,
@@ -19,6 +20,7 @@ import {
   updateLead,
   type LeadAttachment,
 } from '../api'
+import { listSalesOrders, type SalesOrderRow } from '../../sales/api'
 import type { Lead, LeadFollowup, LeadStatusLog } from '../../../types/business'
 import { useAuth } from '../../auth/auth-context'
 
@@ -33,6 +35,7 @@ export function LeadDetailPage() {
   const [followups, setFollowups] = useState<LeadFollowup[]>([])
   const [statusLogs, setStatusLogs] = useState<LeadStatusLog[]>([])
   const [attachments, setAttachments] = useState<LeadAttachment[]>([])
+  const [salesOrders, setSalesOrders] = useState<SalesOrderRow[]>([])
   const [signedRecord, setSignedRecord] = useState<SignedRecord | null>(null)
   const [onboardingCase, setOnboardingCase] = useState<OnboardingCase | null>(null)
   const [project, setProject] = useState<Project | null>(null)
@@ -65,6 +68,13 @@ export function LeadDetailPage() {
       setStatusLogs(statusRows)
       setAttachments(attachmentRows)
       setSignedRecord(signed)
+
+      try {
+        const salesRows = await listSalesOrders({ leadId })
+        setSalesOrders(salesRows)
+      } catch {
+        setSalesOrders([])
+      }
 
       if (signed) {
         const onboardingResult = await supabase
@@ -106,6 +116,14 @@ export function LeadDetailPage() {
       setLoading(false)
     }
   }, [leadId, t])
+
+  const categoryLabelByValue = useMemo(() => {
+    return new Map(getSalesProductCategoryOptions(t).map((item) => [item.value, item.label]))
+  }, [t])
+
+  const timelineFollowups = useMemo(() => {
+    return followups.filter((item) => !item.summary.startsWith('Sales Order '))
+  }, [followups])
 
   async function handleSaveAttentionNote() {
     if (!lead || !canEditAttentionNote) {
@@ -261,11 +279,11 @@ export function LeadDetailPage() {
             ) : null
           }
         >
-          {followups.length === 0 ? (
+          {timelineFollowups.length === 0 ? (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pages.leadDetail.noFollowups', { defaultValue: 'No follow-up records yet' })} />
           ) : (
             <Timeline
-              items={followups.slice(0, 8).map((item) => ({
+              items={timelineFollowups.slice(0, 8).map((item) => ({
                 color: 'blue',
                 children: (
                   <div>
@@ -320,6 +338,73 @@ export function LeadDetailPage() {
           />
         </Card>
       </div>
+
+      <Card title={t('pages.leadDetail.salesOrders', { defaultValue: 'Sales Orders' })} className="mb-5">
+        <Table
+          rowKey="id"
+          size="small"
+          pagination={false}
+          dataSource={salesOrders.slice(0, 8)}
+          locale={{ emptyText: t('pages.leadDetail.noSalesOrders', { defaultValue: 'No sales orders linked yet' }) }}
+          expandable={{
+            expandedRowRender: (row: SalesOrderRow) => (
+              <Table
+                rowKey="id"
+                size="small"
+                pagination={false}
+                dataSource={row.items}
+                columns={[
+                  {
+                    title: t('pages.leadDetail.salesCategory', { defaultValue: 'Category' }),
+                    dataIndex: 'category',
+                    width: 180,
+                    render: (value: string) => categoryLabelByValue.get(value as SalesProductCategory) ?? value,
+                  },
+                  {
+                    title: t('pages.leadDetail.salesProduct', { defaultValue: 'Product / Description' }),
+                    dataIndex: 'product_name',
+                    render: (value: string | null) => value ?? '-',
+                  },
+                  {
+                    title: t('pages.leadDetail.salesQuantity', { defaultValue: 'Qty' }),
+                    dataIndex: 'quantity',
+                    width: 90,
+                  },
+                  {
+                    title: t('pages.leadDetail.salesUnitPrice', { defaultValue: 'Unit Price' }),
+                    dataIndex: 'unit_price',
+                    width: 140,
+                    render: (value: number | null) => (value === null ? '-' : Number(value).toLocaleString()),
+                  },
+                ]}
+              />
+            ),
+          }}
+          columns={[
+            {
+              title: t('pages.leadDetail.salesOrderNo', { defaultValue: 'Order No' }),
+              dataIndex: 'order_no',
+              width: 180,
+            },
+            {
+              title: t('pages.leadDetail.salesSoldAt', { defaultValue: 'Sold At' }),
+              dataIndex: 'sold_at',
+              width: 190,
+              render: (value: string) => new Date(value).toLocaleString(),
+            },
+            {
+              title: t('pages.leadDetail.salesItemsCount', { defaultValue: 'Items' }),
+              width: 90,
+              render: (_: unknown, row: SalesOrderRow) => row.items.length,
+            },
+            {
+              title: t('pages.leadDetail.salesNote', { defaultValue: 'Note' }),
+              dataIndex: 'note',
+              render: (value: string | null) => value ?? '-',
+            },
+          ]}
+        />
+      </Card>
 
       <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card title={t('pages.leadDetail.attachments', { defaultValue: 'Attachments' })}>

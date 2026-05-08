@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { TASK_PRIORITY_OPTIONS, TASK_STATUS_OPTIONS } from '../../../lib/business-constants'
+import { getTaskPriorityOptions, getTaskStatusOptions } from '../../../lib/business-constants'
 import { useAuth } from '../../auth/auth-context'
 import { listActiveUsers, type UserOption } from '../../shared/api/users'
 import { createProject, listOnboardingCasesWithoutProject, upsertProjectTask } from '../api'
@@ -246,6 +246,8 @@ export function PmProjectCreatePage() {
       label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
     }))
   }, [userOptions])
+  const taskPriorityOptions = useMemo(() => getTaskPriorityOptions(t), [t])
+  const taskStatusOptions = useMemo(() => getTaskStatusOptions(t), [t])
 
   function addTaskRow() {
     setTasks((current) => [...current, buildEmptyTask(current.length)])
@@ -503,7 +505,7 @@ export function PmProjectCreatePage() {
                   className="min-w-[150px]"
                   size="large"
                   value={value}
-                  options={TASK_PRIORITY_OPTIONS}
+                  options={taskPriorityOptions}
                   onChange={(nextValue) => updateTask(row.key, { priority: nextValue })}
                 />
               ),
@@ -517,7 +519,7 @@ export function PmProjectCreatePage() {
                   className="min-w-[150px]"
                   size="large"
                   value={value}
-                  options={TASK_STATUS_OPTIONS}
+                  options={taskStatusOptions}
                   onChange={(nextValue) => updateTask(row.key, { status: nextValue })}
                 />
               ),

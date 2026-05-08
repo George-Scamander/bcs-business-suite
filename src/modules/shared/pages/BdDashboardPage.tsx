@@ -77,21 +77,38 @@ export function BdDashboardPage() {
 
       <Row gutter={[16, 16]} className="mb-5">
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('pages.bdDashboard.metrics.myLeads', { defaultValue: 'My Leads' })} value={metrics.myLeads} />
+          <MetricCard
+            title={t('pages.bdDashboard.metrics.myLeads', { defaultValue: 'My Leads' })}
+            value={metrics.myLeads}
+            onClick={() => navigate('/app/bd/leads')}
+          />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('pages.bdDashboard.metrics.followupDue', { defaultValue: 'Follow-up Due' })} value={metrics.dueFollowups} />
+          <MetricCard
+            title={t('pages.bdDashboard.metrics.followupDue', { defaultValue: 'Follow-up Due' })}
+            value={metrics.dueFollowups}
+            onClick={() => navigate('/app/bd/leads?followup=due')}
+          />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('pages.bdDashboard.metrics.signedMtd', { defaultValue: 'Signed (MTD)' })} value={metrics.signedThisMonth} />
+          <MetricCard
+            title={t('pages.bdDashboard.metrics.signedMtd', { defaultValue: 'Signed (MTD)' })}
+            value={metrics.signedThisMonth}
+            onClick={() => navigate('/app/bd/leads?signed=mtd')}
+          />
         </Col>
         <Col xs={24} md={12} xl={6}>
-          <MetricCard title={t('pages.bdDashboard.metrics.myOnboardingCases', { defaultValue: 'My Onboarding Cases' })} value={metrics.myOnboardingCases} />
+          <MetricCard
+            title={t('pages.bdDashboard.metrics.myOnboardingCases', { defaultValue: 'My Onboarding Cases' })}
+            value={metrics.myOnboardingCases}
+            onClick={() => navigate('/app/bd/onboarding/cases')}
+          />
         </Col>
         <Col xs={24} md={12} xl={6}>
           <MetricCard
             title={t('pages.bdDashboard.metrics.linkedActiveProjects', { defaultValue: 'Linked Active Projects' })}
             value={metrics.activeProjectsLinked}
+            onClick={() => navigate('/app/bd/projects?activeOnly=1')}
           />
         </Col>
       </Row>

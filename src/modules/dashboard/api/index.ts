@@ -63,7 +63,10 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardMetrics>
       { column: 'deleted_at', value: null, op: 'is' },
       { column: 'status', value: 'SIGNED' },
     ]),
-    count('onboarding_cases', [{ column: 'status', value: 'COMPLETED', op: 'neq' }]),
+    count('onboarding_cases', [
+      { column: 'status', value: 'COMPLETED', op: 'neq' },
+      { column: 'status', value: 'REJECTED', op: 'neq' },
+    ]),
     count('projects', [{ column: 'deleted_at', value: null, op: 'is' }]),
     count('projects', [
       { column: 'deleted_at', value: null, op: 'is' },
@@ -87,7 +90,7 @@ export async function getBdDashboardMetrics(userId: string): Promise<BdDashboard
   startOfMonth.setDate(1)
   startOfMonth.setHours(0, 0, 0, 0)
 
-  const [myLeadsResult, dueFollowupsResult, signedResult, onboardingResult, linkedProjectsResult] = await Promise.all([
+  const [myLeadsResult, dueFollowupsResult, signedRowsResult, onboardingResult, linkedProjectsResult] = await Promise.all([
     supabase.from('leads').select('*', { count: 'exact', head: true }).eq('assigned_bd_id', userId).is('deleted_at', null),
     supabase
       .from('leads')
@@ -98,24 +101,32 @@ export async function getBdDashboardMetrics(userId: string): Promise<BdDashboard
       .lt('next_followup_at', new Date().toISOString()),
     supabase
       .from('signed_records')
-      .select('id, leads!inner(assigned_bd_id)', { count: 'exact', head: true })
+      .select('lead_id, leads!inner(assigned_bd_id)')
       .eq('leads.assigned_bd_id', userId)
       .is('leads.deleted_at', null)
       .gte('created_at', startOfMonth.toISOString()),
     supabase.from('onboarding_cases').select('*', { count: 'exact', head: true }).eq('owner_user_id', userId),
-    supabase.from('projects').select('*', { count: 'exact', head: true }).eq('bd_owner_id', userId).is('deleted_at', null),
+    supabase
+      .from('projects')
+      .select('*', { count: 'exact', head: true })
+      .eq('bd_owner_id', userId)
+      .is('deleted_at', null)
+      .neq('status', 'COMPLETED')
+      .neq('status', 'CLOSED'),
   ])
 
-  for (const result of [myLeadsResult, dueFollowupsResult, signedResult, onboardingResult, linkedProjectsResult]) {
+  for (const result of [myLeadsResult, dueFollowupsResult, signedRowsResult, onboardingResult, linkedProjectsResult]) {
     if (result.error) {
       throw result.error
     }
   }
 
+  const signedLeadCount = new Set((signedRowsResult.data ?? []).map((item) => item.lead_id).filter(Boolean)).size
+
   return {
     myLeads: myLeadsResult.count ?? 0,
     dueFollowups: dueFollowupsResult.count ?? 0,
-    signedThisMonth: signedResult.count ?? 0,
+    signedThisMonth: signedLeadCount,
     myOnboardingCases: onboardingResult.count ?? 0,
     activeProjectsLinked: linkedProjectsResult.count ?? 0,
   }

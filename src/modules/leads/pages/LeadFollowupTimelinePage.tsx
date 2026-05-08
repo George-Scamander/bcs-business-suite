@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
 import { Button, Card, DatePicker, Form, Input, Select, Space, Table, message } from 'antd'
 import { useTranslation } from 'react-i18next'
@@ -30,6 +30,7 @@ export function LeadFollowupTimelinePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const arrangeNextFollowup = Form.useWatch('arrange_next_followup', form)
+  const visibleRows = useMemo(() => rows.filter((item) => !item.summary.startsWith('Sales Order ')), [rows])
 
   const loadData = useCallback(async () => {
     if (!leadId) {
@@ -175,7 +176,7 @@ export function LeadFollowupTimelinePage() {
         loading={loading}
         rowKey="id"
         bordered
-        dataSource={rows}
+        dataSource={visibleRows}
         pagination={{ pageSize: 10 }}
         columns={[
           {

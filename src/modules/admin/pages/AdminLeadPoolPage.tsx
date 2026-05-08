@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Input, Modal, Popconfirm, Select, Space, Table, message } from 'antd'
-import { useNavigate } from 'react-router-dom'
+import dayjs from 'dayjs'
+import { Button, DatePicker, Input, Modal, Popconfirm, Select, Space, Table, message } from 'antd'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../../lib/supabase/client'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { LEAD_STATUS_OPTIONS } from '../../../lib/business-constants'
+import { getIntentPackageOptions, getLeadStatusOptions } from '../../../lib/business-constants'
 import { StatusTag } from '../../../components/common/StatusTag'
 import { assignLead, listLeads, softDeleteLeads, type LeadFilters } from '../../leads/api'
 import { listActiveUsers, type UserOption } from '../../shared/api/users'
-import type { Lead } from '../../../types/business'
+import type { IntentPackage, Lead, LeadStatus } from '../../../types/business'
 
 interface RoleMappingRow {
   user_id: string
@@ -28,21 +29,56 @@ function extractRoleCode(role: RoleMappingRow['role']): string | null {
   return role.code
 }
 
+const LEAD_STATUS_VALUES: LeadStatus[] = ['NEW', 'TO_FOLLOW', 'FOLLOWING', 'NEGOTIATING', 'ON_HOLD', 'LOST', 'SIGNED', 'REJECTED']
+const INTENT_PACKAGE_VALUES: IntentPackage[] = ['BCS', 'PRODUCTS_SALES']
+
+function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: LeadFilters; keyword: string } {
+  const statusParam = searchParams.get('status')
+  const intentPackageParam = searchParams.get('intentPackage')
+
+  const status = statusParam && LEAD_STATUS_VALUES.includes(statusParam as LeadStatus) ? (statusParam as LeadStatus) : undefined
+  const intentPackage =
+    intentPackageParam && INTENT_PACKAGE_VALUES.includes(intentPackageParam as IntentPackage)
+      ? (intentPackageParam as IntentPackage)
+      : undefined
+
+  const region = searchParams.get('region') ?? undefined
+  const assignedBdId = searchParams.get('assignedBdId') ?? undefined
+  const createdFrom = searchParams.get('createdFrom') ?? undefined
+  const createdTo = searchParams.get('createdTo') ?? undefined
+  const keyword = searchParams.get('q') ?? ''
+
+  return {
+    filters: {
+      status,
+      intentPackage,
+      region: region || undefined,
+      assignedBdId: assignedBdId || undefined,
+      createdFrom: createdFrom || undefined,
+      createdTo: createdTo || undefined,
+    },
+    keyword,
+  }
+}
+
 export function AdminLeadPoolPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<Lead[]>([])
   const [users, setUsers] = useState<UserOption[]>([])
   const [bdUsers, setBdUsers] = useState<UserOption[]>([])
-  const [filters, setFilters] = useState<LeadFilters>({})
-  const [keyword, setKeyword] = useState('')
+  const [filters, setFilters] = useState<LeadFilters>(() => parseLeadFiltersFromSearch(searchParams).filters)
+  const [keyword, setKeyword] = useState(() => parseLeadFiltersFromSearch(searchParams).keyword)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string>()
+  const leadStatusOptions = useMemo(() => getLeadStatusOptions(t), [t])
+  const intentPackageOptions = useMemo(() => getIntentPackageOptions(t), [t])
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -85,6 +121,12 @@ export function AdminLeadPoolPage() {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    const parsed = parseLeadFiltersFromSearch(searchParams)
+    setFilters((current) => (JSON.stringify(current) === JSON.stringify(parsed.filters) ? current : parsed.filters))
+    setKeyword((current) => (current === parsed.keyword ? current : parsed.keyword))
+  }, [searchParams])
 
   function openAssignModal(row: Lead) {
     setSelectedLead(row)
@@ -189,7 +231,7 @@ export function AdminLeadPoolPage() {
             allowClear
             style={{ width: 200 }}
             placeholder={t('pages.adminLeadPool.statusPlaceholder', { defaultValue: 'Status' })}
-            options={LEAD_STATUS_OPTIONS}
+            options={leadStatusOptions}
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
           />
@@ -203,16 +245,48 @@ export function AdminLeadPoolPage() {
             allowClear
             showSearch
             style={{ width: 280 }}
-            placeholder={t('pages.adminLeadPool.subordinateBdPlaceholder', { defaultValue: 'Subordinate BD' })}
+            placeholder={t('pages.adminLeadPool.salesPlaceholder', { defaultValue: 'Sales / BD Owner' })}
             value={filters.assignedBdId}
             options={userOptions}
             onChange={(value) => setFilters((current) => ({ ...current, assignedBdId: value || undefined }))}
             optionFilterProp="label"
           />
+          <Select
+            allowClear
+            style={{ width: 200 }}
+            placeholder={t('pages.adminLeadPool.intentPackagePlaceholder', { defaultValue: 'BCS Business' })}
+            options={intentPackageOptions}
+            value={filters.intentPackage}
+            onChange={(value) => setFilters((current) => ({ ...current, intentPackage: value || undefined }))}
+          />
+          <DatePicker
+            style={{ width: 170 }}
+            placeholder={t('pages.adminLeadPool.createdFrom', { defaultValue: 'Created From' })}
+            value={filters.createdFrom ? dayjs(filters.createdFrom) : undefined}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                createdFrom: value ? value.startOf('day').toISOString() : undefined,
+              }))
+            }
+          />
+          <DatePicker
+            style={{ width: 170 }}
+            placeholder={t('pages.adminLeadPool.createdTo', { defaultValue: 'Created To' })}
+            value={filters.createdTo ? dayjs(filters.createdTo) : undefined}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                createdTo: value ? value.endOf('day').toISOString() : undefined,
+              }))
+            }
+          />
           <Input.Search
             allowClear
             style={{ width: 280 }}
-            placeholder={t('pages.adminLeadPool.keywordPlaceholder', { defaultValue: 'Lead code / company' })}
+            placeholder={t('pages.adminLeadPool.keywordPlaceholder', {
+              defaultValue: 'Keyword (lead code/company/contact/source)',
+            })}
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             onSearch={() => void loadData()}

@@ -313,6 +313,24 @@ export async function refreshProjectProgress(projectId: string): Promise<number>
   return (result.data as number) ?? 0
 }
 
+export async function listProjectIdsWithDueTasks(pmOwnerId: string, dueDate: string): Promise<string[]> {
+  const result = await supabase
+    .from('project_tasks')
+    .select('project_id, projects!inner(pm_owner_id)')
+    .eq('projects.pm_owner_id', pmOwnerId)
+    .is('projects.deleted_at', null)
+    .is('deleted_at', null)
+    .not('due_date', 'is', null)
+    .lte('due_date', dueDate)
+    .neq('status', 'DONE')
+
+  if (result.error) {
+    throw result.error
+  }
+
+  return [...new Set((result.data ?? []).map((item) => item.project_id).filter(Boolean))]
+}
+
 export async function listProjectMembers(projectId: string): Promise<ProjectMember[]> {
   const result = await supabase
     .from('project_members')

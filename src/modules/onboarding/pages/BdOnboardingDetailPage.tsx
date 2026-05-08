@@ -265,7 +265,7 @@ export function BdOnboardingDetailPage() {
         })}
         extra={
           <Space>
-            <Button onClick={() => navigate('/app/bd/onboarding')}>{t('page.onboarding.backToList', { defaultValue: 'Back to List' })}</Button>
+            <Button onClick={() => navigate('/app/bd/onboarding/cases')}>{t('page.onboarding.backToList', { defaultValue: 'Back to List' })}</Button>
             <Button onClick={() => void loadData()}>{t('page.common.refresh', { defaultValue: 'Refresh' })}</Button>
             {linkedProject ? (
               <Button type="primary" onClick={() => navigate(`/app/bd/projects/${linkedProject.id}`)}>

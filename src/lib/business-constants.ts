@@ -1,4 +1,4 @@
-import type { IntentPackage, LeadStatus, OnboardingStatus, ProjectStatus, TaskPriority, TaskStatus } from '../types/business'
+import type { IntentPackage, LeadStatus, OnboardingStatus, ProjectStatus, SalesProductCategory, TaskPriority, TaskStatus } from '../types/business'
 import type { TFunction } from 'i18next'
 
 export const LEAD_STATUS_OPTIONS: Array<{ label: string; value: LeadStatus }> = [
@@ -67,6 +67,13 @@ export const TASK_PRIORITY_OPTIONS: Array<{ label: string; value: TaskPriority }
   { label: 'Critical', value: 'CRITICAL' },
 ]
 
+export const SALES_PRODUCT_CATEGORY_OPTIONS: Array<{ label: string; value: SalesProductCategory }> = [
+  { label: 'Tires', value: 'TIRE' },
+  { label: 'Engine Oil', value: 'ENGINE_OIL' },
+  { label: 'Window Film', value: 'WINDOW_FILM' },
+  { label: 'Bosch Accessories', value: 'BOSCH_ACCESSORY' },
+]
+
 export const LOST_REASON_OPTIONS: Array<{ label: string; value: string }> = [
   { label: 'Pricing mismatch', value: 'PRICE' },
   { label: 'Location not suitable', value: 'LOCATION' },
@@ -112,6 +119,10 @@ export function getTaskStatusOptions(t: TFunction) {
 
 export function getTaskPriorityOptions(t: TFunction) {
   return localizeByValue(TASK_PRIORITY_OPTIONS, 'taskPriority', t)
+}
+
+export function getSalesProductCategoryOptions(t: TFunction) {
+  return localizeByValue(SALES_PRODUCT_CATEGORY_OPTIONS, 'salesCategory', t)
 }
 
 export function getLostReasonOptions(t: TFunction) {

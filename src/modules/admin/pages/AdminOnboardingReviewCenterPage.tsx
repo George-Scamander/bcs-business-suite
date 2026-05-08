@@ -10,6 +10,7 @@ import {
   message,
 } from 'antd'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { getOnboardingStatusOptions } from '../../../lib/business-constants'
@@ -21,17 +22,54 @@ import {
   changeOnboardingStatus,
   type OnboardingFilters,
 } from '../../onboarding/api'
-import type { OnboardingCase, OnboardingDocument } from '../../../types/business'
+import type { OnboardingCase, OnboardingDocument, OnboardingStatus } from '../../../types/business'
+
+const ONBOARDING_STATUS_VALUES: OnboardingStatus[] = [
+  'NOT_STARTED',
+  'INFO_PENDING',
+  'DOCUMENT_PENDING',
+  'UNDER_REVIEW',
+  'REVISION_REQUIRED',
+  'CONTRACT_CONFIRMED',
+  'SERVICE_ACTIVATING',
+  'COMPLETED',
+  'REJECTED',
+]
+
+function parseOnboardingFiltersFromSearch(searchParams: URLSearchParams): { filters: OnboardingFilters; keyword: string } {
+  const statusParam = searchParams.get('status')
+  const status = statusParam && ONBOARDING_STATUS_VALUES.includes(statusParam as OnboardingStatus) ? (statusParam as OnboardingStatus) : undefined
+  const keyword = searchParams.get('q') ?? ''
+  const activeOnly = searchParams.get('activeOnly') === '1'
+
+  if (status) {
+    return {
+      filters: { status },
+      keyword,
+    }
+  }
+
+  if (activeOnly) {
+    return {
+      filters: { activeOnly: true },
+      keyword,
+    }
+  }
+
+  return {
+    filters: { status: 'UNDER_REVIEW' },
+    keyword,
+  }
+}
 
 export function AdminOnboardingReviewCenterPage() {
   const { t } = useTranslation()
+  const [searchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<OnboardingCase[]>([])
   const [documentsByCase, setDocumentsByCase] = useState<Record<string, OnboardingDocument[]>>({})
-  const [filters, setFilters] = useState<OnboardingFilters>({
-    status: 'UNDER_REVIEW',
-  })
-  const [keyword, setKeyword] = useState('')
+  const [filters, setFilters] = useState<OnboardingFilters>(() => parseOnboardingFiltersFromSearch(searchParams).filters)
+  const [keyword, setKeyword] = useState(() => parseOnboardingFiltersFromSearch(searchParams).keyword)
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedCase, setSelectedCase] = useState<OnboardingCase | null>(null)
@@ -67,6 +105,12 @@ export function AdminOnboardingReviewCenterPage() {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    const parsed = parseOnboardingFiltersFromSearch(searchParams)
+    setFilters((current) => (JSON.stringify(current) === JSON.stringify(parsed.filters) ? current : parsed.filters))
+    setKeyword((current) => (current === parsed.keyword ? current : parsed.keyword))
+  }, [searchParams])
 
   async function handleDocumentReview(documentId: string, caseId: string, decision: 'APPROVED' | 'REJECTED' | 'REVISION_REQUIRED') {
     setReviewLoading(true)

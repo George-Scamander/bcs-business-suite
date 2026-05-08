@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AutoComplete, Button, Card, Form, Input, Space, Tag, Typography, message } from 'antd'
 import { LockOutlined, MailOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { APP_NAME } from '../../../lib/constants'
 import { useAuth } from '../auth-context'
@@ -45,17 +45,32 @@ function isEmailLike(value: string): boolean {
 export function LoginPage() {
   const [form] = Form.useForm<LoginFormValues>()
   const { t } = useTranslation()
-  const { isAuthenticated, signIn } = useAuth()
+  const { isAuthenticated, isLoading, signIn } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [recentEmails, setRecentEmails] = useState<string[]>([])
   const [emailInput, setEmailInput] = useState('')
-
-  if (isAuthenticated) {
-    return <Navigate to="/app" replace />
-  }
+  const [submitting, setSubmitting] = useState(false)
+  const [pendingRedirect, setPendingRedirect] = useState(false)
 
   const fromPath = (location.state as { from?: string } | null)?.from ?? '/app'
+
+  useEffect(() => {
+    if (!pendingRedirect) {
+      return
+    }
+
+    if (isAuthenticated && !isLoading) {
+      navigate(fromPath, { replace: true })
+      setPendingRedirect(false)
+    }
+  }, [fromPath, isAuthenticated, isLoading, navigate, pendingRedirect])
+
+  useEffect(() => {
+    if (isAuthenticated && !isLoading && !pendingRedirect) {
+      navigate('/app', { replace: true })
+    }
+  }, [isAuthenticated, isLoading, navigate, pendingRedirect])
 
   useEffect(() => {
     try {
@@ -112,15 +127,20 @@ export function LoginPage() {
   }
 
   async function handleFinish(values: LoginFormValues) {
+    setSubmitting(true)
+
     try {
       const normalizedEmail = normalizeEmailInput(values.email)
       await signIn(normalizedEmail, values.password)
       persistRecentEmail(normalizedEmail)
       message.success(t('auth.login.success', { defaultValue: 'Signed in successfully' }))
-      navigate(fromPath, { replace: true })
+      setPendingRedirect(true)
     } catch (error) {
       const text = error instanceof Error ? error.message : t('auth.login.failed', { defaultValue: 'Sign-in failed. Please try again.' })
       message.error(text)
+      setPendingRedirect(false)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -208,7 +228,7 @@ export function LoginPage() {
             </Link>
           </div>
 
-          <Button type="primary" htmlType="submit" block>
+          <Button type="primary" htmlType="submit" block loading={submitting}>
             {t('auth.login.submit', { defaultValue: 'Sign In' })}
           </Button>
         </Form>

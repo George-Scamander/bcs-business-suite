@@ -17,6 +17,10 @@ export type ProjectStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'ON_HOLD' | 'DELAYED
 
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'ON_HOLD' | 'DONE' | 'CANCELLED'
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+export type SalesProductCategory = 'TIRE' | 'ENGINE_OIL' | 'WINDOW_FILM' | 'BOSCH_ACCESSORY'
+export type OnboardMerchantType = 'BCS_FRANCHISE' | 'NON_BCS_PARTNER'
+export type MerchantActivityType = 'RENOVATION_TASK' | 'DELIVERY' | 'SALES_ORDER' | 'NOTE' | 'OTHER'
+export type MerchantActivityStatus = 'PLANNED' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED'
 
 export interface Lead {
   id: string
@@ -159,6 +163,46 @@ export interface OnboardingStatusLog {
   changed_at: string
 }
 
+export interface OnboardMerchant {
+  id: string
+  merchant_no: string
+  lead_id: string | null
+  company_name: string
+  onboarding_type: OnboardMerchantType
+  contact_person: string | null
+  contact_phone: string | null
+  contact_email: string | null
+  region: string | null
+  city: string | null
+  address: string | null
+  bd_owner_id: string | null
+  remarks: string | null
+  onboarded_at: string
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface OnboardMerchantActivity {
+  id: string
+  merchant_id: string
+  activity_type: MerchantActivityType
+  status: MerchantActivityStatus
+  title: string
+  detail: string | null
+  activity_at: string
+  scheduled_at: string | null
+  assignee_id: string | null
+  related_sales_order_id: string | null
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
 export interface Project {
   id: string
   project_code: string
@@ -259,4 +303,31 @@ export interface DashboardMetric {
   label: string
   value: number
   unit?: string
+}
+
+export interface SalesOrder {
+  id: string
+  order_no: string
+  company_name: string
+  lead_id: string | null
+  onboard_merchant_id: string | null
+  bd_user_id: string
+  sold_at: string
+  note: string | null
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface SalesOrderItem {
+  id: string
+  sales_order_id: string
+  category: SalesProductCategory
+  product_name: string | null
+  quantity: number
+  unit_price: number | null
+  created_at: string
+  updated_at: string
 }

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { ONBOARDING_STATUS_OPTIONS } from '../../../lib/business-constants'
+import { getOnboardingStatusOptions } from '../../../lib/business-constants'
 import { supabase } from '../../../lib/supabase/client'
 import { useAuth } from '../../auth/auth-context'
 import { listOnboardingCases, type OnboardingFilters } from '../api'
@@ -21,6 +21,7 @@ export function BdOnboardingListPage() {
   const [filters, setFilters] = useState<OnboardingFilters>({})
   const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(true)
+  const onboardingStatusOptions = useMemo(() => getOnboardingStatusOptions(t), [t])
 
   const isSuperAdmin = roles.includes('super_admin')
 
@@ -94,7 +95,7 @@ export function BdOnboardingListPage() {
             allowClear
             placeholder={t('pages.bdOnboarding.statusPlaceholder', { defaultValue: 'Status' })}
             style={{ width: 220 }}
-            options={ONBOARDING_STATUS_OPTIONS}
+            options={onboardingStatusOptions}
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
           />

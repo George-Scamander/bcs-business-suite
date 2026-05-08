@@ -74,16 +74,33 @@ export function PmDashboardPage() {
 
       <Row gutter={[16, 16]} className="mb-5">
         <Col xs={24} md={12} xl={6}>
-          <MetricCard title={t('pages.pmDashboard.metrics.myProjects', { defaultValue: 'My Projects' })} value={metrics.myProjects} />
+          <MetricCard
+            title={t('pages.pmDashboard.metrics.myProjects', { defaultValue: 'My Projects' })}
+            value={metrics.myProjects}
+            onClick={() => navigate('/app/pm/projects')}
+          />
         </Col>
         <Col xs={24} md={12} xl={6}>
-          <MetricCard title={t('pages.pmDashboard.metrics.delayedProjects', { defaultValue: 'Delayed Projects' })} value={metrics.delayedProjects} />
+          <MetricCard
+            title={t('pages.pmDashboard.metrics.delayedProjects', { defaultValue: 'Delayed Projects' })}
+            value={metrics.delayedProjects}
+            onClick={() => navigate('/app/pm/projects?status=DELAYED')}
+          />
         </Col>
         <Col xs={24} md={12} xl={6}>
-          <MetricCard title={t('pages.pmDashboard.metrics.tasksDueThisWeek', { defaultValue: 'Tasks Due This Week' })} value={metrics.tasksDueThisWeek} />
+          <MetricCard
+            title={t('pages.pmDashboard.metrics.tasksDueThisWeek', { defaultValue: 'Tasks Due This Week' })}
+            value={metrics.tasksDueThisWeek}
+            onClick={() => navigate('/app/pm/projects?task_due=week')}
+          />
         </Col>
         <Col xs={24} md={12} xl={6}>
-          <MetricCard title={t('pages.pmDashboard.metrics.avgCompletion', { defaultValue: 'Avg Completion' })} value={metrics.avgCompletionRate} suffix="%" />
+          <MetricCard
+            title={t('pages.pmDashboard.metrics.avgCompletion', { defaultValue: 'Avg Completion' })}
+            value={metrics.avgCompletionRate}
+            suffix="%"
+            onClick={() => navigate('/app/pm/projects?sort=completion_desc')}
+          />
         </Col>
       </Row>
 

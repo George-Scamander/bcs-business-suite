@@ -17,6 +17,13 @@ export interface LeadFilters {
   region?: string
   industry?: string
   assignedBdId?: string
+  intentPackage?: IntentPackage
+  followupDue?: boolean
+  followupDueBefore?: string
+  signedFrom?: string
+  signedTo?: string
+  createdFrom?: string
+  createdTo?: string
   keyword?: string
 }
 
@@ -63,6 +70,32 @@ export interface DuplicateLeadCompanyRow {
 }
 
 export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
+  let signedLeadIds: string[] | null = null
+
+  if (filters.signedFrom || filters.signedTo) {
+    let signedQuery = supabase.from('signed_records').select('lead_id')
+
+    if (filters.signedFrom) {
+      signedQuery = signedQuery.gte('created_at', filters.signedFrom)
+    }
+
+    if (filters.signedTo) {
+      signedQuery = signedQuery.lte('created_at', filters.signedTo)
+    }
+
+    const signedResult = await signedQuery
+
+    if (signedResult.error) {
+      throw signedResult.error
+    }
+
+    signedLeadIds = [...new Set((signedResult.data ?? []).map((item) => item.lead_id).filter(Boolean))]
+
+    if (signedLeadIds.length === 0) {
+      return []
+    }
+  }
+
   let query = supabase.from('leads').select('*').is('deleted_at', null).order('updated_at', { ascending: false })
 
   if (filters.status) {
@@ -81,8 +114,30 @@ export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
     query = query.eq('assigned_bd_id', filters.assignedBdId)
   }
 
+  if (filters.intentPackage) {
+    query = query.eq('intent_package', filters.intentPackage)
+  }
+
+  if (filters.followupDue) {
+    query = query.not('next_followup_at', 'is', null).lt('next_followup_at', filters.followupDueBefore ?? new Date().toISOString())
+  }
+
+  if (signedLeadIds) {
+    query = query.in('id', signedLeadIds)
+  }
+
+  if (filters.createdFrom) {
+    query = query.gte('created_at', filters.createdFrom)
+  }
+
+  if (filters.createdTo) {
+    query = query.lte('created_at', filters.createdTo)
+  }
+
   if (filters.keyword) {
-    query = query.or(`company_name.ilike.%${filters.keyword}%,lead_code.ilike.%${filters.keyword}%,contact_person.ilike.%${filters.keyword}%`)
+    query = query.or(
+      `company_name.ilike.%${filters.keyword}%,lead_code.ilike.%${filters.keyword}%,contact_person.ilike.%${filters.keyword}%,source.ilike.%${filters.keyword}%,industry.ilike.%${filters.keyword}%`,
+    )
   }
 
   const result = await query
@@ -95,6 +150,32 @@ export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
 }
 
 export async function listDeletedLeads(filters: LeadFilters = {}): Promise<Lead[]> {
+  let signedLeadIds: string[] | null = null
+
+  if (filters.signedFrom || filters.signedTo) {
+    let signedQuery = supabase.from('signed_records').select('lead_id')
+
+    if (filters.signedFrom) {
+      signedQuery = signedQuery.gte('created_at', filters.signedFrom)
+    }
+
+    if (filters.signedTo) {
+      signedQuery = signedQuery.lte('created_at', filters.signedTo)
+    }
+
+    const signedResult = await signedQuery
+
+    if (signedResult.error) {
+      throw signedResult.error
+    }
+
+    signedLeadIds = [...new Set((signedResult.data ?? []).map((item) => item.lead_id).filter(Boolean))]
+
+    if (signedLeadIds.length === 0) {
+      return []
+    }
+  }
+
   let query = supabase.from('leads').select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false })
 
   if (filters.status) {
@@ -113,8 +194,30 @@ export async function listDeletedLeads(filters: LeadFilters = {}): Promise<Lead[
     query = query.eq('assigned_bd_id', filters.assignedBdId)
   }
 
+  if (filters.intentPackage) {
+    query = query.eq('intent_package', filters.intentPackage)
+  }
+
+  if (filters.followupDue) {
+    query = query.not('next_followup_at', 'is', null).lt('next_followup_at', filters.followupDueBefore ?? new Date().toISOString())
+  }
+
+  if (signedLeadIds) {
+    query = query.in('id', signedLeadIds)
+  }
+
+  if (filters.createdFrom) {
+    query = query.gte('created_at', filters.createdFrom)
+  }
+
+  if (filters.createdTo) {
+    query = query.lte('created_at', filters.createdTo)
+  }
+
   if (filters.keyword) {
-    query = query.or(`company_name.ilike.%${filters.keyword}%,lead_code.ilike.%${filters.keyword}%,contact_person.ilike.%${filters.keyword}%`)
+    query = query.or(
+      `company_name.ilike.%${filters.keyword}%,lead_code.ilike.%${filters.keyword}%,contact_person.ilike.%${filters.keyword}%,source.ilike.%${filters.keyword}%,industry.ilike.%${filters.keyword}%`,
+    )
   }
 
   const result = await query

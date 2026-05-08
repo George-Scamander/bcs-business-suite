@@ -33,6 +33,8 @@ import { LeadSignContractPage } from '../modules/leads/pages/LeadSignContractPag
 import { LeadInitiateOnboardingPage } from '../modules/leads/pages/LeadInitiateOnboardingPage'
 import { BdOnboardingListPage } from '../modules/onboarding/pages/BdOnboardingListPage'
 import { BdOnboardingDetailPage } from '../modules/onboarding/pages/BdOnboardingDetailPage'
+import { OnboardMerchantManagementPage } from '../modules/onboarding/pages/OnboardMerchantManagementPage'
+import { OnboardMerchantDetailPage } from '../modules/onboarding/pages/OnboardMerchantDetailPage'
 import { BdProjectDetailPage } from '../modules/projects/pages/BdProjectDetailPage'
 import { BdRelatedProjectsPage } from '../modules/projects/pages/BdRelatedProjectsPage'
 import { PmProjectsListPage } from '../modules/projects/pages/PmProjectsListPage'
@@ -44,6 +46,8 @@ import { PmProjectMembersPage } from '../modules/projects/pages/PmProjectMembers
 import { PmProjectClosurePage } from '../modules/projects/pages/PmProjectClosurePage'
 import { PmLeadImportPage } from '../modules/leads/pages/PmLeadImportPage'
 import { PmLeadPoolPage } from '../modules/leads/pages/PmLeadPoolPage'
+import { BdSalesCreatePage } from '../modules/sales/pages/BdSalesCreatePage'
+import { SalesSupervisionPage } from '../modules/sales/pages/SalesSupervisionPage'
 
 export default function App() {
   return (
@@ -102,10 +106,34 @@ export default function App() {
               }
             />
             <Route
+              path="admin/onboarding/merchants"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.ONBOARDING_READ]}>
+                  <OnboardMerchantManagementPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/onboarding/merchants/:merchantId"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.ONBOARDING_READ]}>
+                  <OnboardMerchantDetailPage />
+                </RoleGuard>
+              }
+            />
+            <Route
               path="admin/projects/overview"
               element={
                 <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
                   <AdminProjectOverviewPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/sales/supervision"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
+                  <SalesSupervisionPage />
                 </RoleGuard>
               }
             />
@@ -159,6 +187,14 @@ export default function App() {
               element={
                 <RoleGuard allowRoles={['bd_user']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
                   <LeadFormPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="bd/sales/new"
+              element={
+                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
+                  <BdSalesCreatePage />
                 </RoleGuard>
               }
             />
@@ -221,6 +257,22 @@ export default function App() {
               path="bd/onboarding"
               element={
                 <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.ONBOARDING_READ]}>
+                  <OnboardMerchantManagementPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="bd/onboarding/merchants/:merchantId"
+              element={
+                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.ONBOARDING_READ]}>
+                  <OnboardMerchantDetailPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="bd/onboarding/cases"
+              element={
+                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.ONBOARDING_READ]}>
                   <BdOnboardingListPage />
                 </RoleGuard>
               }
@@ -259,6 +311,14 @@ export default function App() {
               }
             />
             <Route
+              path="pm/sales/supervision"
+              element={
+                <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
+                  <SalesSupervisionPage />
+                </RoleGuard>
+              }
+            />
+            <Route
               path="pm/projects"
               element={
                 <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
@@ -277,6 +337,22 @@ export default function App() {
             <Route
               path="pm/projects/deleted"
               element={<Navigate to="/app/recently-deleted" replace />}
+            />
+            <Route
+              path="pm/onboarding/merchants"
+              element={
+                <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.ONBOARDING_READ]}>
+                  <OnboardMerchantManagementPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="pm/onboarding/merchants/:merchantId"
+              element={
+                <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.ONBOARDING_READ]}>
+                  <OnboardMerchantDetailPage />
+                </RoleGuard>
+              }
             />
             <Route
               path="pm/leads/pool"

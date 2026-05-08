@@ -34,7 +34,7 @@ interface TaskFormValues {
   title: string
   description?: string
   assignee_id?: string
-  status: TaskStatus
+  status?: TaskStatus
   priority: TaskPriority
   start_date?: dayjs.Dayjs
   due_date?: dayjs.Dayjs
@@ -100,16 +100,15 @@ export function PmProjectTasksPage() {
         title: values.title,
         description: values.description,
         assigneeId: values.assignee_id,
-        status: values.status,
+        status: 'TODO',
         priority: values.priority,
         startDate: values.start_date ? values.start_date.format('YYYY-MM-DD') : undefined,
         dueDate: values.due_date ? values.due_date.format('YYYY-MM-DD') : undefined,
-        progress: values.status === 'DONE' ? 100 : Number(values.progress ?? 0),
+        progress: Number(values.progress ?? 0),
       })
       message.success(t('page.projectTasks.taskAdded', { defaultValue: 'Task added' }))
       form.resetFields()
       form.setFieldsValue({
-        status: 'TODO',
         priority: 'MEDIUM',
         progress: 0,
       })
@@ -181,7 +180,8 @@ export function PmProjectTasksPage() {
       return
     }
 
-    const progressValue = values.status === 'DONE' ? 100 : Number(values.progress ?? 0)
+    const nextStatus = values.status ?? editingTask.status
+    const progressValue = nextStatus === 'DONE' ? 100 : Number(values.progress ?? 0)
 
     if (progressValue < 0 || progressValue > 100) {
       message.warning(t('pages.pmProjectCreate.progressRangeError', { defaultValue: 'Task progress must be between 0 and 100' }))
@@ -196,7 +196,7 @@ export function PmProjectTasksPage() {
         title: values.title.trim(),
         description: values.description,
         assigneeId: values.assignee_id,
-        status: values.status,
+        status: nextStatus,
         priority: values.priority,
         startDate: values.start_date ? values.start_date.format('YYYY-MM-DD') : undefined,
         dueDate: values.due_date ? values.due_date.format('YYYY-MM-DD') : undefined,
@@ -252,7 +252,7 @@ export function PmProjectTasksPage() {
           layout="vertical"
           onFinish={handleAddTask}
           requiredMark={false}
-          initialValues={{ status: 'TODO', priority: 'MEDIUM', progress: 0 }}
+          initialValues={{ priority: 'MEDIUM', progress: 0 }}
         >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Form.Item
@@ -265,10 +265,6 @@ export function PmProjectTasksPage() {
 
             <Form.Item name="assignee_id" label={t('page.projectTasks.assignee', { defaultValue: 'Assignee' })}>
               <Select allowClear options={memberOptions} placeholder={t('page.projectTasks.selectMember', { defaultValue: 'Select member' })} />
-            </Form.Item>
-
-            <Form.Item name="status" label={t('page.common.status', { defaultValue: 'Status' })}>
-              <Select options={getTaskStatusOptions(t)} />
             </Form.Item>
 
             <Form.Item name="priority" label={t('page.projectTasks.priority', { defaultValue: 'Priority' })}>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Col, Row, Table, message } from 'antd'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 
 import { MetricCard } from '../../../components/common/MetricCard'
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
@@ -17,6 +18,7 @@ interface PendingCaseRow {
 
 export function AdminDashboardPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [metrics, setMetrics] = useState({
     totalLeads: 0,
     signedLeads: 0,
@@ -76,25 +78,46 @@ export function AdminDashboardPage() {
 
       <Row gutter={[16, 16]} className="mb-5">
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('pages.adminDashboard.metrics.totalLeads', { defaultValue: 'Total Leads' })} value={metrics.totalLeads} />
+          <MetricCard
+            title={t('pages.adminDashboard.metrics.totalLeads', { defaultValue: 'Total Leads' })}
+            value={metrics.totalLeads}
+            onClick={() => navigate('/app/admin/leads/pool')}
+          />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('pages.adminDashboard.metrics.signedLeads', { defaultValue: 'Signed Leads' })} value={metrics.signedLeads} />
+          <MetricCard
+            title={t('pages.adminDashboard.metrics.signedLeads', { defaultValue: 'Signed Leads' })}
+            value={metrics.signedLeads}
+            onClick={() => navigate('/app/admin/leads/pool?status=SIGNED')}
+          />
         </Col>
         <Col xs={24} md={12} xl={4}>
           <MetricCard
             title={t('pages.adminDashboard.metrics.onboardingActive', { defaultValue: 'Onboarding Active' })}
             value={metrics.activeOnboardingCases}
+            onClick={() => navigate('/app/admin/onboarding/review-center?activeOnly=1')}
           />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('pages.adminDashboard.metrics.totalProjects', { defaultValue: 'Total Projects' })} value={metrics.totalProjects} />
+          <MetricCard
+            title={t('pages.adminDashboard.metrics.totalProjects', { defaultValue: 'Total Projects' })}
+            value={metrics.totalProjects}
+            onClick={() => navigate('/app/admin/projects/overview')}
+          />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('pages.adminDashboard.metrics.delayedProjects', { defaultValue: 'Delayed Projects' })} value={metrics.delayedProjects} />
+          <MetricCard
+            title={t('pages.adminDashboard.metrics.delayedProjects', { defaultValue: 'Delayed Projects' })}
+            value={metrics.delayedProjects}
+            onClick={() => navigate('/app/admin/projects/overview?status=DELAYED')}
+          />
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard title={t('pages.adminDashboard.metrics.activeUsers', { defaultValue: 'Active Users' })} value={metrics.activeUsers} />
+          <MetricCard
+            title={t('pages.adminDashboard.metrics.activeUsers', { defaultValue: 'Active Users' })}
+            value={metrics.activeUsers}
+            onClick={() => navigate('/app/admin/users-roles')}
+          />
         </Col>
       </Row>
 

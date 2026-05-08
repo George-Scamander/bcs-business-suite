@@ -1,23 +1,37 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Col, Input, Progress, Row, Select, Space, Table, message } from 'antd'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { MetricCard } from '../../../components/common/MetricCard'
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { getProjectStatusOptions } from '../../../lib/business-constants'
 import { StatusTag } from '../../../components/common/StatusTag'
 import { listProjects, markDelayedProjects, type ProjectFilters } from '../../projects/api'
-import type { Project } from '../../../types/business'
+import type { Project, ProjectStatus } from '../../../types/business'
+
+const PROJECT_STATUS_VALUES: ProjectStatus[] = ['NOT_STARTED', 'IN_PROGRESS', 'ON_HOLD', 'DELAYED', 'COMPLETED', 'CLOSED']
+
+function parseProjectFiltersFromSearch(searchParams: URLSearchParams): { filters: ProjectFilters; keyword: string } {
+  const statusParam = searchParams.get('status')
+  const status = statusParam && PROJECT_STATUS_VALUES.includes(statusParam as ProjectStatus) ? (statusParam as ProjectStatus) : undefined
+  const keyword = searchParams.get('q') ?? ''
+
+  return {
+    filters: status ? { status } : {},
+    keyword,
+  }
+}
 
 export function AdminProjectOverviewPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const [rows, setRows] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState<ProjectFilters>({})
-  const [keyword, setKeyword] = useState('')
+  const [filters, setFilters] = useState<ProjectFilters>(() => parseProjectFiltersFromSearch(searchParams).filters)
+  const [keyword, setKeyword] = useState(() => parseProjectFiltersFromSearch(searchParams).keyword)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -40,6 +54,12 @@ export function AdminProjectOverviewPage() {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    const parsed = parseProjectFiltersFromSearch(searchParams)
+    setFilters((current) => (JSON.stringify(current) === JSON.stringify(parsed.filters) ? current : parsed.filters))
+    setKeyword((current) => (current === parsed.keyword ? current : parsed.keyword))
+  }, [searchParams])
 
   const metrics = useMemo(() => {
     const total = rows.length
