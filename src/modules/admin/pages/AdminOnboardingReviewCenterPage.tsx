@@ -1,20 +1,44 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import {
   Button,
   Drawer,
   Input,
   Select,
   Space,
-  Table,
   Tag,
+  Typography,
   message,
 } from 'antd'
-import { useTranslation } from 'react-i18next'
-import { useSearchParams } from 'react-router-dom'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  EyeOutlined,
+} from '@ant-design/icons'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useSearchParams,
+} from 'react-router-dom'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getOnboardingStatusOptions } from '../../../lib/business-constants'
-import { StatusTag } from '../../../components/common/StatusTag'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getOnboardingStatusOptions,
+} from '../../../lib/business-constants'
+import {
+  createSignedFileUrl,
+} from '../../../lib/supabase/storage'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
 import {
   listOnboardingCases,
   listOnboardingDocuments,
@@ -22,7 +46,11 @@ import {
   changeOnboardingStatus,
   type OnboardingFilters,
 } from '../../onboarding/api'
-import type { OnboardingCase, OnboardingDocument, OnboardingStatus } from '../../../types/business'
+import type {
+  OnboardingCase,
+  OnboardingDocument,
+  OnboardingStatus,
+} from '../../../types/business'
 
 const ONBOARDING_STATUS_VALUES: OnboardingStatus[] = [
   'NOT_STARTED',
@@ -60,6 +88,38 @@ function parseOnboardingFiltersFromSearch(searchParams: URLSearchParams): { filt
     filters: { status: 'UNDER_REVIEW' },
     keyword,
   }
+}
+
+function canTransitionTo(currentStatus: OnboardingStatus, targetStatus: OnboardingStatus): boolean {
+  if (currentStatus === 'NOT_STARTED') {
+    return targetStatus === 'INFO_PENDING' || targetStatus === 'REJECTED'
+  }
+
+  if (currentStatus === 'INFO_PENDING') {
+    return targetStatus === 'DOCUMENT_PENDING' || targetStatus === 'REJECTED'
+  }
+
+  if (currentStatus === 'DOCUMENT_PENDING') {
+    return targetStatus === 'UNDER_REVIEW' || targetStatus === 'REJECTED'
+  }
+
+  if (currentStatus === 'UNDER_REVIEW') {
+    return targetStatus === 'REVISION_REQUIRED' || targetStatus === 'CONTRACT_CONFIRMED' || targetStatus === 'REJECTED'
+  }
+
+  if (currentStatus === 'REVISION_REQUIRED') {
+    return targetStatus === 'DOCUMENT_PENDING' || targetStatus === 'REJECTED'
+  }
+
+  if (currentStatus === 'CONTRACT_CONFIRMED') {
+    return targetStatus === 'SERVICE_ACTIVATING' || targetStatus === 'REJECTED'
+  }
+
+  if (currentStatus === 'SERVICE_ACTIVATING') {
+    return targetStatus === 'COMPLETED' || targetStatus === 'REJECTED'
+  }
+
+  return false
 }
 
 export function AdminOnboardingReviewCenterPage() {
@@ -112,38 +172,111 @@ export function AdminOnboardingReviewCenterPage() {
     setKeyword((current) => (current === parsed.keyword ? current : parsed.keyword))
   }, [searchParams])
 
-  async function handleDocumentReview(documentId: string, caseId: string, decision: 'APPROVED' | 'REJECTED' | 'REVISION_REQUIRED') {
+  async function ensureCaseUnderReview(caseId: string, currentStatus: OnboardingStatus): Promise<OnboardingStatus> {
+    let status = currentStatus
+
+    if (status === 'UNDER_REVIEW') {
+      return status
+    }
+
+    if (status === 'INFO_PENDING' && canTransitionTo(status, 'DOCUMENT_PENDING')) {
+      await changeOnboardingStatus({
+        caseId,
+        toStatus: 'DOCUMENT_PENDING',
+        reason: 'Auto-progressed by admin review center to start document review',
+      })
+      status = 'DOCUMENT_PENDING'
+    }
+
+    if (status === 'REVISION_REQUIRED' && canTransitionTo(status, 'DOCUMENT_PENDING')) {
+      await changeOnboardingStatus({
+        caseId,
+        toStatus: 'DOCUMENT_PENDING',
+        reason: 'Auto-progressed by admin review center to continue review cycle',
+      })
+      status = 'DOCUMENT_PENDING'
+    }
+
+    if (status === 'DOCUMENT_PENDING' && canTransitionTo(status, 'UNDER_REVIEW')) {
+      await changeOnboardingStatus({
+        caseId,
+        toStatus: 'UNDER_REVIEW',
+        reason: 'Auto-progressed by admin review center to perform review',
+      })
+      status = 'UNDER_REVIEW'
+    }
+
+    return status
+  }
+
+  async function handlePreviewDocument(row: OnboardingDocument) {
+    if (!row.object_path) {
+      message.warning(t('pages.adminOnboardingReview.fileMissing', { defaultValue: 'This document has no file attached' }))
+      return
+    }
+
+    try {
+      const url = await createSignedFileUrl(row.object_path)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.adminOnboardingReview.previewFail', { defaultValue: 'Failed to preview file' })
+      message.error(text)
+    }
+  }
+
+  async function handleDocumentReview(row: OnboardingDocument, decision: 'APPROVED' | 'REJECTED' | 'REVISION_REQUIRED') {
+    if (!selectedCase) {
+      return
+    }
+
     setReviewLoading(true)
 
     try {
+      let currentStatus = selectedCase.status
+
+      if (decision === 'APPROVED' || decision === 'REVISION_REQUIRED') {
+        currentStatus = await ensureCaseUnderReview(selectedCase.id, currentStatus)
+      }
+
       await reviewOnboardingDocument({
-        caseId,
-        documentId,
+        caseId: selectedCase.id,
+        documentId: row.id,
         decision,
-        comment: `Admin review decision: ${decision}`,
+        comment: `Admin review decision: ${decision}${decision === 'REVISION_REQUIRED' ? ' (request supplemental files)' : ''}`,
       })
 
       if (decision === 'APPROVED') {
-        await changeOnboardingStatus({
-          caseId,
-          toStatus: 'CONTRACT_CONFIRMED',
-          reason: 'Documents approved by admin review center',
-        })
+        if (canTransitionTo(currentStatus, 'CONTRACT_CONFIRMED')) {
+          await changeOnboardingStatus({
+            caseId: selectedCase.id,
+            toStatus: 'CONTRACT_CONFIRMED',
+            reason: 'Documents approved by admin review center',
+          })
+        }
       } else if (decision === 'REVISION_REQUIRED') {
-        await changeOnboardingStatus({
-          caseId,
-          toStatus: 'REVISION_REQUIRED',
-          reason: 'Revision requested by admin review center',
-        })
+        if (canTransitionTo(currentStatus, 'REVISION_REQUIRED')) {
+          await changeOnboardingStatus({
+            caseId: selectedCase.id,
+            toStatus: 'REVISION_REQUIRED',
+            reason: 'Supplemental files requested by admin review center',
+          })
+        }
       } else if (decision === 'REJECTED') {
-        await changeOnboardingStatus({
-          caseId,
-          toStatus: 'REJECTED',
-          reason: 'Rejected in admin review center',
-        })
+        if (canTransitionTo(currentStatus, 'REJECTED')) {
+          await changeOnboardingStatus({
+            caseId: selectedCase.id,
+            toStatus: 'REJECTED',
+            reason: 'Rejected in admin review center',
+          })
+        }
       }
 
       message.success(t('pages.adminOnboardingReview.reviewSubmitted', { defaultValue: 'Review decision submitted' }))
+      setDrawerOpen(false)
+      setSelectedCase(null)
       await loadData()
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Failed to submit review decision'
@@ -160,6 +293,11 @@ export function AdminOnboardingReviewCenterPage() {
 
     return documentsByCase[selectedCase.id] ?? []
   }, [documentsByCase, selectedCase])
+
+  const selectedPendingDocsCount = useMemo(
+    () => selectedDocs.filter((item) => item.review_status === 'PENDING').length,
+    [selectedDocs],
+  )
 
   return (
     <>
@@ -253,6 +391,16 @@ export function AdminOnboardingReviewCenterPage() {
           setSelectedCase(null)
         }}
       >
+        <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <Typography.Text className="block text-sm text-slate-600">
+            {t('pages.adminOnboardingReview.currentStatus', { defaultValue: 'Current Status' })}:{' '}
+            <strong>{selectedCase?.status ?? '-'}</strong>
+          </Typography.Text>
+          <Typography.Text className="mt-1 block text-sm text-slate-600">
+            {t('pages.adminOnboardingReview.pendingDocsCount', { defaultValue: 'Pending Documents' })}: {selectedPendingDocsCount}
+          </Typography.Text>
+        </div>
+
         <Table
           rowKey="id"
           loading={reviewLoading}
@@ -274,26 +422,36 @@ export function AdminOnboardingReviewCenterPage() {
             },
             {
               title: t('pages.adminOnboardingReview.columns.actions', { defaultValue: 'Actions' }),
-              width: 260,
+              width: 360,
               render: (_: unknown, row: OnboardingDocument) => (
                 <Space>
                   <Button
                     size="small"
+                    icon={<EyeOutlined />}
+                    onClick={() => void handlePreviewDocument(row)}
+                  >
+                    {t('pages.adminOnboardingReview.preview', { defaultValue: 'Preview' })}
+                  </Button>
+                  <Button
+                    size="small"
                     type="primary"
-                    onClick={() => void handleDocumentReview(row.id, row.onboarding_case_id, 'APPROVED')}
+                    disabled={row.review_status !== 'PENDING'}
+                    onClick={() => void handleDocumentReview(row, 'APPROVED')}
                   >
                     {t('pages.adminOnboardingReview.approve', { defaultValue: 'Approve' })}
                   </Button>
                   <Button
                     size="small"
-                    onClick={() => void handleDocumentReview(row.id, row.onboarding_case_id, 'REVISION_REQUIRED')}
+                    disabled={row.review_status !== 'PENDING'}
+                    onClick={() => void handleDocumentReview(row, 'REVISION_REQUIRED')}
                   >
-                    {t('pages.adminOnboardingReview.revise', { defaultValue: 'Revise' })}
+                    {t('pages.adminOnboardingReview.revise', { defaultValue: 'Request Files' })}
                   </Button>
                   <Button
                     size="small"
                     danger
-                    onClick={() => void handleDocumentReview(row.id, row.onboarding_case_id, 'REJECTED')}
+                    disabled={row.review_status !== 'PENDING'}
+                    onClick={() => void handleDocumentReview(row, 'REJECTED')}
                   >
                     {t('pages.adminOnboardingReview.reject', { defaultValue: 'Reject' })}
                   </Button>

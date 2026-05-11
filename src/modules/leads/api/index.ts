@@ -1,6 +1,7 @@
 import type { IntentPackage, Lead, LeadFollowup, LeadStatus, LeadStatusLog, SignedRecord } from '../../../types/business'
 import { supabase } from '../../../lib/supabase/client'
 import { recordOperationLog } from '../../../lib/supabase/logs'
+import { generateUuid } from '../../../lib/uuid'
 
 export interface LeadAttachment {
   id: string
@@ -61,6 +62,7 @@ export interface ChangeLeadStatusInput {
   contractDate?: string
   contractValue?: number
   contractPackage?: IntentPackage
+  contractFileId?: string
 }
 
 export interface DuplicateLeadCompanyRow {
@@ -240,7 +242,7 @@ export async function getLeadById(leadId: string): Promise<Lead> {
 }
 
 export async function createLead(input: CreateLeadInput): Promise<Lead> {
-  const leadId = input.id ?? crypto.randomUUID()
+  const leadId = input.id ?? generateUuid()
   const insertResult = await supabase
     .from('leads')
     .insert({
@@ -557,12 +559,23 @@ export async function changeLeadStatus(input: ChangeLeadStatusInput): Promise<{ 
     throw result.error
   }
 
-  if (input.toStatus === 'SIGNED' && input.contractPackage) {
+  if (input.toStatus === 'SIGNED' && (input.contractPackage || input.contractFileId)) {
+    const signedRecordUpdates: {
+      contract_package?: IntentPackage
+      contract_file_id?: string
+    } = {}
+
+    if (input.contractPackage) {
+      signedRecordUpdates.contract_package = input.contractPackage
+    }
+
+    if (input.contractFileId) {
+      signedRecordUpdates.contract_file_id = input.contractFileId
+    }
+
     const updatePackageResult = await supabase
       .from('signed_records')
-      .update({
-        contract_package: input.contractPackage,
-      })
+      .update(signedRecordUpdates)
       .eq('lead_id', input.leadId)
 
     if (updatePackageResult.error) {

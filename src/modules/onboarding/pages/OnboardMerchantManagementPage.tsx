@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import {
   Button,
   Form,
@@ -7,16 +12,31 @@ import {
   Popconfirm,
   Select,
   Space,
-  Table,
   Tag,
+  Tooltip,
   message,
 } from 'antd'
-import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate } from 'react-router-dom'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { useAuth } from '../../auth/auth-context'
-import { listActiveUsers, type UserOption } from '../../shared/api/users'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  useAuth,
+} from '../../auth/auth-context'
+import {
+  listActiveUsers,
+  type UserOption,
+} from '../../shared/api/users'
 import {
   createOnboardMerchant,
   listOnboardMerchants,
@@ -25,8 +45,13 @@ import {
   updateOnboardMerchant,
   type LeadLookupRow,
 } from '../api'
-import type { OnboardMerchant, OnboardMerchantType } from '../../../types/business'
-import { supabase } from '../../../lib/supabase/client'
+import type {
+  OnboardMerchant,
+  OnboardMerchantType,
+} from '../../../types/business'
+import {
+  supabase,
+} from '../../../lib/supabase/client'
 
 interface MerchantFormValues {
   lead_id?: string
@@ -412,27 +437,46 @@ export function OnboardMerchantManagementPage() {
         </Space>
       </div>
 
-      <Table
-        rowKey="id"
-        bordered
-        loading={loading}
-        dataSource={rows}
-        pagination={{ pageSize: 12 }}
-        columns={[
+      <div className="onboard-merchant-table-wrap">
+        <Table
+          rowKey="id"
+          bordered
+          loading={loading}
+          dataSource={rows}
+          tableLayout="fixed"
+          scroll={{ x: 1550 }}
+          pagination={{ pageSize: 12 }}
+          columns={[
           {
             title: t('pages.onboardMerchant.columns.merchantNo', { defaultValue: 'Merchant No' }),
             dataIndex: 'merchant_no',
-            width: 190,
+            width: 170,
+            ellipsis: {
+              showTitle: false,
+            },
+            render: (value: string) => (
+              <Tooltip title={value}>
+                <span>{value}</span>
+              </Tooltip>
+            ),
           },
           {
             title: t('pages.onboardMerchant.columns.company', { defaultValue: 'Company' }),
             dataIndex: 'company_name',
-            width: 220,
+            width: 190,
+            ellipsis: {
+              showTitle: false,
+            },
+            render: (value: string) => (
+              <Tooltip title={value}>
+                <span>{value}</span>
+              </Tooltip>
+            ),
           },
           {
             title: t('pages.onboardMerchant.columns.type', { defaultValue: 'Type' }),
             dataIndex: 'onboarding_type',
-            width: 180,
+            width: 140,
             render: (value: OnboardMerchantType) => (
               <Tag color={getTypeTagColor(value)}>{t(`onboardMerchantType.${value}`, { defaultValue: value })}</Tag>
             ),
@@ -440,7 +484,7 @@ export function OnboardMerchantManagementPage() {
           {
             title: t('pages.onboardMerchant.columns.lead', { defaultValue: 'Lead' }),
             dataIndex: 'lead_id',
-            width: 170,
+            width: 150,
             render: (value: string | null) => {
               if (!value) {
                 return '-'
@@ -453,31 +497,41 @@ export function OnboardMerchantManagementPage() {
             title: t('pages.onboardMerchant.columns.owner', { defaultValue: 'BD Owner' }),
             dataIndex: 'bd_owner_id',
             width: 250,
-            render: (value: string | null) => (value ? userNameById.get(value) ?? value : '-'),
+            ellipsis: {
+              showTitle: false,
+            },
+            render: (value: string | null) => {
+              const owner = value ? userNameById.get(value) ?? value : '-'
+              return (
+                <Tooltip title={owner}>
+                  <span className="block truncate">{owner}</span>
+                </Tooltip>
+              )
+            },
           },
           {
             title: t('pages.onboardMerchant.columns.region', { defaultValue: 'Region' }),
             dataIndex: 'region',
-            width: 150,
+            width: 130,
             render: (value: string | null) => value || '-',
           },
           {
             title: t('pages.onboardMerchant.columns.city', { defaultValue: 'City' }),
             dataIndex: 'city',
-            width: 140,
+            width: 130,
             render: (value: string | null) => value || '-',
           },
           {
             title: t('pages.onboardMerchant.columns.onboardedAt', { defaultValue: 'Onboarded At' }),
             dataIndex: 'onboarded_at',
-            width: 190,
-            render: (value: string) => new Date(value).toLocaleString(),
+            width: 170,
+            render: (value: string) => <span className="whitespace-normal break-words">{new Date(value).toLocaleString()}</span>,
           },
           {
             title: t('pages.onboardMerchant.columns.actions', { defaultValue: 'Actions' }),
-            width: 260,
+            width: 220,
             render: (_: unknown, row: OnboardMerchant) => (
-              <Space>
+              <Space wrap>
                 <Button size="small" onClick={() => navigate(`/app/${portalPrefix}/onboarding/merchants/${row.id}`)}>
                   {t('common.view', { defaultValue: 'View' })}
                 </Button>
@@ -504,8 +558,9 @@ export function OnboardMerchantManagementPage() {
               </Space>
             ),
           },
-        ]}
-      />
+          ]}
+        />
+      </div>
 
       <Modal
         open={modalOpen}

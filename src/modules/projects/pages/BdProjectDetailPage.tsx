@@ -1,17 +1,45 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, Descriptions, Space, Table, Timeline, message } from 'antd'
-import { useTranslation } from 'react-i18next'
-import { useNavigate, useParams } from 'react-router-dom'
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react'
+import {
+  Button,
+  Card,
+  Descriptions,
+  Space,
+  Timeline,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { StatusTag } from '../../../components/common/StatusTag'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
 import {
   getProjectById,
   listProjectMilestones,
   listProjectTasks,
   listProjectUpdates,
 } from '../api'
-import type { Project, ProjectMilestone, ProjectTask, ProjectUpdate } from '../../../types/business'
+import type {
+  Project,
+  ProjectMilestone,
+  ProjectTask,
+  ProjectUpdate,
+} from '../../../types/business'
 
 export function BdProjectDetailPage() {
   const { t } = useTranslation()

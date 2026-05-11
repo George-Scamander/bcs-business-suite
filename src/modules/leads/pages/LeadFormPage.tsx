@@ -36,6 +36,19 @@ interface SupabaseLikeError {
   message?: string
 }
 
+function toIsoStringOrUndefined(value?: dayjs.Dayjs | string): string | undefined {
+  if (!value) {
+    return undefined
+  }
+
+  const parsed = dayjs.isDayjs(value) ? value : dayjs(value)
+  if (!parsed.isValid()) {
+    return undefined
+  }
+
+  return parsed.toISOString()
+}
+
 function normalizeText(value?: string): string | undefined {
   if (!value) {
     return undefined
@@ -127,9 +140,10 @@ export function LeadFormPage() {
       }
 
       const parsed = JSON.parse(raw) as DraftLeadFormValues
+      const draftFollowup = parsed.next_followup_at ? dayjs(parsed.next_followup_at) : undefined
       form.setFieldsValue({
         ...parsed,
-        next_followup_at: parsed.next_followup_at ? dayjs(parsed.next_followup_at) : undefined,
+        next_followup_at: draftFollowup?.isValid() ? draftFollowup : undefined,
       })
     } catch {
       // Ignore corrupted local draft and continue with server/default values.
@@ -244,7 +258,7 @@ export function LeadFormPage() {
         source: normalizeText(values.source),
         intent_level: values.intent_level,
         estimated_value: values.estimated_value,
-        next_followup_at: values.next_followup_at ? values.next_followup_at.toISOString() : undefined,
+        next_followup_at: toIsoStringOrUndefined(values.next_followup_at),
       }
 
       const duplicates = await findDuplicateLeadCompanies(basePayload.company_name, leadId)
@@ -329,10 +343,14 @@ export function LeadFormPage() {
     const draft: DraftLeadFormValues = {
       ...allValues,
       company_name: allValues.company_name,
-      next_followup_at: allValues.next_followup_at ? allValues.next_followup_at.toISOString() : undefined,
+      next_followup_at: toIsoStringOrUndefined(allValues.next_followup_at),
     }
 
-    localStorage.setItem(draftKey, JSON.stringify(draft))
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(draft))
+    } catch {
+      // Ignore local persistence failure on restricted mobile webviews/private mode.
+    }
   }
 
   return (

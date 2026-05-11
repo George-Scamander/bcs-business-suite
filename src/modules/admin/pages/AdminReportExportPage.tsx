@@ -1,11 +1,36 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, Select, Space, Table, message } from 'antd'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react'
+import {
+  Button,
+  Card,
+  Select,
+  Space,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { supabase } from '../../../lib/supabase/client'
-import { exportRowsToCsv, listReportExports, requestReportExport } from '../../reports/api'
-import type { ReportExport } from '../../../types/business'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  supabase,
+} from '../../../lib/supabase/client'
+import {
+  exportRowsToCsv,
+  listReportExports,
+  requestReportExport,
+} from '../../reports/api'
+import type {
+  ReportExport,
+} from '../../../types/business'
 
 type ReportModule = 'leads' | 'onboarding' | 'projects'
 

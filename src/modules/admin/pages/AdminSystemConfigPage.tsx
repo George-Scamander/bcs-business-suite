@@ -1,8 +1,31 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Card, Form, Input, InputNumber, Select, Space, Switch, Table, message } from 'antd'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import {
+  Alert,
+  Button,
+  Card,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Space,
+  Switch,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
 import {
   createDictionaryItem,
   listDictionaryItems,

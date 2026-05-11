@@ -1,16 +1,60 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import dayjs from 'dayjs'
-import { Button, Card, DatePicker, Form, Input, InputNumber, Select, Space, Table, Tag, message } from 'antd'
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import {
+  Button,
+  Card,
+  DatePicker,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Space,
+  Tag,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  PlusOutlined,
+  DeleteOutlined,
+} from '@ant-design/icons'
+import {
+  useNavigate,
+} from 'react-router-dom'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getTaskPriorityOptions, getTaskStatusOptions } from '../../../lib/business-constants'
-import { useAuth } from '../../auth/auth-context'
-import { listActiveUsers, type UserOption } from '../../shared/api/users'
-import { createProject, listOnboardingCasesWithoutProject, upsertProjectTask } from '../api'
-import type { OnboardingCase, TaskPriority, TaskStatus } from '../../../types/business'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getTaskPriorityOptions,
+  getTaskStatusOptions,
+} from '../../../lib/business-constants'
+import {
+  useAuth,
+} from '../../auth/auth-context'
+import {
+  listActiveUsers,
+  type UserOption,
+} from '../../shared/api/users'
+import {
+  createProject,
+  listOnboardingCasesWithoutProject,
+  upsertProjectTask,
+} from '../api'
+import type {
+  OnboardingCase,
+  TaskPriority,
+  TaskStatus,
+} from '../../../types/business'
 
 interface CreateProjectFormValues {
   onboarding_case_id?: string

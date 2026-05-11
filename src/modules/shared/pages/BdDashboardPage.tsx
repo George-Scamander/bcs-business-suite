@@ -1,14 +1,42 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Col, Row, Table, message } from 'antd'
-import { useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react'
+import {
+  Button,
+  Col,
+  Row,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useNavigate,
+} from 'react-router-dom'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { MetricCard } from '../../../components/common/MetricCard'
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { StatusTag } from '../../../components/common/StatusTag'
-import { getBdDashboardMetrics } from '../../dashboard/api'
-import { listLeads } from '../../leads/api'
-import { useAuth } from '../../auth/auth-context'
+import {
+  MetricCard,
+} from '../../../components/common/MetricCard'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
+import {
+  getBdDashboardMetrics,
+} from '../../dashboard/api'
+import {
+  listLeads,
+} from '../../leads/api'
+import {
+  useAuth,
+} from '../../auth/auth-context'
 
 interface FollowupRow {
   id: string

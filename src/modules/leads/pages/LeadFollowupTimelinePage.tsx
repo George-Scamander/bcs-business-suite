@@ -1,13 +1,47 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import dayjs from 'dayjs'
-import { Button, Card, DatePicker, Form, Input, Select, Space, Table, message } from 'antd'
-import { useTranslation } from 'react-i18next'
-import { useNavigate, useParams } from 'react-router-dom'
+import {
+  Button,
+  Card,
+  DatePicker,
+  Form,
+  Input,
+  Select,
+  Space,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getFollowupTypeOptions, getNextFollowupArrangementOptions } from '../../../lib/business-constants'
-import { addFollowup, getLeadById, listLeadFollowups } from '../api'
-import type { Lead, LeadFollowup } from '../../../types/business'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getFollowupTypeOptions,
+  getNextFollowupArrangementOptions,
+} from '../../../lib/business-constants'
+import {
+  addFollowup,
+  getLeadById,
+  listLeadFollowups,
+} from '../api'
+import type {
+  Lead,
+  LeadFollowup,
+} from '../../../types/business'
 
 interface FollowupFormValues {
   followup_type: string

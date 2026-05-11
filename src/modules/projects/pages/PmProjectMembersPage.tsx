@@ -1,12 +1,48 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Card, Form, Input, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
-import { useTranslation } from 'react-i18next'
-import { useNavigate, useParams } from 'react-router-dom'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import {
+  Button,
+  Card,
+  Form,
+  Input,
+  Popconfirm,
+  Select,
+  Space,
+  Tag,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getProjectById, listProjectMembers, addProjectMember, deactivateProjectMember } from '../api'
-import { listActiveUsers, type UserOption } from '../../shared/api/users'
-import type { Project, ProjectMember } from '../../../types/business'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getProjectById,
+  listProjectMembers,
+  addProjectMember,
+  deactivateProjectMember,
+} from '../api'
+import {
+  listActiveUsers,
+  type UserOption,
+} from '../../shared/api/users'
+import type {
+  Project,
+  ProjectMember,
+} from '../../../types/business'
 
 interface MemberFormValues {
   user_id: string

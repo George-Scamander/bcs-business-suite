@@ -1,17 +1,62 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Card, Input, Select, Space, Table, Upload, message } from 'antd'
-import type { UploadFile } from 'antd'
-import { UploadOutlined } from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import {
+  Alert,
+  Button,
+  Card,
+  Input,
+  Select,
+  Space,
+  Upload,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import type {
+  UploadFile,
+} from 'antd'
+import {
+  UploadOutlined,
+} from '@ant-design/icons'
+import {
+  useNavigate,
+} from 'react-router-dom'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { supabase } from '../../../lib/supabase/client'
-import { createLead, updateLead } from '../api'
-import { useAuth } from '../../auth/auth-context'
-import { listDictionaryItems, type DictionaryItem } from '../../shared/api/dictionary'
-import { listActiveUsers, type UserOption } from '../../shared/api/users'
-import { buildLeadSourceOptions, buildRegionOptions, findCitiesByRegion, type RegionOption } from '../lead-options'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  supabase,
+} from '../../../lib/supabase/client'
+import {
+  createLead,
+  updateLead,
+} from '../api'
+import {
+  useAuth,
+} from '../../auth/auth-context'
+import {
+  listDictionaryItems,
+  type DictionaryItem,
+} from '../../shared/api/dictionary'
+import {
+  listActiveUsers,
+  type UserOption,
+} from '../../shared/api/users'
+import {
+  buildLeadSourceOptions,
+  buildRegionOptions,
+  findCitiesByRegion,
+  type RegionOption,
+} from '../lead-options'
 
 interface ImportLeadRow {
   rowKey: string

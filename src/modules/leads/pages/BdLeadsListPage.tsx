@@ -1,19 +1,72 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import dayjs from 'dayjs'
-import { Button, DatePicker, Input, Modal, Popconfirm, Select, Space, Table, Upload, message } from 'antd'
-import type { UploadFile } from 'antd'
-import { PlusOutlined, UploadOutlined } from '@ant-design/icons'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import {
+  Button,
+  DatePicker,
+  Input,
+  Modal,
+  Popconfirm,
+  Select,
+  Space,
+  Upload,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import type {
+  UploadFile,
+} from 'antd'
+import {
+  PlusOutlined,
+  UploadOutlined,
+} from '@ant-design/icons'
+import {
+  useNavigate,
+  useSearchParams,
+} from 'react-router-dom'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getIntentPackageOptions, getLeadStatusOptions } from '../../../lib/business-constants'
-import { PERMISSIONS } from '../../../lib/permissions'
-import { createLead, listLeads, softDeleteLead, softDeleteLeads, assignLead as assignLeadApi, type LeadFilters } from '../api'
-import { StatusTag } from '../../../components/common/StatusTag'
-import { useAuth } from '../../auth/auth-context'
-import { listActiveUsers, type UserOption } from '../../shared/api/users'
-import type { IntentPackage, Lead, LeadStatus } from '../../../types/business'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getIntentPackageOptions,
+  getLeadStatusOptions,
+} from '../../../lib/business-constants'
+import {
+  PERMISSIONS,
+} from '../../../lib/permissions'
+import {
+  createLead,
+  listLeads,
+  softDeleteLead,
+  softDeleteLeads,
+  assignLead as assignLeadApi,
+  type LeadFilters,
+} from '../api'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
+import {
+  useAuth,
+} from '../../auth/auth-context'
+import {
+  listActiveUsers,
+  type UserOption,
+} from '../../shared/api/users'
+import type {
+  IntentPackage,
+  Lead,
+  LeadStatus,
+} from '../../../types/business'
 
 interface ImportLeadRow {
   company_name: string
@@ -139,8 +192,11 @@ export function BdLeadsListPage() {
 
   const canAssign = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_ASSIGN)
   const canImport = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_IMPORT)
-  const canCreateLead = roles.includes('bd_user')
-  const leadStatusOptions = useMemo(() => getLeadStatusOptions(t), [t])
+  const canCreateLead = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_WRITE)
+  const leadStatusOptions = useMemo(
+    () => getLeadStatusOptions(t).filter((item) => item.value !== 'SIGNED'),
+    [t],
+  )
   const intentPackageOptions = useMemo(() => getIntentPackageOptions(t), [t])
 
   const loadRows = useCallback(async () => {
@@ -151,10 +207,11 @@ export function BdLeadsListPage() {
     setLoading(true)
 
     try {
+      const shouldScopeToOwner = !(roles.includes('super_admin') || roles.includes('project_manager'))
       const result = await listLeads({
         ...filters,
         keyword: keyword.trim() || undefined,
-        assignedBdId: roles.includes('super_admin') ? filters.assignedBdId : user.id,
+        assignedBdId: shouldScopeToOwner ? user.id : filters.assignedBdId,
       })
 
       setRows(result)
@@ -500,12 +557,16 @@ export function BdLeadsListPage() {
                 <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}/status`)}>
                   {t('pages.bdLeads.actionStatus', { defaultValue: 'Status' })}
                 </Button>
-                <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}/sign`)}>
-                  {t('pages.bdLeads.actionSign', { defaultValue: 'Sign' })}
-                </Button>
-                <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}/onboarding`)}>
-                  {t('pages.bdLeads.actionOnboard', { defaultValue: 'Onboard' })}
-                </Button>
+                {row.status !== 'SIGNED' ? (
+                  <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}/sign`)}>
+                    {t('pages.bdLeads.actionSign', { defaultValue: 'Sign' })}
+                  </Button>
+                ) : null}
+                {row.status === 'SIGNED' ? (
+                  <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}/onboarding`)}>
+                    {t('pages.bdLeads.actionOnboard', { defaultValue: 'Onboard' })}
+                  </Button>
+                ) : null}
                 {canAssign ? (
                   <Button size="small" onClick={() => openAssignModal(row)}>
                     {t('pages.bdLeads.actionAssign', { defaultValue: 'Assign' })}

@@ -1,15 +1,51 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import dayjs from 'dayjs'
-import { Button, DatePicker, Input, Modal, Select, Space, Table, message } from 'antd'
-import { useTranslation } from 'react-i18next'
-import { supabase } from '../../../lib/supabase/client'
+import {
+  Button,
+  DatePicker,
+  Input,
+  Modal,
+  Select,
+  Space,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  supabase,
+} from '../../../lib/supabase/client'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getIntentPackageOptions, getLeadStatusOptions } from '../../../lib/business-constants'
-import { StatusTag } from '../../../components/common/StatusTag'
-import { assignLead, listLeads, type LeadFilters } from '../api'
-import { listActiveUsers, type UserOption } from '../../shared/api/users'
-import type { Lead } from '../../../types/business'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getIntentPackageOptions,
+  getLeadStatusOptions,
+} from '../../../lib/business-constants'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
+import {
+  assignLead,
+  listLeads,
+  type LeadFilters,
+} from '../api'
+import {
+  listActiveUsers,
+  type UserOption,
+} from '../../shared/api/users'
+import type {
+  Lead,
+} from '../../../types/business'
 
 interface RoleMappingRow {
   user_id: string

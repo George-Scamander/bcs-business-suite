@@ -1,13 +1,44 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Input, Popconfirm, Space, Table, message } from 'antd'
-import { useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react'
+import {
+  Button,
+  Input,
+  Popconfirm,
+  Space,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useNavigate,
+} from 'react-router-dom'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { StatusTag } from '../../../components/common/StatusTag'
-import { hardDeleteLead, hardDeleteLeads, listDeletedLeads, restoreLead, restoreLeads } from '../api'
-import { useAuth } from '../../auth/auth-context'
-import type { Lead } from '../../../types/business'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
+import {
+  hardDeleteLead,
+  hardDeleteLeads,
+  listDeletedLeads,
+  restoreLead,
+  restoreLeads,
+} from '../api'
+import {
+  useAuth,
+} from '../../auth/auth-context'
+import type {
+  Lead,
+} from '../../../types/business'
 
 export function BdDeletedLeadsPage() {
   const navigate = useNavigate()

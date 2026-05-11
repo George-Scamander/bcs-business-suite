@@ -12,6 +12,7 @@ import type {
 } from '../../../types/business'
 import { supabase } from '../../../lib/supabase/client'
 import { recordOperationLog } from '../../../lib/supabase/logs'
+import { generateUuid } from '../../../lib/uuid'
 
 export interface ProjectFilters {
   status?: ProjectStatus
@@ -50,7 +51,7 @@ export async function listOnboardingCasesWithoutProject(): Promise<OnboardingCas
 }
 
 export async function createProject(input: CreateProjectInput): Promise<Project> {
-  const projectId = input.id ?? crypto.randomUUID()
+  const projectId = input.id ?? generateUuid()
   const result = await supabase
     .from('projects')
     .insert({

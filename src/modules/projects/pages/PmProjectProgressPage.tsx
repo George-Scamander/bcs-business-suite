@@ -1,11 +1,37 @@
-import { useCallback, useEffect, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react'
 import dayjs from 'dayjs'
-import { Button, Card, DatePicker, Form, Input, InputNumber, Progress, Space, Table, message } from 'antd'
-import { useTranslation } from 'react-i18next'
-import { useNavigate, useParams } from 'react-router-dom'
+import {
+  Button,
+  Card,
+  DatePicker,
+  Form,
+  Input,
+  InputNumber,
+  Progress,
+  Space,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { StatusTag } from '../../../components/common/StatusTag'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
 import {
   getProjectById,
   listProjectMilestones,
@@ -13,7 +39,11 @@ import {
   refreshProjectProgress,
   upsertProjectMilestone,
 } from '../api'
-import type { Project, ProjectMilestone, ProjectTask } from '../../../types/business'
+import type {
+  Project,
+  ProjectMilestone,
+  ProjectTask,
+} from '../../../types/business'
 
 interface MilestoneFormValues {
   title: string

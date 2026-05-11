@@ -2,10 +2,11 @@ import { PRIVATE_BUCKET } from '../constants'
 import type { UploadFileRecord } from '../../types/rbac'
 import { recordOperationLog } from './logs'
 import { supabase } from './client'
+import { generateUuid } from '../uuid'
 
 export async function uploadPrivateDocument(file: File, ownerId: string): Promise<UploadFileRecord> {
   const fileExt = file.name.split('.').pop() ?? 'bin'
-  const objectPath = `${ownerId}/${Date.now()}-${crypto.randomUUID()}.${fileExt}`
+  const objectPath = `${ownerId}/${Date.now()}-${generateUuid()}.${fileExt}`
 
   const uploadResult = await supabase.storage.from(PRIVATE_BUCKET).upload(objectPath, file, {
     cacheControl: '3600',
@@ -61,6 +62,16 @@ export async function listMyUploadedFiles(ownerId: string): Promise<UploadFileRe
   }
 
   return result.data as UploadFileRecord[]
+}
+
+export async function getUploadedFileById(fileId: string): Promise<UploadFileRecord | null> {
+  const result = await supabase.from('app_uploaded_files').select('*').eq('id', fileId).maybeSingle<UploadFileRecord>()
+
+  if (result.error) {
+    throw result.error
+  }
+
+  return result.data ?? null
 }
 
 export async function createSignedFileUrl(objectPath: string, expiresInSeconds = 120): Promise<string> {

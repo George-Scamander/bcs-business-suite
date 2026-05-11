@@ -1,13 +1,39 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Col, Row, Table, message } from 'antd'
-import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react'
+import {
+  Button,
+  Col,
+  Row,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useNavigate,
+} from 'react-router-dom'
 
-import { MetricCard } from '../../../components/common/MetricCard'
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getAdminDashboardMetrics } from '../../dashboard/api'
-import { listOnboardingCases } from '../../onboarding/api'
-import { StatusTag } from '../../../components/common/StatusTag'
+import {
+  MetricCard,
+} from '../../../components/common/MetricCard'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getAdminDashboardMetrics,
+} from '../../dashboard/api'
+import {
+  listOnboardingCases,
+} from '../../onboarding/api'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
 
 interface PendingCaseRow {
   id: string

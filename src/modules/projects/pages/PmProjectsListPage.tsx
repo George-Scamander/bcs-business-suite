@@ -1,12 +1,41 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Input, Popconfirm, Progress, Select, Space, Table, message } from 'antd'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import {
+  Button,
+  Input,
+  Popconfirm,
+  Progress,
+  Select,
+  Space,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useNavigate,
+  useSearchParams,
+} from 'react-router-dom'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getProjectStatusOptions } from '../../../lib/business-constants'
-import { StatusTag } from '../../../components/common/StatusTag'
-import { useAuth } from '../../auth/auth-context'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getProjectStatusOptions,
+} from '../../../lib/business-constants'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
+import {
+  useAuth,
+} from '../../auth/auth-context'
 import {
   changeProjectStatus,
   listProjectIdsWithDueTasks,
@@ -16,7 +45,10 @@ import {
   softDeleteProjects,
   type ProjectFilters,
 } from '../api'
-import type { Project, ProjectStatus } from '../../../types/business'
+import type {
+  Project,
+  ProjectStatus,
+} from '../../../types/business'
 
 const STATUS_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
   NOT_STARTED: ['IN_PROGRESS', 'ON_HOLD', 'DELAYED'],

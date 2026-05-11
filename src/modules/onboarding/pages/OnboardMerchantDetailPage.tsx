@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import dayjs from 'dayjs'
 import {
   Button,
@@ -11,16 +16,31 @@ import {
   Popconfirm,
   Select,
   Space,
-  Table,
   Tag,
   message,
 } from 'antd'
-import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { useAuth } from '../../auth/auth-context'
-import { listActiveUsers, type UserOption } from '../../shared/api/users'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  useAuth,
+} from '../../auth/auth-context'
+import {
+  listActiveUsers,
+  type UserOption,
+} from '../../shared/api/users'
 import {
   createOnboardMerchantActivity,
   getOnboardMerchant,
@@ -28,8 +48,15 @@ import {
   softDeleteOnboardMerchantActivity,
   updateOnboardMerchantActivity,
 } from '../api'
-import type { MerchantActivityStatus, MerchantActivityType, OnboardMerchant, OnboardMerchantActivity } from '../../../types/business'
-import { supabase } from '../../../lib/supabase/client'
+import type {
+  MerchantActivityStatus,
+  MerchantActivityType,
+  OnboardMerchant,
+  OnboardMerchantActivity,
+} from '../../../types/business'
+import {
+  supabase,
+} from '../../../lib/supabase/client'
 
 interface MerchantActivityFormValues {
   activity_type: MerchantActivityType

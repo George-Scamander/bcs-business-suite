@@ -1,14 +1,44 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Col, Progress, Row, Table, message } from 'antd'
-import { useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react'
+import {
+  Button,
+  Col,
+  Progress,
+  Row,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useNavigate,
+} from 'react-router-dom'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { MetricCard } from '../../../components/common/MetricCard'
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { StatusTag } from '../../../components/common/StatusTag'
-import { getPmDashboardMetrics } from '../../dashboard/api'
-import { listProjects, markDelayedProjects } from '../../projects/api'
-import { useAuth } from '../../auth/auth-context'
+import {
+  MetricCard,
+} from '../../../components/common/MetricCard'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
+import {
+  getPmDashboardMetrics,
+} from '../../dashboard/api'
+import {
+  listProjects,
+  markDelayedProjects,
+} from '../../projects/api'
+import {
+  useAuth,
+} from '../../auth/auth-context'
 
 interface ProjectRow {
   id: string

@@ -1,14 +1,46 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Input, Select, Space, Table, message } from 'antd'
-import { useTranslation } from 'react-i18next'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react'
+import {
+  Button,
+  Input,
+  Select,
+  Space,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useNavigate,
+  useSearchParams,
+} from 'react-router-dom'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getProjectStatusOptions } from '../../../lib/business-constants'
-import { StatusTag } from '../../../components/common/StatusTag'
-import { useAuth } from '../../auth/auth-context'
-import { listProjects, type ProjectFilters } from '../api'
-import type { Project, ProjectStatus } from '../../../types/business'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getProjectStatusOptions,
+} from '../../../lib/business-constants'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
+import {
+  useAuth,
+} from '../../auth/auth-context'
+import {
+  listProjects,
+  type ProjectFilters,
+} from '../api'
+import type {
+  Project,
+  ProjectStatus,
+} from '../../../types/business'
 
 const PROJECT_STATUS_VALUES: ProjectStatus[] = ['NOT_STARTED', 'IN_PROGRESS', 'ON_HOLD', 'DELAYED', 'COMPLETED', 'CLOSED']
 

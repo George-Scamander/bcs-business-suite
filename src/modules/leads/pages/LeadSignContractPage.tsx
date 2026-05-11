@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import dayjs from 'dayjs'
-import { Alert, Button, Card, DatePicker, Descriptions, Form, Input, Select, Space, message } from 'antd'
+import { Alert, Button, Card, DatePicker, Descriptions, Form, Input, Select, Space, Upload, message } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
+import type { UploadFile } from 'antd'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { INTENT_PACKAGE_OPTIONS } from '../../../lib/business-constants'
-import { changeLeadStatus, getLeadById, listSignedRecords } from '../api'
+import { createSignedFileUrl, deleteUploadedFile, getUploadedFileById, uploadPrivateDocument } from '../../../lib/supabase/storage'
+import { useAuth } from '../../auth/auth-context'
+import { changeLeadStatus, createLeadAttachment, getLeadById, listSignedRecords } from '../api'
 import type { IntentPackage, Lead, SignedRecord } from '../../../types/business'
+import type { UploadFileRecord } from '../../../types/rbac'
 
 interface SignFormValues {
   contract_no: string
@@ -21,11 +25,14 @@ export function LeadSignContractPage() {
   const [form] = Form.useForm<SignFormValues>()
   const navigate = useNavigate()
   const { leadId } = useParams<{ leadId: string }>()
+  const { user } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [lead, setLead] = useState<Lead | null>(null)
   const [signedRecord, setSignedRecord] = useState<SignedRecord | null>(null)
+  const [contractFileList, setContractFileList] = useState<UploadFile[]>([])
+  const [signedContractFile, setSignedContractFile] = useState<UploadFileRecord | null>(null)
 
   const loadData = useCallback(async () => {
     if (!leadId) {
@@ -37,7 +44,15 @@ export function LeadSignContractPage() {
     try {
       const [leadResult, signedRows] = await Promise.all([getLeadById(leadId), listSignedRecords({ leadId })])
       setLead(leadResult)
-      setSignedRecord(signedRows[0] ?? null)
+      const currentSignedRecord = signedRows[0] ?? null
+      setSignedRecord(currentSignedRecord)
+
+      if (currentSignedRecord?.contract_file_id) {
+        const fileRow = await getUploadedFileById(currentSignedRecord.contract_file_id)
+        setSignedContractFile(fileRow)
+      } else {
+        setSignedContractFile(null)
+      }
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Failed to load sign data'
       message.error(text)
@@ -51,13 +66,23 @@ export function LeadSignContractPage() {
   }, [loadData])
 
   async function handleSubmit(values: SignFormValues) {
-    if (!leadId) {
+    if (!leadId || !user) {
+      return
+    }
+
+    const uploadFile = contractFileList[0]?.originFileObj
+
+    if (!uploadFile) {
+      message.warning(t('page.leads.contractFileRequired', { defaultValue: 'Please upload contract file before signing' }))
       return
     }
 
     setSaving(true)
+    let uploadedContract: UploadFileRecord | null = null
 
     try {
+      uploadedContract = await uploadPrivateDocument(uploadFile, user.id)
+
       await changeLeadStatus({
         leadId,
         toStatus: 'SIGNED',
@@ -65,14 +90,54 @@ export function LeadSignContractPage() {
         contractNo: values.contract_no,
         contractDate: values.contract_date ? values.contract_date.format('YYYY-MM-DD') : undefined,
         contractPackage: values.contract_package,
+        contractFileId: uploadedContract.id,
       })
+
+      try {
+        await createLeadAttachment(leadId, uploadedContract.id, uploadedContract.file_name, uploadedContract.object_path)
+      } catch (attachmentError) {
+        const warningText =
+          attachmentError instanceof Error
+            ? attachmentError.message
+            : t('page.leads.contractAttachmentCreateFail', {
+                defaultValue: 'Signed successfully, but failed to create lead attachment record.',
+              })
+        message.warning(warningText)
+      }
+
+      setContractFileList([])
       message.success(t('page.leads.signedSuccess', { defaultValue: 'Lead converted to SIGNED' }))
       await loadData()
     } catch (error) {
+      if (uploadedContract) {
+        try {
+          await deleteUploadedFile(uploadedContract)
+        } catch {
+          // ignore cleanup error to preserve the original failure context
+        }
+      }
+
       const text = error instanceof Error ? error.message : 'Failed to mark as signed'
       message.error(text)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handlePreviewSignedContract() {
+    if (!signedContractFile?.object_path) {
+      return
+    }
+
+    try {
+      const url = await createSignedFileUrl(signedContractFile.object_path)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('page.leads.previewContractFail', { defaultValue: 'Failed to preview contract file' })
+      message.error(text)
     }
   }
 
@@ -128,6 +193,15 @@ export function LeadSignContractPage() {
               <Descriptions.Item label={t('page.leads.signedAt', { defaultValue: 'Signed At' })}>
                 {new Date(signedRecord.signed_at).toLocaleString()}
               </Descriptions.Item>
+              <Descriptions.Item label={t('page.leads.contractFile', { defaultValue: 'Contract File' })}>
+                {signedContractFile ? (
+                  <Button type="link" className="!px-0" onClick={() => void handlePreviewSignedContract()}>
+                    {signedContractFile.file_name}
+                  </Button>
+                ) : (
+                  '-'
+                )}
+              </Descriptions.Item>
             </Descriptions>
           </>
         ) : (
@@ -169,6 +243,27 @@ export function LeadSignContractPage() {
                   defaultValue: 'Any additional context for this sign-off.',
                 })}
               />
+            </Form.Item>
+
+            <Form.Item
+              label={t('page.leads.contractFile', { defaultValue: 'Contract File' })}
+              required
+              extra={t('page.leads.contractFileHint', {
+                defaultValue: 'Please upload signed contract document (PDF, DOC, DOCX, JPG, PNG).',
+              })}
+            >
+              <Upload
+                maxCount={1}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                beforeUpload={() => false}
+                fileList={contractFileList}
+                onChange={(info) => setContractFileList(info.fileList)}
+                onRemove={(file) => {
+                  setContractFileList((current) => current.filter((item) => item.uid !== file.uid))
+                }}
+              >
+                <Button>{t('page.leads.uploadContractFile', { defaultValue: 'Upload Contract File' })}</Button>
+              </Upload>
             </Form.Item>
 
             <Button type="primary" htmlType="submit" loading={saving}>

@@ -1,15 +1,49 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Input, Select, Space, Table, message } from 'antd'
-import { useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import {
+  Button,
+  Input,
+  Select,
+  Space,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useNavigate,
+} from 'react-router-dom'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getOnboardingStatusOptions } from '../../../lib/business-constants'
-import { supabase } from '../../../lib/supabase/client'
-import { useAuth } from '../../auth/auth-context'
-import { listOnboardingCases, type OnboardingFilters } from '../api'
-import type { OnboardingCase, Project } from '../../../types/business'
-import { StatusTag } from '../../../components/common/StatusTag'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getOnboardingStatusOptions,
+} from '../../../lib/business-constants'
+import {
+  supabase,
+} from '../../../lib/supabase/client'
+import {
+  useAuth,
+} from '../../auth/auth-context'
+import {
+  listOnboardingCases,
+  type OnboardingFilters,
+} from '../api'
+import type {
+  OnboardingCase,
+  Project,
+} from '../../../types/business'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
 
 export function BdOnboardingListPage() {
   const navigate = useNavigate()

@@ -1,13 +1,46 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Space, Table, Tag, Upload, message } from 'antd'
-import type { UploadFile } from 'antd'
-import { DeleteOutlined, EyeOutlined, InboxOutlined, UploadOutlined } from '@ant-design/icons'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react'
+import {
+  Button,
+  Space,
+  Tag,
+  Upload,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import type {
+  UploadFile,
+} from 'antd'
+import {
+  DeleteOutlined,
+  EyeOutlined,
+  InboxOutlined,
+  UploadOutlined,
+} from '@ant-design/icons'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import type { UploadFileRecord } from '../../../types/rbac'
-import { createSignedFileUrl, deleteUploadedFile, listMyUploadedFiles, uploadPrivateDocument } from '../../../lib/supabase/storage'
-import { useAuth } from '../../auth/auth-context'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import type {
+  UploadFileRecord,
+} from '../../../types/rbac'
+import {
+  createSignedFileUrl,
+  deleteUploadedFile,
+  listMyUploadedFiles,
+  uploadPrivateDocument,
+} from '../../../lib/supabase/storage'
+import {
+  useAuth,
+} from '../../auth/auth-context'
 
 function formatFileSize(value: number | null): string {
   if (value === null || Number.isNaN(value)) {

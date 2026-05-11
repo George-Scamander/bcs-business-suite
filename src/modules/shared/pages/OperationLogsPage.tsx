@@ -1,10 +1,32 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Input, Space, Table, Tag, message } from 'antd'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import {
+  Button,
+  Input,
+  Space,
+  Tag,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import type { OperationLogRecord } from '../../../types/rbac'
-import { supabase } from '../../../lib/supabase/client'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import type {
+  OperationLogRecord,
+} from '../../../types/rbac'
+import {
+  supabase,
+} from '../../../lib/supabase/client'
 
 interface OperationLogWithActor extends OperationLogRecord {
   actor?: {

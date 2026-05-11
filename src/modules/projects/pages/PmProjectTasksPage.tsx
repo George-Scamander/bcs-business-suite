@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import dayjs from 'dayjs'
 import {
   Button,
@@ -11,16 +16,33 @@ import {
   Popconfirm,
   Select,
   Space,
-  Table,
   message,
 } from 'antd'
-import { useTranslation } from 'react-i18next'
-import { useNavigate, useParams } from 'react-router-dom'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getTaskPriorityOptions, getTaskStatusOptions } from '../../../lib/business-constants'
-import { StatusTag } from '../../../components/common/StatusTag'
-import { listActiveUsers, type UserOption } from '../../shared/api/users'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getTaskPriorityOptions,
+  getTaskStatusOptions,
+} from '../../../lib/business-constants'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
+import {
+  listActiveUsers,
+  type UserOption,
+} from '../../shared/api/users'
 import {
   getProjectById,
   listProjectMembers,
@@ -28,7 +50,13 @@ import {
   softDeleteProjectTask,
   upsertProjectTask,
 } from '../api'
-import type { Project, ProjectMember, ProjectTask, TaskPriority, TaskStatus } from '../../../types/business'
+import type {
+  Project,
+  ProjectMember,
+  ProjectTask,
+  TaskPriority,
+  TaskStatus,
+} from '../../../types/business'
 
 interface TaskFormValues {
   title: string

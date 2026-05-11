@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import {
   Alert,
   Button,
@@ -9,21 +14,46 @@ import {
   Modal,
   Select,
   Space,
-  Table,
   Upload,
   message,
 } from 'antd'
-import type { UploadFile } from 'antd'
-import { EyeOutlined } from '@ant-design/icons'
-import { useTranslation } from 'react-i18next'
-import { useNavigate, useParams } from 'react-router-dom'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import type {
+  UploadFile,
+} from 'antd'
+import {
+  EyeOutlined,
+} from '@ant-design/icons'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getOnboardingStatusOptions } from '../../../lib/business-constants'
-import { createSignedFileUrl, uploadPrivateDocument } from '../../../lib/supabase/storage'
-import { supabase } from '../../../lib/supabase/client'
-import { useAuth } from '../../auth/auth-context'
-import { listActiveUsers, type UserOption } from '../../shared/api/users'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getOnboardingStatusOptions,
+} from '../../../lib/business-constants'
+import {
+  createSignedFileUrl,
+  uploadPrivateDocument,
+} from '../../../lib/supabase/storage'
+import {
+  supabase,
+} from '../../../lib/supabase/client'
+import {
+  useAuth,
+} from '../../auth/auth-context'
+import {
+  listActiveUsers,
+  type UserOption,
+} from '../../shared/api/users'
 import {
   changeOnboardingStatus,
   getOnboardingCase,
@@ -34,7 +64,9 @@ import {
   reviewOnboardingDocument,
   submitOnboardingDocument,
 } from '../api'
-import { StatusTag } from '../../../components/common/StatusTag'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
 import type {
   OnboardingCase,
   OnboardingDocument,

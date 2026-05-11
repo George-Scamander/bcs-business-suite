@@ -1,14 +1,61 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Button, Input, Popconfirm, Progress, Space, Table, Tabs, message } from 'antd'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import {
+  Button,
+  Input,
+  Popconfirm,
+  Progress,
+  Space,
+  Tabs,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useSearchParams,
+} from 'react-router-dom'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { StatusTag } from '../../../components/common/StatusTag'
-import { useAuth } from '../../auth/auth-context'
-import { PERMISSIONS } from '../../../lib/permissions'
-import type { Lead, OnboardMerchant, OnboardMerchantType, Project } from '../../../types/business'
-import { hardDeleteLead, hardDeleteLeads, listDeletedLeads, restoreLead, restoreLeads } from '../../leads/api'
-import { hardDeleteProject, hardDeleteProjects, listDeletedProjects, restoreProject, restoreProjects } from '../../projects/api'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
+import {
+  useAuth,
+} from '../../auth/auth-context'
+import {
+  PERMISSIONS,
+} from '../../../lib/permissions'
+import type {
+  Lead,
+  OnboardMerchant,
+  OnboardMerchantType,
+  Project,
+} from '../../../types/business'
+import {
+  hardDeleteLead,
+  hardDeleteLeads,
+  listDeletedLeads,
+  restoreLead,
+  restoreLeads,
+} from '../../leads/api'
+import {
+  hardDeleteProject,
+  hardDeleteProjects,
+  listDeletedProjects,
+  restoreProject,
+  restoreProjects,
+} from '../../projects/api'
 import {
   hardDeleteOnboardMerchant,
   hardDeleteOnboardMerchants,
@@ -16,8 +63,23 @@ import {
   restoreOnboardMerchant,
   restoreOnboardMerchants,
 } from '../../onboarding/api'
+import {
+  hardDeleteSalesOrder,
+  hardDeleteSalesOrders,
+  listDeletedSalesOrders,
+  restoreSalesOrder,
+  restoreSalesOrders,
+  type SalesOrderRow,
+} from '../../sales/api'
 
-type DeletedTabKey = 'leads' | 'projects' | 'merchants'
+type DeletedTabKey = 'leads' | 'sales' | 'projects' | 'merchants'
+
+function parseDeletedTabKey(value: string | null): DeletedTabKey | null {
+  if (value === 'leads' || value === 'sales' || value === 'projects' || value === 'merchants') {
+    return value
+  }
+  return null
+}
 
 function resolveErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) {
@@ -36,8 +98,11 @@ function resolveErrorMessage(error: unknown, fallback: string): string {
 
 export function RecentlyDeletedPage() {
   const { t } = useTranslation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user, roles, hasPermission } = useAuth()
   const isSuperAdmin = roles.includes('super_admin')
+  const requestedTab = parseDeletedTabKey(searchParams.get('tab'))
+  const canManageSalesRecords = roles.includes('super_admin') || roles.includes('project_manager')
 
   const canManageDeletedLeads = hasPermission(PERMISSIONS.LEADS_READ) && hasPermission(PERMISSIONS.LEADS_WRITE)
   const canManageDeletedProjects = hasPermission(PERMISSIONS.PROJECTS_READ) && hasPermission(PERMISSIONS.PROJECTS_WRITE)
@@ -48,6 +113,9 @@ export function RecentlyDeletedPage() {
     if (canManageDeletedLeads) {
       tabs.push('leads')
     }
+    if (canManageSalesRecords) {
+      tabs.push('sales')
+    }
     if (canManageDeletedProjects) {
       tabs.push('projects')
     }
@@ -55,14 +123,19 @@ export function RecentlyDeletedPage() {
       tabs.push('merchants')
     }
     return tabs
-  }, [canManageDeletedLeads, canManageDeletedProjects, canManageDeletedMerchants])
+  }, [canManageDeletedLeads, canManageDeletedProjects, canManageDeletedMerchants, canManageSalesRecords])
 
-  const [activeTab, setActiveTab] = useState<DeletedTabKey>(availableTabs[0] ?? 'leads')
+  const [activeTab, setActiveTab] = useState<DeletedTabKey>(
+    requestedTab && availableTabs.includes(requestedTab) ? requestedTab : availableTabs[0] ?? 'leads',
+  )
   const [keyword, setKeyword] = useState('')
 
   const [leadRows, setLeadRows] = useState<Lead[]>([])
   const [leadLoading, setLeadLoading] = useState(false)
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([])
+  const [salesRows, setSalesRows] = useState<SalesOrderRow[]>([])
+  const [salesLoading, setSalesLoading] = useState(false)
+  const [selectedSalesIds, setSelectedSalesIds] = useState<string[]>([])
 
   const [projectRows, setProjectRows] = useState<Project[]>([])
   const [projectLoading, setProjectLoading] = useState(false)
@@ -76,10 +149,15 @@ export function RecentlyDeletedPage() {
       return
     }
 
+    if (requestedTab && availableTabs.includes(requestedTab) && requestedTab !== activeTab) {
+      setActiveTab(requestedTab)
+      return
+    }
+
     if (!availableTabs.includes(activeTab)) {
       setActiveTab(availableTabs[0])
     }
-  }, [activeTab, availableTabs])
+  }, [activeTab, availableTabs, requestedTab])
 
   const loadDeletedLeads = useCallback(async () => {
     if (!user || !canManageDeletedLeads) {
@@ -102,6 +180,26 @@ export function RecentlyDeletedPage() {
       setLeadLoading(false)
     }
   }, [canManageDeletedLeads, isSuperAdmin, keyword, roles, t, user])
+
+  const loadDeletedSales = useCallback(async () => {
+    if (!user || !canManageSalesRecords) {
+      return
+    }
+
+    setSalesLoading(true)
+    try {
+      const rows = await listDeletedSalesOrders({
+        keyword: keyword.trim() || undefined,
+      })
+      setSalesRows(rows)
+      setSelectedSalesIds([])
+    } catch (error) {
+      const text = resolveErrorMessage(error, t('pages.salesSupervision.loadFail', { defaultValue: 'Failed to load sales supervision data' }))
+      message.error(text)
+    } finally {
+      setSalesLoading(false)
+    }
+  }, [canManageSalesRecords, keyword, t, user])
 
   const loadDeletedProjects = useCallback(async () => {
     if (!user || !canManageDeletedProjects) {
@@ -152,12 +250,16 @@ export function RecentlyDeletedPage() {
       await loadDeletedLeads()
       return
     }
+    if (activeTab === 'sales') {
+      await loadDeletedSales()
+      return
+    }
     if (activeTab === 'projects') {
       await loadDeletedProjects()
       return
     }
     await loadDeletedMerchants()
-  }, [activeTab, loadDeletedLeads, loadDeletedProjects, loadDeletedMerchants])
+  }, [activeTab, loadDeletedLeads, loadDeletedMerchants, loadDeletedProjects, loadDeletedSales])
 
   useEffect(() => {
     void loadCurrentTab()
@@ -214,6 +316,64 @@ export function RecentlyDeletedPage() {
         error instanceof Error
           ? error.message
           : t('pages.bdDeletedLeads.permanentDeleteFail', { defaultValue: 'Failed to permanently delete lead' })
+      message.error(text)
+    }
+  }
+
+  async function handleSalesRestore(ids: string[]) {
+    if (ids.length === 0) {
+      message.warning(t('pages.salesSupervision.selectWarning', { defaultValue: 'Please select at least one sales order' }))
+      return
+    }
+
+    try {
+      if (ids.length === 1) {
+        await restoreSalesOrder(ids[0])
+        message.success(t('pages.salesSupervision.restoreSuccess', { defaultValue: 'Sales order restored' }))
+      } else {
+        await restoreSalesOrders(ids)
+        message.success(
+          t('pages.salesSupervision.batchRestoreSuccess', {
+            defaultValue: 'Restored {{count}} sales order(s)',
+            count: ids.length,
+          }),
+        )
+      }
+      await loadDeletedSales()
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.salesSupervision.restoreFail', { defaultValue: 'Failed to restore sales order' })
+      message.error(text)
+    }
+  }
+
+  async function handleSalesPermanentDelete(ids: string[]) {
+    if (ids.length === 0) {
+      message.warning(t('pages.salesSupervision.selectWarning', { defaultValue: 'Please select at least one sales order' }))
+      return
+    }
+
+    try {
+      if (ids.length === 1) {
+        await hardDeleteSalesOrder(ids[0])
+        message.success(t('pages.salesSupervision.permanentDeleteSuccess', { defaultValue: 'Sales order permanently deleted' }))
+      } else {
+        await hardDeleteSalesOrders(ids)
+        message.success(
+          t('pages.salesSupervision.batchPermanentDeleteSuccess', {
+            defaultValue: 'Permanently deleted {{count}} sales order(s)',
+            count: ids.length,
+          }),
+        )
+      }
+      await loadDeletedSales()
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.salesSupervision.permanentDeleteFail', { defaultValue: 'Failed to permanently delete sales order' })
       message.error(text)
     }
   }
@@ -332,9 +492,10 @@ export function RecentlyDeletedPage() {
   }
 
   const isLeadTab = activeTab === 'leads'
+  const isSalesTab = activeTab === 'sales'
   const isProjectTab = activeTab === 'projects'
-  const currentRowsCount = isLeadTab ? leadRows.length : isProjectTab ? projectRows.length : merchantRows.length
-  const selectedCount = isLeadTab ? selectedLeadIds.length : isProjectTab ? selectedProjectIds.length : selectedMerchantIds.length
+  const currentRowsCount = isLeadTab ? leadRows.length : isSalesTab ? salesRows.length : isProjectTab ? projectRows.length : merchantRows.length
+  const selectedCount = isLeadTab ? selectedLeadIds.length : isSalesTab ? selectedSalesIds.length : isProjectTab ? selectedProjectIds.length : selectedMerchantIds.length
   const tabItems: Array<{ key: DeletedTabKey; label: string; children: ReactNode }> = []
 
   if (canManageDeletedLeads) {
@@ -393,6 +554,84 @@ export function RecentlyDeletedPage() {
                     okText={t('labels.permanentDelete', { defaultValue: 'Permanent Delete' })}
                     cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
                     onConfirm={() => void handleLeadPermanentDelete([row.id])}
+                  >
+                    <Button size="small" danger>
+                      {t('labels.permanentDelete', { defaultValue: 'Permanent Delete' })}
+                    </Button>
+                  </Popconfirm>
+                </Space>
+              ),
+            },
+          ]}
+        />
+      ),
+    })
+  }
+
+  if (canManageSalesRecords) {
+    tabItems.push({
+      key: 'sales',
+      label: t('pages.salesSupervision.title', { defaultValue: 'Sales Supervision' }),
+      children: (
+        <Table
+          rowKey="id"
+          loading={salesLoading}
+          bordered
+          dataSource={salesRows}
+          rowSelection={{
+            selectedRowKeys: selectedSalesIds,
+            onChange: (keys) => setSelectedSalesIds(keys as string[]),
+          }}
+          pagination={{ pageSize: 12 }}
+          columns={[
+            { title: t('pages.salesSupervision.columns.orderNo', { defaultValue: 'Order No' }), dataIndex: 'order_no', width: 190 },
+            { title: t('pages.salesSupervision.columns.companyName', { defaultValue: 'Company' }), dataIndex: 'company_name' },
+            {
+              title: t('pages.salesSupervision.columns.leadCode', { defaultValue: 'Lead Code' }),
+              width: 180,
+              render: (_: unknown, row: SalesOrderRow) => row.lead?.lead_code ?? '-',
+            },
+            {
+              title: t('pages.salesSupervision.columns.itemCount', { defaultValue: 'Item Count' }),
+              width: 120,
+              render: (_: unknown, row: SalesOrderRow) => row.items.length,
+            },
+            {
+              title: t('pages.salesSupervision.columns.soldAt', { defaultValue: 'Sold Time' }),
+              dataIndex: 'sold_at',
+              width: 190,
+              render: (value: string) => new Date(value).toLocaleString(),
+            },
+            {
+              title: t('pages.salesSupervision.columns.deletedAt', { defaultValue: 'Deleted At' }),
+              dataIndex: 'deleted_at',
+              width: 190,
+              render: (value: string | null) => (value ? new Date(value).toLocaleString() : '-'),
+            },
+            {
+              title: t('pages.salesSupervision.columns.actions', { defaultValue: 'Actions' }),
+              width: 280,
+              render: (_: unknown, row: SalesOrderRow) => (
+                <Space wrap>
+                  <Popconfirm
+                    title={t('pages.salesSupervision.restoreConfirmTitle', { defaultValue: 'Restore this sales order?' })}
+                    description={t('pages.salesSupervision.restoreConfirmDesc', {
+                      defaultValue: 'The sales order will be moved back to the active supervision list.',
+                    })}
+                    okText={t('labels.restore', { defaultValue: 'Restore' })}
+                    cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
+                    onConfirm={() => void handleSalesRestore([row.id])}
+                  >
+                    <Button size="small">{t('labels.restore', { defaultValue: 'Restore' })}</Button>
+                  </Popconfirm>
+                  <Popconfirm
+                    title={t('pages.salesSupervision.permanentDeleteConfirmTitle', { defaultValue: 'Permanently delete this sales order?' })}
+                    description={t('pages.salesSupervision.permanentDeleteConfirmDesc', {
+                      defaultValue: 'This action cannot be undone.',
+                    })}
+                    okText={t('labels.permanentDelete', { defaultValue: 'Permanent Delete' })}
+                    cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
+                    onConfirm={() => void handleSalesPermanentDelete([row.id])}
                   >
                     <Button size="small" danger>
                       {t('labels.permanentDelete', { defaultValue: 'Permanent Delete' })}
@@ -573,7 +812,9 @@ export function RecentlyDeletedPage() {
               title={
                 isLeadTab
                   ? t('pages.bdDeletedLeads.batchRestoreConfirmTitle', { defaultValue: 'Restore selected leads?' })
-                  : isProjectTab
+                  : isSalesTab
+                    ? t('pages.salesSupervision.batchRestoreConfirmTitle', { defaultValue: 'Restore selected sales orders?' })
+                    : isProjectTab
                     ? t('pages.pmDeletedProjects.batchRestoreConfirmTitle', { defaultValue: 'Restore selected projects?' })
                     : t('pages.onboardMerchantDeleted.batchRestoreConfirmTitle', { defaultValue: 'Restore selected merchants?' })
               }
@@ -582,7 +823,11 @@ export function RecentlyDeletedPage() {
                   ? t('pages.bdDeletedLeads.batchRestoreConfirmDesc', {
                       defaultValue: 'Selected leads will be moved back to the active lead list.',
                     })
-                  : isProjectTab
+                  : isSalesTab
+                    ? t('pages.salesSupervision.batchRestoreConfirmDesc', {
+                        defaultValue: 'Selected sales orders will be moved back to active sales supervision list.',
+                      })
+                    : isProjectTab
                     ? t('pages.pmDeletedProjects.batchRestoreConfirmDesc', {
                         defaultValue: 'Selected projects will be moved back to the active project list.',
                       })
@@ -595,6 +840,8 @@ export function RecentlyDeletedPage() {
               onConfirm={() =>
                 void (isLeadTab
                   ? handleLeadRestore(selectedLeadIds)
+                  : isSalesTab
+                    ? handleSalesRestore(selectedSalesIds)
                   : isProjectTab
                     ? handleProjectRestore(selectedProjectIds)
                     : handleMerchantRestore(selectedMerchantIds))
@@ -606,7 +853,11 @@ export function RecentlyDeletedPage() {
               title={
                 isLeadTab
                   ? t('pages.bdDeletedLeads.batchPermanentDeleteConfirmTitle', { defaultValue: 'Permanently delete selected leads?' })
-                  : isProjectTab
+                  : isSalesTab
+                    ? t('pages.salesSupervision.batchPermanentDeleteConfirmTitle', {
+                        defaultValue: 'Permanently delete selected sales orders?',
+                      })
+                    : isProjectTab
                     ? t('pages.pmDeletedProjects.batchPermanentDeleteConfirmTitle', {
                         defaultValue: 'Permanently delete selected projects?',
                       })
@@ -617,7 +868,9 @@ export function RecentlyDeletedPage() {
               description={
                 isLeadTab
                   ? t('pages.bdDeletedLeads.batchPermanentDeleteConfirmDesc', { defaultValue: 'This action cannot be undone.' })
-                  : isProjectTab
+                  : isSalesTab
+                    ? t('pages.salesSupervision.batchPermanentDeleteConfirmDesc', { defaultValue: 'This action cannot be undone.' })
+                    : isProjectTab
                     ? t('pages.pmDeletedProjects.batchPermanentDeleteConfirmDesc', { defaultValue: 'This action cannot be undone.' })
                     : t('pages.onboardMerchantDeleted.batchPermanentDeleteConfirmDesc', { defaultValue: 'This action cannot be undone.' })
               }
@@ -626,6 +879,8 @@ export function RecentlyDeletedPage() {
               onConfirm={() =>
                 void (isLeadTab
                   ? handleLeadPermanentDelete(selectedLeadIds)
+                  : isSalesTab
+                    ? handleSalesPermanentDelete(selectedSalesIds)
                   : isProjectTab
                     ? handleProjectPermanentDelete(selectedProjectIds)
                     : handleMerchantPermanentDelete(selectedMerchantIds))
@@ -639,7 +894,11 @@ export function RecentlyDeletedPage() {
               title={
                 isLeadTab
                   ? t('pages.bdDeletedLeads.batchPermanentDeleteAllConfirmTitle', { defaultValue: 'Permanently delete all filtered leads?' })
-                  : isProjectTab
+                  : isSalesTab
+                    ? t('pages.salesSupervision.batchPermanentDeleteAllConfirmTitle', {
+                        defaultValue: 'Permanently delete all filtered sales orders?',
+                      })
+                    : isProjectTab
                     ? t('pages.pmDeletedProjects.batchPermanentDeleteAllConfirmTitle', {
                         defaultValue: 'Permanently delete all filtered projects?',
                       })
@@ -652,7 +911,11 @@ export function RecentlyDeletedPage() {
                   ? t('pages.bdDeletedLeads.batchPermanentDeleteAllConfirmDesc', {
                       defaultValue: 'All currently filtered leads will be permanently deleted.',
                     })
-                  : isProjectTab
+                  : isSalesTab
+                    ? t('pages.salesSupervision.batchPermanentDeleteAllConfirmDesc', {
+                        defaultValue: 'All currently filtered sales orders will be permanently deleted.',
+                      })
+                    : isProjectTab
                     ? t('pages.pmDeletedProjects.batchPermanentDeleteAllConfirmDesc', {
                         defaultValue: 'All currently filtered projects will be permanently deleted.',
                       })
@@ -665,6 +928,8 @@ export function RecentlyDeletedPage() {
               onConfirm={() =>
                 void (isLeadTab
                   ? handleLeadPermanentDelete(leadRows.map((item) => item.id))
+                  : isSalesTab
+                    ? handleSalesPermanentDelete(salesRows.map((item) => item.id))
                   : isProjectTab
                     ? handleProjectPermanentDelete(projectRows.map((item) => item.id))
                     : handleMerchantPermanentDelete(merchantRows.map((item) => item.id)))
@@ -685,6 +950,8 @@ export function RecentlyDeletedPage() {
             placeholder={
               isLeadTab
                 ? t('pages.bdDeletedLeads.keywordPlaceholder', { defaultValue: 'Keyword (lead code/company/contact)' })
+                : isSalesTab
+                  ? t('pages.salesSupervision.keywordDeletedPlaceholder', { defaultValue: 'Order no / company / lead code' })
                 : isProjectTab
                   ? t('pages.pmDeletedProjects.keywordPlaceholder', { defaultValue: 'Project code/name' })
                   : t('pages.onboardMerchantDeleted.keywordPlaceholder', { defaultValue: 'Keyword (merchant no/company/region/city)' })
@@ -700,7 +967,17 @@ export function RecentlyDeletedPage() {
         </Space>
       </div>
 
-      <Tabs activeKey={activeTab} onChange={(key) => setActiveTab(key as DeletedTabKey)} items={tabItems} />
+      <Tabs
+        activeKey={activeTab}
+        onChange={(key) => {
+          const nextTab = key as DeletedTabKey
+          setActiveTab(nextTab)
+          const nextParams = new URLSearchParams(searchParams)
+          nextParams.set('tab', nextTab)
+          setSearchParams(nextParams, { replace: true })
+        }}
+        items={tabItems}
+      />
     </>
   )
 }

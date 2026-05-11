@@ -1,15 +1,55 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Card, Descriptions, Empty, Input, Popconfirm, Space, Table, Timeline, message } from 'antd'
-import { EyeOutlined } from '@ant-design/icons'
-import { useNavigate, useParams } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import {
+  Button,
+  Card,
+  Descriptions,
+  Empty,
+  Input,
+  Popconfirm,
+  Space,
+  Timeline,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  EyeOutlined,
+} from '@ant-design/icons'
+import {
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { StatusTag } from '../../../components/common/StatusTag'
-import { getSalesProductCategoryOptions } from '../../../lib/business-constants'
-import { createSignedFileUrl } from '../../../lib/supabase/storage'
-import { supabase } from '../../../lib/supabase/client'
-import type { OnboardingCase, Project, SalesProductCategory, SignedRecord } from '../../../types/business'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
+import {
+  getSalesProductCategoryOptions,
+} from '../../../lib/business-constants'
+import {
+  createSignedFileUrl,
+} from '../../../lib/supabase/storage'
+import {
+  supabase,
+} from '../../../lib/supabase/client'
+import type {
+  OnboardingCase,
+  Project,
+  SalesProductCategory,
+  SignedRecord,
+} from '../../../types/business'
 import {
   getLeadById,
   softDeleteLead,
@@ -20,9 +60,18 @@ import {
   updateLead,
   type LeadAttachment,
 } from '../api'
-import { listSalesOrders, type SalesOrderRow } from '../../sales/api'
-import type { Lead, LeadFollowup, LeadStatusLog } from '../../../types/business'
-import { useAuth } from '../../auth/auth-context'
+import {
+  listSalesOrders,
+  type SalesOrderRow,
+} from '../../sales/api'
+import type {
+  Lead,
+  LeadFollowup,
+  LeadStatusLog,
+} from '../../../types/business'
+import {
+  useAuth,
+} from '../../auth/auth-context'
 
 export function LeadDetailPage() {
   const navigate = useNavigate()

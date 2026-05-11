@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import dayjs from 'dayjs'
 import {
   Button,
@@ -9,18 +15,43 @@ import {
   InputNumber,
   Select,
   Space,
-  Table,
   message,
 } from 'antd'
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
-import { useTranslation } from 'react-i18next'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  DeleteOutlined,
+  PlusOutlined,
+} from '@ant-design/icons'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { getSalesProductCategoryOptions } from '../../../lib/business-constants'
-import { useAuth } from '../../auth/auth-context'
-import { createSalesOrderWithAutoLead, listSalesOrderTemplatesByOwner, type SalesOrderRow } from '../api'
-import { listOnboardMerchants } from '../../onboarding/api'
-import type { OnboardMerchant, SalesProductCategory } from '../../../types/business'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  getSalesProductCategoryOptions,
+} from '../../../lib/business-constants'
+import {
+  generateUuid,
+} from '../../../lib/uuid'
+import {
+  useAuth,
+} from '../../auth/auth-context'
+import {
+  createSalesOrderWithAutoLead,
+  listSalesOrderTemplatesByOwner,
+  type SalesOrderRow,
+} from '../api'
+import {
+  listOnboardMerchants,
+} from '../../onboarding/api'
+import type {
+  OnboardMerchant,
+  SalesProductCategory,
+} from '../../../types/business'
 
 interface DraftSalesItem {
   key: string
@@ -54,7 +85,7 @@ const CATEGORY_DETECTORS: Array<{ category: SalesProductCategory; keywords: stri
 
 function newDraftItem(): DraftSalesItem {
   return {
-    key: crypto.randomUUID(),
+    key: generateUuid(),
     category: 'TIRE',
     product_name: '',
     quantity: 1,
@@ -243,7 +274,7 @@ function parseTemplateInput(source: string): ParsedTemplateResult {
 
     if (category) {
       items.push({
-        key: crypto.randomUUID(),
+        key: generateUuid(),
         category,
         product_name: productName || stripped,
         quantity,
@@ -253,7 +284,7 @@ function parseTemplateInput(source: string): ParsedTemplateResult {
 
     if (inItemSection && productName) {
       items.push({
-        key: crypto.randomUUID(),
+        key: generateUuid(),
         category: 'TIRE',
         product_name: productName,
         quantity,
@@ -411,7 +442,7 @@ export function BdSalesCreatePage() {
     })
 
     const mappedItems = (template.items ?? []).map((item) => ({
-      key: crypto.randomUUID(),
+      key: generateUuid(),
       category: item.category,
       product_name: item.product_name ?? '',
       quantity: Number(item.quantity ?? 1),

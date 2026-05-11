@@ -1,17 +1,47 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Card, Form, Input, Select, Space, Table, message } from 'antd'
-import { useTranslation } from 'react-i18next'
-import { useNavigate, useParams } from 'react-router-dom'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import {
+  Alert,
+  Button,
+  Card,
+  Form,
+  Input,
+  Select,
+  Space,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
+import {
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { StatusTag } from '../../../components/common/StatusTag'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
 import {
   changeProjectStatus,
   getProjectById,
   listProjectTasks,
   markDelayedProjects,
 } from '../api'
-import type { Project, ProjectStatus, ProjectTask } from '../../../types/business'
+import type {
+  Project,
+  ProjectStatus,
+  ProjectTask,
+} from '../../../types/business'
 
 interface RiskFormValues {
   to_status: ProjectStatus

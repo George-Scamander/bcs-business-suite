@@ -9,7 +9,6 @@ import { ForgotPasswordPage } from '../modules/auth/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '../modules/auth/pages/ResetPasswordPage'
 import { AdminDashboardPage } from '../modules/admin/pages/AdminDashboardPage'
 import { UserRoleManagementPage } from '../modules/admin/pages/UserRoleManagementPage'
-import { AdminLeadPoolPage } from '../modules/admin/pages/AdminLeadPoolPage'
 import { AdminOnboardingReviewCenterPage } from '../modules/admin/pages/AdminOnboardingReviewCenterPage'
 import { AdminProjectOverviewPage } from '../modules/admin/pages/AdminProjectOverviewPage'
 import { AdminReportExportPage } from '../modules/admin/pages/AdminReportExportPage'
@@ -45,7 +44,6 @@ import { PmProjectTasksPage } from '../modules/projects/pages/PmProjectTasksPage
 import { PmProjectMembersPage } from '../modules/projects/pages/PmProjectMembersPage'
 import { PmProjectClosurePage } from '../modules/projects/pages/PmProjectClosurePage'
 import { PmLeadImportPage } from '../modules/leads/pages/PmLeadImportPage'
-import { PmLeadPoolPage } from '../modules/leads/pages/PmLeadPoolPage'
 import { BdSalesCreatePage } from '../modules/sales/pages/BdSalesCreatePage'
 import { SalesSupervisionPage } from '../modules/sales/pages/SalesSupervisionPage'
 
@@ -80,8 +78,8 @@ export default function App() {
             <Route
               path="admin/leads/pool"
               element={
-                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_ASSIGN]}>
-                  <AdminLeadPoolPage />
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                  <BdLeadsListPage />
                 </RoleGuard>
               }
             />
@@ -177,7 +175,7 @@ export default function App() {
             <Route
               path="bd/leads"
               element={
-                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                <RoleGuard allowRoles={['bd_user', 'project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
                   <BdLeadsListPage />
                 </RoleGuard>
               }
@@ -185,7 +183,7 @@ export default function App() {
             <Route
               path="bd/leads/new"
               element={
-                <RoleGuard allowRoles={['bd_user']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
+                <RoleGuard allowRoles={['bd_user', 'project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
                   <LeadFormPage />
                 </RoleGuard>
               }
@@ -205,7 +203,7 @@ export default function App() {
             <Route
               path="bd/leads/:leadId/edit"
               element={
-                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
+                <RoleGuard allowRoles={['bd_user', 'project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
                   <LeadFormPage />
                 </RoleGuard>
               }
@@ -213,7 +211,7 @@ export default function App() {
             <Route
               path="bd/leads/:leadId"
               element={
-                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                <RoleGuard allowRoles={['bd_user', 'project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
                   <LeadDetailPage />
                 </RoleGuard>
               }
@@ -221,7 +219,7 @@ export default function App() {
             <Route
               path="bd/leads/:leadId/followups"
               element={
-                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
+                <RoleGuard allowRoles={['bd_user', 'project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
                   <LeadFollowupTimelinePage />
                 </RoleGuard>
               }
@@ -230,7 +228,7 @@ export default function App() {
               path="bd/leads/:leadId/status"
               element={
                 <RoleGuard
-                  allowRoles={['bd_user', 'super_admin']}
+                  allowRoles={['bd_user', 'project_manager', 'super_admin']}
                   requiredPermissions={[PERMISSIONS.LEADS_STATUS_CHANGE]}
                 >
                   <LeadStatusChangePage />
@@ -240,7 +238,7 @@ export default function App() {
             <Route
               path="bd/leads/:leadId/sign"
               element={
-                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.CONTRACTS_WRITE]}>
+                <RoleGuard allowRoles={['bd_user', 'project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.CONTRACTS_WRITE]}>
                   <LeadSignContractPage />
                 </RoleGuard>
               }
@@ -248,7 +246,7 @@ export default function App() {
             <Route
               path="bd/leads/:leadId/onboarding"
               element={
-                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.ONBOARDING_WRITE]}>
+                <RoleGuard allowRoles={['bd_user', 'project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.ONBOARDING_WRITE]}>
                   <LeadInitiateOnboardingPage />
                 </RoleGuard>
               }
@@ -356,14 +354,7 @@ export default function App() {
             />
             <Route
               path="pm/leads/pool"
-              element={
-                <RoleGuard
-                  allowRoles={['project_manager', 'super_admin']}
-                  requiredPermissions={[PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_WRITE]}
-                >
-                  <PmLeadPoolPage />
-                </RoleGuard>
-              }
+              element={<Navigate to="/app/bd/leads" replace />}
             />
             <Route
               path="pm/leads/import"

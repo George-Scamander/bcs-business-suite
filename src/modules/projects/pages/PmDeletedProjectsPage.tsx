@@ -1,13 +1,45 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Button, Input, Popconfirm, Progress, Space, Table, message } from 'antd'
-import { useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react'
+import {
+  Button,
+  Input,
+  Popconfirm,
+  Progress,
+  Space,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useNavigate,
+} from 'react-router-dom'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { StatusTag } from '../../../components/common/StatusTag'
-import { hardDeleteProject, hardDeleteProjects, listDeletedProjects, restoreProject, restoreProjects } from '../api'
-import { useAuth } from '../../auth/auth-context'
-import type { Project } from '../../../types/business'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  StatusTag,
+} from '../../../components/common/StatusTag'
+import {
+  hardDeleteProject,
+  hardDeleteProjects,
+  listDeletedProjects,
+  restoreProject,
+  restoreProjects,
+} from '../api'
+import {
+  useAuth,
+} from '../../auth/auth-context'
+import type {
+  Project,
+} from '../../../types/business'
 
 export function PmDeletedProjectsPage() {
   const navigate = useNavigate()

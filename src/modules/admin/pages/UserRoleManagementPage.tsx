@@ -1,12 +1,40 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
-import { useTranslation } from 'react-i18next'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import {
+  Button,
+  Popconfirm,
+  Select,
+  Space,
+  Tag,
+  message,
+} from 'antd'
+import {
+  AdaptiveTable as Table,
+} from '../../../components/common/AdaptiveTable'
+import {
+  useTranslation,
+} from 'react-i18next'
 
-import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { ROLE_LABELS } from '../../../lib/constants'
-import { recordOperationLog } from '../../../lib/supabase/logs'
-import { supabase } from '../../../lib/supabase/client'
-import type { Role, RoleCode } from '../../../types/rbac'
+import {
+  PageTitleBar,
+} from '../../../components/common/PageTitleBar'
+import {
+  ROLE_LABELS,
+} from '../../../lib/constants'
+import {
+  recordOperationLog,
+} from '../../../lib/supabase/logs'
+import {
+  supabase,
+} from '../../../lib/supabase/client'
+import type {
+  Role,
+  RoleCode,
+} from '../../../types/rbac'
 
 interface UserWithRoles {
   id: string

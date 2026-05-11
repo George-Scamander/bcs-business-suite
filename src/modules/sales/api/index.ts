@@ -1,5 +1,7 @@
 import type { SalesOrder, SalesOrderItem, SalesProductCategory } from '../../../types/business'
 import { supabase } from '../../../lib/supabase/client'
+import { recordOperationLog } from '../../../lib/supabase/logs'
+import { generateUuid } from '../../../lib/uuid'
 
 export interface CreateSalesOrderItemInput {
   category: SalesProductCategory
@@ -52,6 +54,14 @@ export interface SalesOrderFilters {
   soldTo?: string
 }
 
+export interface UpdateSalesOrderInput {
+  orderId: string
+  company_name: string
+  sold_at: string
+  note?: string | null
+  items: CreateSalesOrderItemInput[]
+}
+
 interface DatabaseErrorPayload {
   code?: string
   message?: string
@@ -93,8 +103,28 @@ function buildSpLeadCode(dateIso: string): string {
   const yyyy = utcDate.getUTCFullYear()
   const mm = String(utcDate.getUTCMonth() + 1).padStart(2, '0')
   const dd = String(utcDate.getUTCDate()).padStart(2, '0')
-  const suffix = crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()
+  const suffix = generateUuid().replace(/-/g, '').slice(0, 6).toUpperCase()
   return `SP-${yyyy}${mm}${dd}-${suffix}`
+}
+
+function buildSalesItemSummary(items: CreateSalesOrderItemInput[]): string {
+  return items
+    .map((item) => `${item.product_name?.trim() || item.category} x${Math.max(1, Number(item.quantity || 1))}`)
+    .join(', ')
+}
+
+async function getCurrentUserId(): Promise<string> {
+  const userResult = await supabase.auth.getUser()
+  if (userResult.error) {
+    throw extractDatabaseError(userResult.error, 'Failed to read current user')
+  }
+
+  const userId = userResult.data.user?.id
+  if (!userId) {
+    throw new Error('Not authenticated')
+  }
+
+  return userId
 }
 
 async function createSalesOrderWithAutoLeadFallback(input: CreateSalesOrderInput): Promise<CreateSalesOrderResult> {
@@ -371,4 +401,364 @@ export async function listSalesOrderTemplatesByOwner(ownerId: string): Promise<S
   }
 
   return (result.data ?? []) as SalesOrderRow[]
+}
+
+export async function listDeletedSalesOrders(filters: SalesOrderFilters = {}): Promise<SalesOrderRow[]> {
+  let query = supabase
+    .from('sales_orders')
+    .select(
+      '*, lead:leads(id, lead_code, company_name), onboard_merchant:onboard_merchants(id, merchant_no, company_name, onboarding_type), bd_owner:profiles!sales_orders_bd_user_id_fkey(id, email, full_name), items:sales_order_items(*)',
+    )
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false })
+
+  if (filters.bdUserId) {
+    query = query.eq('bd_user_id', filters.bdUserId)
+  }
+
+  if (filters.leadId) {
+    query = query.eq('lead_id', filters.leadId)
+  }
+
+  if (filters.keyword) {
+    query = query.or(`order_no.ilike.%${filters.keyword}%,company_name.ilike.%${filters.keyword}%`)
+  }
+
+  if (filters.soldFrom) {
+    query = query.gte('sold_at', filters.soldFrom)
+  }
+
+  if (filters.soldTo) {
+    query = query.lte('sold_at', filters.soldTo)
+  }
+
+  const result = await query
+
+  if (result.error) {
+    throw result.error
+  }
+
+  return (result.data ?? []) as SalesOrderRow[]
+}
+
+export async function updateSalesOrder(input: UpdateSalesOrderInput): Promise<void> {
+  const userId = await getCurrentUserId()
+  const companyName = input.company_name.trim()
+  if (!companyName) {
+    throw new Error('Company name is required')
+  }
+
+  if (!input.items.length) {
+    throw new Error('At least one sales item is required')
+  }
+
+  const orderResult = await supabase
+    .from('sales_orders')
+    .select('id, order_no, lead_id, onboard_merchant_id')
+    .eq('id', input.orderId)
+    .single<{ id: string; order_no: string; lead_id: string | null; onboard_merchant_id: string | null }>()
+
+  if (orderResult.error) {
+    throw extractDatabaseError(orderResult.error, 'Failed to load sales order')
+  }
+
+  const order = orderResult.data
+  const normalizedItems = input.items.map((item) => ({
+    sales_order_id: input.orderId,
+    category: item.category,
+    product_name: item.product_name?.trim() || null,
+    quantity: Math.max(1, Number(item.quantity || 1)),
+    unit_price: item.unit_price ?? null,
+  }))
+
+  const updateResult = await supabase
+    .from('sales_orders')
+    .update({
+      company_name: companyName,
+      sold_at: input.sold_at,
+      note: input.note ?? null,
+      updated_by: userId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.orderId)
+
+  if (updateResult.error) {
+    throw extractDatabaseError(updateResult.error, 'Failed to update sales order')
+  }
+
+  const deleteItemsResult = await supabase.from('sales_order_items').delete().eq('sales_order_id', input.orderId)
+  if (deleteItemsResult.error) {
+    throw extractDatabaseError(deleteItemsResult.error, 'Failed to reset sales order items')
+  }
+
+  const insertItemsResult = await supabase.from('sales_order_items').insert(normalizedItems)
+  if (insertItemsResult.error) {
+    throw extractDatabaseError(insertItemsResult.error, 'Failed to update sales order items')
+  }
+
+  const summary = buildSalesItemSummary(input.items)
+
+  if (order.lead_id) {
+    const leadUpdateResult = await supabase
+      .from('leads')
+      .update({
+        company_name: companyName,
+        last_followup_at: input.sold_at,
+        updated_by: userId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', order.lead_id)
+      .is('deleted_at', null)
+
+    if (leadUpdateResult.error) {
+      throw extractDatabaseError(leadUpdateResult.error, 'Failed to sync lead after sales update')
+    }
+
+    const followupResult = await supabase.from('lead_followups').insert({
+      lead_id: order.lead_id,
+      followup_type: 'MEETING',
+      summary: `Sales order ${order.order_no} edited: ${summary}`,
+      followup_at: new Date().toISOString(),
+      created_by: userId,
+    })
+
+    if (followupResult.error) {
+      throw extractDatabaseError(followupResult.error, 'Failed to append lead follow-up after sales edit')
+    }
+  }
+
+  if (order.onboard_merchant_id) {
+    const activityResult = await supabase
+      .from('onboard_merchant_activities')
+      .update({
+        title: `Sales Order ${order.order_no}`,
+        detail: [summary, input.note?.trim()].filter(Boolean).join('\n') || null,
+        activity_at: input.sold_at,
+        status: 'DONE',
+        updated_by: userId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('related_sales_order_id', input.orderId)
+      .is('deleted_at', null)
+
+    if (activityResult.error) {
+      throw extractDatabaseError(activityResult.error, 'Failed to sync merchant activity after sales edit')
+    }
+  }
+
+  await recordOperationLog({
+    module: 'sales',
+    entityType: 'sales_orders',
+    entityId: input.orderId,
+    action: 'update_sales_order',
+    afterData: {
+      company_name: companyName,
+      sold_at: input.sold_at,
+      item_summary: summary,
+    },
+  })
+}
+
+export async function softDeleteSalesOrder(orderId: string): Promise<void> {
+  const userId = await getCurrentUserId()
+  const nowIso = new Date().toISOString()
+
+  const orderResult = await supabase
+    .from('sales_orders')
+    .select('id, order_no, lead_id')
+    .eq('id', orderId)
+    .single<{ id: string; order_no: string; lead_id: string | null }>()
+
+  if (orderResult.error) {
+    throw extractDatabaseError(orderResult.error, 'Failed to load sales order')
+  }
+
+  const order = orderResult.data
+
+  const deleteResult = await supabase
+    .from('sales_orders')
+    .update({
+      deleted_at: nowIso,
+      deleted_by: userId,
+      updated_by: userId,
+      updated_at: nowIso,
+    })
+    .eq('id', orderId)
+
+  if (deleteResult.error) {
+    throw extractDatabaseError(deleteResult.error, 'Failed to delete sales order')
+  }
+
+  const activityResult = await supabase
+    .from('onboard_merchant_activities')
+    .update({
+      status: 'CANCELLED',
+      deleted_at: nowIso,
+      deleted_by: userId,
+      updated_by: userId,
+      updated_at: nowIso,
+    })
+    .eq('related_sales_order_id', orderId)
+    .is('deleted_at', null)
+
+  if (activityResult.error) {
+    throw extractDatabaseError(activityResult.error, 'Failed to sync merchant activity after sales delete')
+  }
+
+  if (order.lead_id) {
+    const leadUpdateResult = await supabase
+      .from('leads')
+      .update({
+        updated_by: userId,
+        updated_at: nowIso,
+      })
+      .eq('id', order.lead_id)
+      .is('deleted_at', null)
+
+    if (leadUpdateResult.error) {
+      throw extractDatabaseError(leadUpdateResult.error, 'Failed to sync lead after sales delete')
+    }
+
+    const followupResult = await supabase.from('lead_followups').insert({
+      lead_id: order.lead_id,
+      followup_type: 'MEETING',
+      summary: `Sales order ${order.order_no} deleted`,
+      followup_at: nowIso,
+      created_by: userId,
+    })
+
+    if (followupResult.error) {
+      throw extractDatabaseError(followupResult.error, 'Failed to append lead follow-up after sales delete')
+    }
+  }
+
+  await recordOperationLog({
+    module: 'sales',
+    entityType: 'sales_orders',
+    entityId: orderId,
+    action: 'soft_delete_sales_order',
+  })
+}
+
+export async function restoreSalesOrder(orderId: string): Promise<void> {
+  const userId = await getCurrentUserId()
+  const nowIso = new Date().toISOString()
+
+  const orderResult = await supabase
+    .from('sales_orders')
+    .select('id, order_no, lead_id')
+    .eq('id', orderId)
+    .single<{ id: string; order_no: string; lead_id: string | null }>()
+
+  if (orderResult.error) {
+    throw extractDatabaseError(orderResult.error, 'Failed to load sales order')
+  }
+
+  const order = orderResult.data
+
+  const restoreResult = await supabase
+    .from('sales_orders')
+    .update({
+      deleted_at: null,
+      deleted_by: null,
+      updated_by: userId,
+      updated_at: nowIso,
+    })
+    .eq('id', orderId)
+
+  if (restoreResult.error) {
+    throw extractDatabaseError(restoreResult.error, 'Failed to restore sales order')
+  }
+
+  const activityRestoreResult = await supabase
+    .from('onboard_merchant_activities')
+    .update({
+      deleted_at: null,
+      deleted_by: null,
+      status: 'DONE',
+      updated_by: userId,
+      updated_at: nowIso,
+    })
+    .eq('related_sales_order_id', orderId)
+    .not('deleted_at', 'is', null)
+
+  if (activityRestoreResult.error) {
+    throw extractDatabaseError(activityRestoreResult.error, 'Failed to restore merchant activity after sales restore')
+  }
+
+  if (order.lead_id) {
+    const leadUpdateResult = await supabase
+      .from('leads')
+      .update({
+        updated_by: userId,
+        updated_at: nowIso,
+      })
+      .eq('id', order.lead_id)
+      .is('deleted_at', null)
+
+    if (leadUpdateResult.error) {
+      throw extractDatabaseError(leadUpdateResult.error, 'Failed to sync lead after sales restore')
+    }
+
+    const followupResult = await supabase.from('lead_followups').insert({
+      lead_id: order.lead_id,
+      followup_type: 'MEETING',
+      summary: `Sales order ${order.order_no} restored`,
+      followup_at: nowIso,
+      created_by: userId,
+    })
+
+    if (followupResult.error) {
+      throw extractDatabaseError(followupResult.error, 'Failed to append lead follow-up after sales restore')
+    }
+  }
+
+  await recordOperationLog({
+    module: 'sales',
+    entityType: 'sales_orders',
+    entityId: orderId,
+    action: 'restore_sales_order',
+  })
+}
+
+export async function restoreSalesOrders(orderIds: string[]): Promise<void> {
+  if (!orderIds.length) {
+    return
+  }
+
+  for (const orderId of orderIds) {
+    await restoreSalesOrder(orderId)
+  }
+}
+
+export async function hardDeleteSalesOrder(orderId: string): Promise<void> {
+  const deleteResult = await supabase.from('sales_orders').delete().eq('id', orderId)
+  if (deleteResult.error) {
+    throw extractDatabaseError(deleteResult.error, 'Failed to permanently delete sales order')
+  }
+
+  await recordOperationLog({
+    module: 'sales',
+    entityType: 'sales_orders',
+    entityId: orderId,
+    action: 'hard_delete_sales_order',
+  })
+}
+
+export async function hardDeleteSalesOrders(orderIds: string[]): Promise<void> {
+  if (!orderIds.length) {
+    return
+  }
+
+  const deleteResult = await supabase.from('sales_orders').delete().in('id', orderIds)
+  if (deleteResult.error) {
+    throw extractDatabaseError(deleteResult.error, 'Failed to permanently delete selected sales orders')
+  }
+
+  await recordOperationLog({
+    module: 'sales',
+    entityType: 'sales_orders',
+    action: 'hard_delete_sales_orders_bulk',
+    afterData: { order_ids: orderIds },
+  })
 }
