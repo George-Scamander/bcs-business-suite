@@ -165,8 +165,36 @@ pre {
   overscroll-behavior-x: contain;
 }
 
+.kpi-table-scroll-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+/* Keep horizontal swipe scoped to KPI table area, so sidebar/header stays fixed. */
+.kpi-table-scroll-wrap .ant-table-wrapper {
+  min-width: 1000px;
+}
+
+.kpi-filter-number-item {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpi-filter-number-label {
+  font-size: 12px;
+  line-height: 1.2;
+  color: #64748b;
+}
+
 @media (min-width: 768px) {
   .onboard-merchant-table-wrap .ant-table-container {
+    overflow-x: auto !important;
+  }
+
+  .kpi-table-scroll-wrap .ant-table-container {
     overflow-x: auto !important;
   }
 }

@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase/client'
+import type { SalesProductCategory } from '../../../types/business'
 
 export interface AdminDashboardMetrics {
   totalLeads: number
@@ -22,6 +23,12 @@ export interface PmDashboardMetrics {
   delayedProjects: number
   tasksDueThisWeek: number
   avgCompletionRate: number
+}
+
+export interface AdminSalesCategoryMetrics {
+  category: SalesProductCategory
+  totalQuantity: number
+  totalAmount: number
 }
 
 async function count(
@@ -178,4 +185,42 @@ export async function getPmDashboardMetrics(userId: string): Promise<PmDashboard
     tasksDueThisWeek: dueTasksResult.count ?? 0,
     avgCompletionRate: Number(avgCompletionRate.toFixed(1)),
   }
+}
+
+export async function getAdminSalesCategoryMetrics(): Promise<AdminSalesCategoryMetrics[]> {
+  const result = await supabase
+    .from('sales_order_items')
+    .select('category, quantity, unit_price, sales_order:sales_orders!inner(id, deleted_at)')
+    .is('sales_order.deleted_at', null)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  const categories: SalesProductCategory[] = ['TIRE', 'ENGINE_OIL', 'WINDOW_FILM', 'BOSCH_ACCESSORY']
+  const aggregate = new Map<SalesProductCategory, AdminSalesCategoryMetrics>(
+    categories.map((category) => [
+      category,
+      {
+        category,
+        totalQuantity: 0,
+        totalAmount: 0,
+      },
+    ]),
+  )
+
+  for (const row of result.data ?? []) {
+    const category = row.category as SalesProductCategory
+    const current = aggregate.get(category)
+    if (!current) {
+      continue
+    }
+
+    const quantity = Math.max(0, Number(row.quantity ?? 0))
+    const unitPrice = Math.max(0, Number(row.unit_price ?? 0))
+    current.totalQuantity += quantity
+    current.totalAmount += quantity * unitPrice
+  }
+
+  return categories.map((category) => aggregate.get(category) as AdminSalesCategoryMetrics)
 }

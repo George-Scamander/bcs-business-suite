@@ -1,12 +1,16 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react'
 import {
   Button,
+  Card,
   Col,
   Row,
+  Select,
+  Statistic,
   message,
 } from 'antd'
 import {
@@ -23,9 +27,13 @@ import {
   MetricCard,
 } from '../../../components/common/MetricCard'
 import {
+  getSalesProductCategoryOptions,
+} from '../../../lib/business-constants'
+import {
   PageTitleBar,
 } from '../../../components/common/PageTitleBar'
 import {
+  getAdminSalesCategoryMetrics,
   getAdminDashboardMetrics,
 } from '../../dashboard/api'
 import {
@@ -34,12 +42,25 @@ import {
 import {
   StatusTag,
 } from '../../../components/common/StatusTag'
+import type {
+  SalesProductCategory,
+} from '../../../types/business'
+import type {
+  AdminSalesCategoryMetrics,
+} from '../../dashboard/api'
 
 interface PendingCaseRow {
   id: string
   case_no: string
   status: string
   sla_due_at: string | null
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
 }
 
 export function AdminDashboardPage() {
@@ -54,18 +75,22 @@ export function AdminDashboardPage() {
     activeUsers: 0,
   })
   const [pendingCases, setPendingCases] = useState<PendingCaseRow[]>([])
+  const [salesCategoryMetrics, setSalesCategoryMetrics] = useState<AdminSalesCategoryMetrics[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<SalesProductCategory>('TIRE')
   const [loading, setLoading] = useState(true)
 
   const loadData = useCallback(async () => {
     setLoading(true)
 
     try {
-      const [metricData, onboardingCases] = await Promise.all([
+      const [metricData, onboardingCases, salesMetrics] = await Promise.all([
         getAdminDashboardMetrics(),
         listOnboardingCases(),
+        getAdminSalesCategoryMetrics(),
       ])
 
       setMetrics(metricData)
+      setSalesCategoryMetrics(salesMetrics)
       setPendingCases(
         onboardingCases
           .filter((item) => item.status !== 'COMPLETED' && item.status !== 'REJECTED')
@@ -91,6 +116,17 @@ export function AdminDashboardPage() {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  const categoryOptions = useMemo(() => getSalesProductCategoryOptions(t), [t])
+  const selectedSalesMetrics = useMemo(
+    () =>
+      salesCategoryMetrics.find((item) => item.category === selectedCategory) ?? {
+        category: selectedCategory,
+        totalQuantity: 0,
+        totalAmount: 0,
+      },
+    [salesCategoryMetrics, selectedCategory],
+  )
 
   return (
     <>
@@ -146,6 +182,43 @@ export function AdminDashboardPage() {
           />
         </Col>
       </Row>
+
+      <Card
+        className="mb-5"
+        title={t('pages.adminDashboard.salesCategoryTitle', { defaultValue: 'Sales Category Overview' })}
+      >
+        <Row gutter={[16, 16]} align="middle" className="mb-4">
+          <Col xs={24} md={8} xl={6}>
+            <Select
+              className="w-full"
+              value={selectedCategory}
+              onChange={(value) => setSelectedCategory(value)}
+              options={categoryOptions}
+              placeholder={t('pages.adminDashboard.salesCategorySelect', { defaultValue: 'Select sales category' })}
+            />
+          </Col>
+        </Row>
+
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={12} xl={6}>
+            <Card bordered={false} className="bg-slate-50">
+              <Statistic
+                title={t('pages.adminDashboard.salesCategoryQuantity', { defaultValue: 'Sales Quantity' })}
+                value={selectedSalesMetrics.totalQuantity}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} md={12} xl={6}>
+            <Card bordered={false} className="bg-slate-50">
+              <Statistic
+                title={t('pages.adminDashboard.salesCategoryAmount', { defaultValue: 'Total Sales Amount' })}
+                value={selectedSalesMetrics.totalAmount}
+                formatter={(value) => formatCurrency(Number(value ?? 0))}
+              />
+            </Card>
+          </Col>
+        </Row>
+      </Card>
 
       <Table
         loading={loading}

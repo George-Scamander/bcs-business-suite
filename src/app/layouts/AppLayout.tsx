@@ -61,6 +61,7 @@ const iconMap: Record<string, React.ReactNode> = {
   'pm-projects': <BranchesOutlined />,
   'pm-onboard-merchants': <ContainerOutlined />,
   'sales-supervision': <LineChartOutlined />,
+  'bd-kpi-dashboard': <LineChartOutlined />,
   'pm-new-project': <PlusSquareOutlined />,
   'pm-leads-import': <CloudUploadOutlined />,
 }
