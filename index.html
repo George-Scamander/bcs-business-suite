@@ -6,9 +6,48 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="BCS Service" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180.png" />
+    <style>
+      #app-startup-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+        transition: opacity 0.26s ease;
+      }
+
+      #app-startup-splash.is-hiding {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #app-startup-splash img {
+        width: min(62vw, 280px);
+        height: auto;
+      }
+
+      @media (min-width: 768px) {
+        #app-startup-splash {
+          display: none;
+        }
+      }
+    </style>
     <title>BCS Business Suite</title>
   </head>
   <body>
+    <div id="app-startup-splash" aria-hidden="true">
+      <img src="/splash/startup-logo-512.png" alt="" />
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

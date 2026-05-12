@@ -9,10 +9,12 @@ import 'antd/dist/reset.css'
 
 import App from './app/App'
 import { AppProviders } from './app/providers/AppProviders'
+import { MobileStartupSplash } from './app/providers/MobileStartupSplash'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <MobileStartupSplash />
     <AppProviders>
       <App />
     </AppProviders>

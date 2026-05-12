@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { MenuProps } from 'antd'
 import {
   AppstoreOutlined,
+  ArrowLeftOutlined,
   BellOutlined,
   BranchesOutlined,
   CloudUploadOutlined,
@@ -84,6 +85,8 @@ function resolvePrimaryRole(roles: RoleCode[]): RoleCode {
   return 'bd_user'
 }
 
+const MOBILE_HOME_PATHS = new Set(['/app', '/app/admin/dashboard', '/app/bd/dashboard', '/app/pm/dashboard'])
+
 export function AppLayout() {
   const { t } = useTranslation()
   const { profile, roles, signOut, updateLocale } = useAuth()
@@ -112,6 +115,9 @@ export function AppLayout() {
   const selectedKey =
     navItemsForRole.find((item) => location.pathname.startsWith(item.path))?.key ?? navItemsForRole[0]?.key
 
+  const normalizedPath = location.pathname.replace(/\/+$/, '') || '/'
+  const showMobileBackButton = isMobile && !MOBILE_HOME_PATHS.has(normalizedPath)
+
   const mobileQuickNavItems = useMemo(() => {
     const quickKeys = new Set(MOBILE_QUICK_NAV_KEYS_BY_ROLE[primaryRole])
     return navItemsForRole.filter((item) => quickKeys.has(item.key))
@@ -138,6 +144,15 @@ export function AppLayout() {
   async function handleSignOut() {
     await signOut()
     navigate('/login', { replace: true })
+  }
+
+  function handleMobileBack() {
+    if (window.history.length > 1) {
+      navigate(-1)
+      return
+    }
+
+    navigate('/app', { replace: true })
   }
 
   const sideMenu = (
@@ -188,18 +203,6 @@ export function AppLayout() {
               </Tag>
             </div>
             <div className="mt-2">
-              <Button
-                type="text"
-                size="small"
-                className="!px-0"
-                icon={<BellOutlined />}
-                onClick={() => {
-                  navigate('/app/notifications')
-                  setDrawerOpen(false)
-                }}
-              >
-                {t('nav.notifications', { defaultValue: 'Notifications' })}
-              </Button>
               <Typography.Text type="secondary" className="ml-6 block text-xs">
                 {APP_VERSION}
               </Typography.Text>
@@ -215,6 +218,14 @@ export function AppLayout() {
             <>
               <div className="flex w-full items-center justify-between gap-2">
                 <Space size={8} align="center">
+                  {showMobileBackButton ? (
+                    <Button
+                      icon={<ArrowLeftOutlined />}
+                      onClick={handleMobileBack}
+                      type="text"
+                      aria-label={t('common.back', { defaultValue: 'Back' })}
+                    />
+                  ) : null}
                   <Button icon={<MenuOutlined />} onClick={() => setDrawerOpen(true)} type="text" />
                   <Typography.Text className="block text-base font-bold tracking-wide text-slate-900">
                     {t('common.appName', { defaultValue: APP_NAME })}

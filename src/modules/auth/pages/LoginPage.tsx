@@ -1,19 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AutoComplete, Button, Card, Form, Input, Space, Tag, Typography, message } from 'antd'
+import { AutoComplete, Button, Card, Checkbox, Form, Input, Select, Space, Tag, Typography, message } from 'antd'
 import { LockOutlined, MailOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { APP_NAME } from '../../../lib/constants'
+import { SUPPORTED_LOCALES } from '../../../lib/constants'
+import type { LocaleCode } from '../../../types/rbac'
+import i18n from '../../../lib/i18n'
 import { useAuth } from '../auth-context'
 
 interface LoginFormValues {
   email: string
   password: string
+  rememberMe: boolean
 }
 
 const LOGIN_DOMAIN = 'xmotorsid.onmicrosoft.com'
 const RECENT_EMAILS_KEY = 'login-recent-emails'
+const REMEMBER_LOGIN_KEY = 'login-remembered-credentials'
+const LOGIN_LOCALE_KEY = 'login-locale'
 const MAX_RECENT_EMAILS = 5
 
 function normalizeEmailInput(rawEmail: string): string {
@@ -52,6 +58,7 @@ export function LoginPage() {
   const [emailInput, setEmailInput] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [pendingRedirect, setPendingRedirect] = useState(false)
+  const [locale, setLocale] = useState<LocaleCode>(i18n.language as LocaleCode)
 
   const fromPath = (location.state as { from?: string } | null)?.from ?? '/app'
 
@@ -71,6 +78,35 @@ export function LoginPage() {
       navigate('/app', { replace: true })
     }
   }, [isAuthenticated, isLoading, navigate, pendingRedirect])
+
+  useEffect(() => {
+    try {
+      const rememberedRaw = localStorage.getItem(REMEMBER_LOGIN_KEY)
+      if (rememberedRaw) {
+        const remembered = JSON.parse(rememberedRaw) as { email?: string; password?: string }
+        if (remembered.email && remembered.password) {
+          form.setFieldsValue({
+            email: remembered.email,
+            password: remembered.password,
+            rememberMe: true,
+          })
+          setEmailInput(remembered.email)
+        }
+      }
+    } catch {
+      localStorage.removeItem(REMEMBER_LOGIN_KEY)
+    }
+
+    try {
+      const storedLocale = localStorage.getItem(LOGIN_LOCALE_KEY) as LocaleCode | null
+      if (storedLocale && SUPPORTED_LOCALES.some((item) => item.code === storedLocale)) {
+        setLocale(storedLocale)
+        void i18n.changeLanguage(storedLocale)
+      }
+    } catch {
+      localStorage.removeItem(LOGIN_LOCALE_KEY)
+    }
+  }, [form])
 
   useEffect(() => {
     try {
@@ -133,6 +169,17 @@ export function LoginPage() {
       const normalizedEmail = normalizeEmailInput(values.email)
       await signIn(normalizedEmail, values.password)
       persistRecentEmail(normalizedEmail)
+      if (values.rememberMe) {
+        localStorage.setItem(
+          REMEMBER_LOGIN_KEY,
+          JSON.stringify({
+            email: normalizedEmail,
+            password: values.password,
+          }),
+        )
+      } else {
+        localStorage.removeItem(REMEMBER_LOGIN_KEY)
+      }
       message.success(t('auth.login.success', { defaultValue: 'Signed in successfully' }))
       setPendingRedirect(true)
     } catch (error) {
@@ -147,6 +194,19 @@ export function LoginPage() {
   return (
     <div className="grid min-h-dvh place-items-center px-4 py-10 bg-[radial-gradient(circle_at_20%_20%,rgba(226,232,240,0.55),transparent_45%),linear-gradient(120deg,#f3f4f6,#e5e7eb)]">
       <Card className="w-full max-w-md shadow-[0_20px_45px_-24px_rgba(15,23,42,0.35)]">
+        <div className="mb-4 flex justify-end">
+          <Select
+            size="small"
+            value={locale}
+            style={{ width: 156 }}
+            options={SUPPORTED_LOCALES.map((item) => ({ value: item.code, label: item.label }))}
+            onChange={(value: LocaleCode) => {
+              setLocale(value)
+              localStorage.setItem(LOGIN_LOCALE_KEY, value)
+              void i18n.changeLanguage(value)
+            }}
+          />
+        </div>
         <div className="mb-6">
           <Typography.Title level={3} className="mb-1">
             {APP_NAME}
@@ -158,7 +218,14 @@ export function LoginPage() {
           </Typography.Paragraph>
         </div>
 
-        <Form<LoginFormValues> form={form} layout="vertical" onFinish={handleFinish} requiredMark={false} autoComplete="off">
+        <Form<LoginFormValues>
+          form={form}
+          layout="vertical"
+          onFinish={handleFinish}
+          requiredMark={false}
+          autoComplete="off"
+          initialValues={{ rememberMe: false }}
+        >
           <Form.Item
             label={t('page.common.email', { defaultValue: 'Email' })}
             name="email"
@@ -222,7 +289,10 @@ export function LoginPage() {
             <Input.Password prefix={<LockOutlined />} placeholder={t('auth.login.passwordPlaceholder', { defaultValue: 'Enter password' })} />
           </Form.Item>
 
-          <div className="mb-4 flex items-center justify-end">
+          <div className="mb-4 flex items-center justify-between">
+            <Form.Item name="rememberMe" valuePropName="checked" noStyle>
+              <Checkbox>{t('auth.login.rememberMe', { defaultValue: 'Remember username and password' })}</Checkbox>
+            </Form.Item>
             <Link to="/forgot-password" className="text-sm">
               {t('auth.login.forgot', { defaultValue: 'Forgot password?' })}
             </Link>

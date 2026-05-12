@@ -82,6 +82,7 @@ const CATEGORY_DETECTORS: Array<{ category: SalesProductCategory; keywords: stri
   { category: 'WINDOW_FILM', keywords: ['window film', 'film', '窗膜', 'kaca film'] },
   { category: 'BOSCH_ACCESSORY', keywords: ['bosch', 'accessory', '配件', 'aksesoris'] },
 ]
+const TEMPLATE_TEXT_DRAFT_KEY = 'bd-sales-template-text-draft'
 
 function newDraftItem(): DraftSalesItem {
   return {
@@ -381,6 +382,30 @@ export function BdSalesCreatePage() {
   }, [form, loadTemplates])
 
   useEffect(() => {
+    try {
+      const cachedText = sessionStorage.getItem(TEMPLATE_TEXT_DRAFT_KEY)
+      if (!cachedText) {
+        return
+      }
+      setTemplateText(cachedText)
+    } catch {
+      // ignore storage read failure
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      if (!templateText.trim()) {
+        sessionStorage.removeItem(TEMPLATE_TEXT_DRAFT_KEY)
+        return
+      }
+      sessionStorage.setItem(TEMPLATE_TEXT_DRAFT_KEY, templateText)
+    } catch {
+      // ignore storage write failure
+    }
+  }, [templateText])
+
+  useEffect(() => {
     let cancelled = false
 
     async function loadOnboardMerchants() {
@@ -547,6 +572,11 @@ export function BdSalesCreatePage() {
       setItems([newDraftItem()])
       setSelectedTemplateId(undefined)
       setTemplateText('')
+      try {
+        sessionStorage.removeItem(TEMPLATE_TEXT_DRAFT_KEY)
+      } catch {
+        // ignore storage write failure
+      }
       await loadTemplates()
     } catch (error) {
       const text = error instanceof Error ? error.message : t('pages.bdSalesCreate.createFail', { defaultValue: 'Failed to create sales order' })
