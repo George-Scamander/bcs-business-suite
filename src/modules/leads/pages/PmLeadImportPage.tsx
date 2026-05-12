@@ -99,14 +99,14 @@ type ImportFieldKey =
   | 'submitted_at'
   | 'assigned_bd_hint'
 
-type DuplicateStrategy = 'merge' | 'separate'
+type DuplicateHandlingMode = 'merge_with_followups' | 'keep_earliest'
 
 interface DuplicateGroup {
   companyKey: string
   displayName: string
   rows: ImportLeadRow[]
   sources: string[]
-  suggestedStrategy: DuplicateStrategy
+  handlingMode: DuplicateHandlingMode
 }
 
 interface RoleMappingRow {
@@ -196,6 +196,37 @@ const CITY_SYNONYMS: Record<string, string[]> = {
   'central jakarta': ['jakarta pusat', 'jkt pusat'],
 }
 
+const BD_HINT_LABEL_PREFIXES = [
+  'who you are',
+  'who you are?',
+  'who are you',
+  'bd owner',
+  'assigned bd',
+  'sales team',
+  'sales',
+  'nama bd',
+  'nama sales',
+  'pic bd',
+  'bd pic',
+]
+
+const BD_HINT_STOP_WORDS = new Set([
+  'who',
+  'you',
+  'are',
+  'assigned',
+  'bd',
+  'owner',
+  'sales',
+  'team',
+  'pic',
+  'followup',
+  'follow up',
+  'user',
+  'name',
+  'nama',
+])
+
 function normalizeLookup(value: string): string {
   return value
     .toLowerCase()
@@ -213,6 +244,10 @@ function normalizeText(value?: string): string | undefined {
 
   const text = value.trim()
   return text.length > 0 ? text : undefined
+}
+
+function normalizeCompact(value: string): string {
+  return normalizeLookup(value).replace(/\s+/g, '')
 }
 
 function normalizeCompanyKey(value?: string): string {
@@ -593,7 +628,7 @@ function parseCsvTemplate(
       estimated_value: parseNumber(rowByField.estimated_value),
       intent_package: resolveIntentPackageByExpansionType(rowByField.intent_package_hint),
       submitted_at: parseTemplateDate(rowByField.submitted_at),
-      assigned_bd_hint: normalizeText(rowByField.assigned_bd_hint) ?? normalizeText(rowByField.contact_email),
+      assigned_bd_hint: normalizeText(rowByField.assigned_bd_hint),
     })
   })
 
@@ -643,6 +678,15 @@ function hasFollowupContent(row: ImportLeadRow): boolean {
   )
 }
 
+function shouldAppendAsFollowup(row: ImportLeadRow): boolean {
+  const sourceKind = detectSourceKind(row.source)
+  if (sourceKind !== 'cold_visit' && sourceKind !== 'follow_up') {
+    return false
+  }
+
+  return hasFollowupContent(row)
+}
+
 function buildFollowupSummary(row: ImportLeadRow): string {
   const fragments = [
     normalizeText(row.source) ? `Source: ${normalizeText(row.source)}` : null,
@@ -676,6 +720,57 @@ function groupRowsByCompany(rows: ImportLeadRow[]): Map<string, ImportLeadRow[]>
   return grouped
 }
 
+function resolveEffectiveBdId(row: ImportLeadRow, defaultBdId?: string): string | undefined {
+  return row.assigned_bd_id ?? defaultBdId
+}
+
+function parseRowSequence(row: ImportLeadRow): number {
+  const parsed = Number.parseInt(row.rowKey, 10)
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed
+  }
+
+  return Number.MAX_SAFE_INTEGER
+}
+
+function parseRowSubmittedAtMs(row: ImportLeadRow): number | undefined {
+  const submitted = normalizeText(row.submitted_at)
+  if (!submitted) {
+    return undefined
+  }
+
+  const timestamp = Date.parse(submitted)
+  return Number.isNaN(timestamp) ? undefined : timestamp
+}
+
+function compareRowsByEarliest(left: ImportLeadRow, right: ImportLeadRow): number {
+  const leftSubmittedAtMs = parseRowSubmittedAtMs(left)
+  const rightSubmittedAtMs = parseRowSubmittedAtMs(right)
+
+  if (typeof leftSubmittedAtMs === 'number' && typeof rightSubmittedAtMs === 'number' && leftSubmittedAtMs !== rightSubmittedAtMs) {
+    return leftSubmittedAtMs - rightSubmittedAtMs
+  }
+
+  if (typeof leftSubmittedAtMs === 'number' && typeof rightSubmittedAtMs !== 'number') {
+    return -1
+  }
+
+  if (typeof leftSubmittedAtMs !== 'number' && typeof rightSubmittedAtMs === 'number') {
+    return 1
+  }
+
+  return parseRowSequence(left) - parseRowSequence(right)
+}
+
+function sortRowsByEarliest(rows: ImportLeadRow[]): ImportLeadRow[] {
+  return [...rows].sort(compareRowsByEarliest)
+}
+
+function hasMultipleBdOwners(rows: ImportLeadRow[], defaultBdId?: string): boolean {
+  const bdOwnerSet = new Set(rows.map((row) => resolveEffectiveBdId(row, defaultBdId) ?? '__unassigned__'))
+  return bdOwnerSet.size > 1
+}
+
 function pickPreferredBaseRow(rows: ImportLeadRow[]): ImportLeadRow {
   const coldVisitRow = rows.find((row) => detectSourceKind(row.source) === 'cold_visit')
   return coldVisitRow ?? rows[0]
@@ -703,13 +798,14 @@ function coalesceBdOwnerId(...values: Array<string | undefined>): string | undef
 }
 
 function buildMergedLeadRow(rows: ImportLeadRow[]): { baseRow: ImportLeadRow; merged: ImportLeadRow } {
-  const baseRow = pickPreferredBaseRow(rows)
+  const sortedRows = sortRowsByEarliest(rows)
+  const baseRow = pickPreferredBaseRow(sortedRows)
 
   let intentLevel = sanitizeIntentLevel(baseRow.intent_level)
   let estimatedValue = baseRow.estimated_value
   let preferredSource = normalizeText(baseRow.source)
 
-  for (const row of rows) {
+  for (const row of sortedRows) {
     if (typeof row.intent_level === 'number' && row.intent_level >= 0 && row.intent_level <= 5) {
       intentLevel = Math.max(intentLevel ?? row.intent_level, row.intent_level)
     }
@@ -726,24 +822,24 @@ function buildMergedLeadRow(rows: ImportLeadRow[]): { baseRow: ImportLeadRow; me
     merged: {
       rowKey: baseRow.rowKey,
       company_name: baseRow.company_name,
-      contact_person: coalesceText(...rows.map((row) => row.contact_person)),
-      contact_phone: coalesceText(...rows.map((row) => row.contact_phone)),
-      contact_email: coalesceText(...rows.map((row) => row.contact_email)),
-      industry: coalesceText(...rows.map((row) => row.industry)),
-      region: coalesceText(...rows.map((row) => row.region)),
-      city: coalesceText(...rows.map((row) => row.city)),
-      address: coalesceText(...rows.map((row) => row.address)),
+      contact_person: coalesceText(...sortedRows.map((row) => row.contact_person)),
+      contact_phone: coalesceText(...sortedRows.map((row) => row.contact_phone)),
+      contact_email: coalesceText(...sortedRows.map((row) => row.contact_email)),
+      industry: coalesceText(...sortedRows.map((row) => row.industry)),
+      region: coalesceText(...sortedRows.map((row) => row.region)),
+      city: coalesceText(...sortedRows.map((row) => row.city)),
+      address: coalesceText(...sortedRows.map((row) => row.address)),
       source: preferredSource,
       intent_level: intentLevel,
       estimated_value: estimatedValue,
-      intent_package: mergeIntentPackages(rows.map((row) => row.intent_package)),
-      submitted_at: coalesceText(...rows.map((row) => row.submitted_at)),
-      assigned_bd_id: coalesceBdOwnerId(...rows.map((row) => row.assigned_bd_id)),
+      intent_package: mergeIntentPackages(sortedRows.map((row) => row.intent_package)),
+      submitted_at: coalesceText(...sortedRows.map((row) => row.submitted_at)),
+      assigned_bd_id: coalesceBdOwnerId(...sortedRows.map((row) => row.assigned_bd_id)),
     },
   }
 }
 
-function buildDuplicateGroups(rows: ImportLeadRow[]): DuplicateGroup[] {
+function buildDuplicateGroups(rows: ImportLeadRow[], defaultBdId?: string): DuplicateGroup[] {
   const grouped = groupRowsByCompany(rows)
   const groups: DuplicateGroup[] = []
 
@@ -753,15 +849,13 @@ function buildDuplicateGroups(rows: ImportLeadRow[]): DuplicateGroup[] {
     }
 
     const sources = Array.from(new Set(bucket.map((row) => normalizeText(row.source)).filter(Boolean) as string[]))
-    const hasColdVisit = bucket.some((row) => detectSourceKind(row.source) === 'cold_visit')
-    const hasFollowup = bucket.some((row) => detectSourceKind(row.source) === 'follow_up')
 
     groups.push({
       companyKey,
       displayName: normalizeText(bucket[0]?.company_name) ?? '(Unnamed)',
-      rows: bucket,
+      rows: sortRowsByEarliest(bucket),
       sources,
-      suggestedStrategy: hasColdVisit && hasFollowup ? 'merge' : 'separate',
+      handlingMode: hasMultipleBdOwners(bucket, defaultBdId) ? 'keep_earliest' : 'merge_with_followups',
     })
   })
 
@@ -785,17 +879,162 @@ function ensureCurrentOption(
   return [{ label: normalizedValue, value: normalizedValue }, ...options]
 }
 
+interface BdUserSearchCandidate {
+  user: UserOption
+  email: string
+  fullName: string
+  localPart: string
+  emailCompact: string
+  fullNameCompact: string
+  localPartCompact: string
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function stripBdHintLabelPrefix(value: string): string {
+  let stripped = value.trim()
+
+  for (const prefix of BD_HINT_LABEL_PREFIXES) {
+    const pattern = new RegExp(`^${escapeRegExp(prefix)}\\s*[:：\\-]\\s*`, 'i')
+    stripped = stripped.replace(pattern, '').trim()
+  }
+
+  return stripped
+}
+
+function removeBdHintStopWords(value: string): string {
+  const tokens = normalizeLookup(value)
+    .split(' ')
+    .filter((token) => token && !BD_HINT_STOP_WORDS.has(token))
+
+  return tokens.join(' ')
+}
+
 function tokenizeBdHint(hint: string): string[] {
-  const candidates = hint
-    .split(/[;,/|&]+/g)
+  const rawHint = normalizeText(hint)
+  if (!rawHint) {
+    return []
+  }
+
+  const strippedHint = stripBdHintLabelPrefix(rawHint)
+  const segmentedCandidates = strippedHint
+    .split(/[\n\r\t;,/|&]+/g)
     .map((part) => part.trim())
     .filter(Boolean)
 
-  if (candidates.length === 0) {
-    return [hint]
+  const baseCandidates = segmentedCandidates.length > 0 ? segmentedCandidates : [strippedHint]
+  const unique = new Set<string>()
+  const result: string[] = []
+
+  for (const candidate of baseCandidates) {
+    const normalizedCandidate = normalizeText(stripBdHintLabelPrefix(candidate))
+    if (!normalizedCandidate) {
+      continue
+    }
+
+    const withoutStopWords = normalizeText(removeBdHintStopWords(normalizedCandidate))
+    if (!withoutStopWords) {
+      continue
+    }
+
+    if (unique.has(withoutStopWords)) {
+      continue
+    }
+
+    unique.add(withoutStopWords)
+    result.push(withoutStopWords)
   }
 
-  return [hint, ...candidates]
+  return result
+}
+
+function buildBdUserSearchCandidates(users: UserOption[]): BdUserSearchCandidate[] {
+  return users.map((user) => {
+    const email = normalizeLookup(user.email)
+    const fullName = normalizeLookup(user.full_name ?? '')
+    const localPart = normalizeLookup(user.email.split('@')[0] ?? '')
+
+    return {
+      user,
+      email,
+      fullName,
+      localPart,
+      emailCompact: normalizeCompact(email),
+      fullNameCompact: normalizeCompact(fullName),
+      localPartCompact: normalizeCompact(localPart),
+    }
+  })
+}
+
+function scoreBdHintAgainstUser(
+  normalizedCandidate: string,
+  compactCandidate: string,
+  candidate: BdUserSearchCandidate,
+): number {
+  if (!normalizedCandidate) {
+    return 0
+  }
+
+  if (
+    normalizedCandidate === candidate.email ||
+    normalizedCandidate === candidate.fullName ||
+    normalizedCandidate === candidate.localPart ||
+    (compactCandidate.length > 0 &&
+      (compactCandidate === candidate.emailCompact ||
+        compactCandidate === candidate.fullNameCompact ||
+        compactCandidate === candidate.localPartCompact))
+  ) {
+    return 120
+  }
+
+  let score = 0
+
+  if (normalizedCandidate.includes('@') && candidate.email.includes(normalizedCandidate)) {
+    score = Math.max(score, 105)
+  }
+
+  const isCjkCandidate = /[\u3400-\u9FFF]/u.test(compactCandidate)
+  const minLength = isCjkCandidate ? 2 : 3
+
+  if (normalizedCandidate.length >= minLength) {
+    if (candidate.fullName.includes(normalizedCandidate)) {
+      score = Math.max(score, 90 + Math.min(normalizedCandidate.length, 10))
+    }
+
+    if (candidate.localPart.includes(normalizedCandidate)) {
+      score = Math.max(score, 86 + Math.min(normalizedCandidate.length, 10))
+    }
+
+    if (normalizedCandidate.includes(candidate.fullName) && candidate.fullName.length >= minLength) {
+      score = Math.max(score, 80 + Math.min(candidate.fullName.length, 10))
+    }
+
+    if (normalizedCandidate.includes(candidate.localPart) && candidate.localPart.length >= minLength) {
+      score = Math.max(score, 76 + Math.min(candidate.localPart.length, 10))
+    }
+  }
+
+  if (compactCandidate.length >= minLength) {
+    if (candidate.fullNameCompact.includes(compactCandidate)) {
+      score = Math.max(score, 98 + Math.min(compactCandidate.length, 10))
+    }
+
+    if (candidate.localPartCompact.includes(compactCandidate)) {
+      score = Math.max(score, 93 + Math.min(compactCandidate.length, 10))
+    }
+
+    if (compactCandidate.includes(candidate.fullNameCompact) && candidate.fullNameCompact.length >= minLength) {
+      score = Math.max(score, 84 + Math.min(candidate.fullNameCompact.length, 10))
+    }
+
+    if (compactCandidate.includes(candidate.localPartCompact) && candidate.localPartCompact.length >= minLength) {
+      score = Math.max(score, 82 + Math.min(candidate.localPartCompact.length, 10))
+    }
+  }
+
+  return score
 }
 
 function matchBdUser(hint: string | undefined, users: UserOption[]): UserOption | undefined {
@@ -805,50 +1044,59 @@ function matchBdUser(hint: string | undefined, users: UserOption[]): UserOption 
   }
 
   const candidateHints = tokenizeBdHint(rawHint)
-  const normalizedCandidates = candidateHints.map((item) => normalizeLookup(item)).filter(Boolean)
-  const domains = Array.from(new Set(users.map((user) => user.email.split('@')[1]).filter(Boolean)))
+  if (candidateHints.length === 0) {
+    return undefined
+  }
 
-  for (const candidate of normalizedCandidates) {
-    const exact = users.find((user) => {
-      const email = normalizeLookup(user.email)
-      const fullName = normalizeLookup(user.full_name ?? '')
-      const localPart = normalizeLookup(user.email.split('@')[0] ?? '')
+  const userCandidates = buildBdUserSearchCandidates(users)
+  const bestScoreByUserId = new Map<string, number>()
 
-      if (email === candidate || fullName === candidate || localPart === candidate) {
-        return true
+  for (const candidateHint of candidateHints) {
+    const normalizedCandidate = normalizeLookup(candidateHint)
+    const compactCandidate = normalizeCompact(candidateHint)
+    if (!normalizedCandidate || !compactCandidate) {
+      continue
+    }
+
+    for (const candidate of userCandidates) {
+      const score = scoreBdHintAgainstUser(normalizedCandidate, compactCandidate, candidate)
+      if (score <= 0) {
+        continue
       }
 
-      if (!candidate.includes('@')) {
-        return domains.some((domain) => email === `${candidate}@${normalizeLookup(domain)}`)
+      const currentScore = bestScoreByUserId.get(candidate.user.id) ?? 0
+      if (score > currentScore) {
+        bestScoreByUserId.set(candidate.user.id, score)
       }
-
-      return false
-    })
-
-    if (exact) {
-      return exact
     }
   }
 
-  for (const candidate of normalizedCandidates) {
-    const partial = users.find((user) => {
-      const email = normalizeLookup(user.email)
-      const fullName = normalizeLookup(user.full_name ?? '')
-      const localPart = normalizeLookup(user.email.split('@')[0] ?? '')
-      return (
-        email.includes(candidate) ||
-        fullName.includes(candidate) ||
-        localPart.includes(candidate) ||
-        candidate.includes(fullName)
-      )
-    })
-
-    if (partial) {
-      return partial
-    }
+  if (bestScoreByUserId.size === 0) {
+    return undefined
   }
 
-  return undefined
+  let bestUserId: string | undefined
+  let bestScore = 0
+  let hasTie = false
+
+  bestScoreByUserId.forEach((score, userId) => {
+    if (score > bestScore) {
+      bestScore = score
+      bestUserId = userId
+      hasTie = false
+      return
+    }
+
+    if (score === bestScore && userId !== bestUserId) {
+      hasTie = true
+    }
+  })
+
+  if (!bestUserId || bestScore < 90 || hasTie) {
+    return undefined
+  }
+
+  return users.find((item) => item.id === bestUserId)
 }
 
 function hydrateBdAssignments(rows: ImportLeadRow[], users: UserOption[]): ImportLeadRow[] {
@@ -897,7 +1145,6 @@ export function PmLeadImportPage() {
   const [dictionaryItems, setDictionaryItems] = useState<DictionaryItem[]>([])
   const [bdUserOptions, setBdUserOptions] = useState<UserOption[]>([])
   const [assignBdId, setAssignBdId] = useState<string>()
-  const [duplicateStrategyByCompany, setDuplicateStrategyByCompany] = useState<Record<string, DuplicateStrategy>>({})
 
   const regionOptions = useMemo(() => buildRegionOptions(dictionaryItems), [dictionaryItems])
   const sourceOptions = useMemo(() => buildLeadSourceOptions(dictionaryItems), [dictionaryItems])
@@ -926,22 +1173,7 @@ export function PmLeadImportPage() {
     return Array.from(citySet).map((city) => ({ label: city, value: city }))
   }, [regionOptions])
 
-  const duplicateGroups = useMemo(() => buildDuplicateGroups(rows), [rows])
-
-  useEffect(() => {
-    if (duplicateGroups.length === 0) {
-      setDuplicateStrategyByCompany({})
-      return
-    }
-
-    setDuplicateStrategyByCompany((current) => {
-      const next: Record<string, DuplicateStrategy> = {}
-      for (const group of duplicateGroups) {
-        next[group.companyKey] = current[group.companyKey] ?? group.suggestedStrategy
-      }
-      return next
-    })
-  }, [duplicateGroups])
+  const duplicateGroups = useMemo(() => buildDuplicateGroups(rows, assignBdId), [assignBdId, rows])
 
   const loadReferenceData = useCallback(async () => {
     try {
@@ -1024,12 +1256,6 @@ export function PmLeadImportPage() {
       }
 
       setRows(hydratedRows)
-      setDuplicateStrategyByCompany(
-        buildDuplicateGroups(hydratedRows).reduce<Record<string, DuplicateStrategy>>((acc, group) => {
-          acc[group.companyKey] = group.suggestedStrategy
-          return acc
-        }, {}),
-      )
 
       const hintedCount = hydratedRows.filter((row) => Boolean(normalizeText(row.assigned_bd_hint))).length
       const matchedCount = hydratedRows.filter((row) => Boolean(row.assigned_bd_id)).length
@@ -1139,34 +1365,42 @@ export function PmLeadImportPage() {
       let leadCount = 0
       let followupCount = 0
       let mergedGroupCount = 0
+      let conflictingBdGroupCount = 0
+      let conflictingBdSkippedRows = 0
 
-      for (const [companyKey, companyRows] of grouped.entries()) {
-        const strategy = duplicateStrategyByCompany[companyKey] ?? 'separate'
+      for (const companyRows of grouped.values()) {
+        const sortedCompanyRows = sortRowsByEarliest(companyRows)
 
-        if (companyRows.length > 1 && strategy === 'merge') {
-          mergedGroupCount += 1
-
-          const { baseRow, merged } = buildMergedLeadRow(companyRows)
-          const leadId = await createLeadFromRow(merged)
+        if (sortedCompanyRows.length === 1) {
+          await createLeadFromRow(sortedCompanyRows[0])
           leadCount += 1
-
-          for (const row of companyRows) {
-            if (row.rowKey === baseRow.rowKey) {
-              continue
-            }
-            if (!hasFollowupContent(row)) {
-              continue
-            }
-            await appendFollowupFromRow(leadId, row)
-            followupCount += 1
-          }
-
           continue
         }
 
-        for (const row of companyRows) {
-          await createLeadFromRow(row)
+        if (hasMultipleBdOwners(sortedCompanyRows, assignBdId)) {
+          conflictingBdGroupCount += 1
+          conflictingBdSkippedRows += sortedCompanyRows.length - 1
+
+          await createLeadFromRow(sortedCompanyRows[0])
           leadCount += 1
+          continue
+        }
+
+        mergedGroupCount += 1
+
+        const { baseRow, merged } = buildMergedLeadRow(sortedCompanyRows)
+        const leadId = await createLeadFromRow(merged)
+        leadCount += 1
+
+        for (const row of sortedCompanyRows) {
+          if (row === baseRow) {
+            continue
+          }
+          if (!shouldAppendAsFollowup(row)) {
+            continue
+          }
+          await appendFollowupFromRow(leadId, row)
+          followupCount += 1
         }
       }
 
@@ -1176,6 +1410,13 @@ export function PmLeadImportPage() {
           ? t('pages.pmLeadImport.importSummaryMergedGroups', {
               defaultValue: '{{count}} duplicate group(s) merged',
               count: mergedGroupCount,
+            })
+          : null,
+        conflictingBdGroupCount > 0
+          ? t('pages.pmLeadImport.importSummaryConflictingBd', {
+              defaultValue: '{{groupCount}} duplicate group(s) kept earliest due to BD owner mismatch; {{rowCount}} row(s) skipped',
+              groupCount: conflictingBdGroupCount,
+              rowCount: conflictingBdSkippedRows,
             })
           : null,
         followupCount > 0
@@ -1195,7 +1436,6 @@ export function PmLeadImportPage() {
       message.success(summaryParts.join(' · '))
       setRows([])
       setUploadFileList([])
-      setDuplicateStrategyByCompany({})
       navigate('/app/pm/dashboard')
     } catch (error) {
       const text = error instanceof Error ? error.message : t('pages.pmLeadImport.importFail', { defaultValue: 'Failed to import template rows' })
@@ -1273,7 +1513,7 @@ export function PmLeadImportPage() {
               message={t('pages.pmLeadImport.duplicateTitle', { defaultValue: 'Duplicate company names detected in template' })}
               description={t('pages.pmLeadImport.duplicateHint', {
                 defaultValue:
-                  'Please decide for each duplicate group: merge into one lead, or keep as separate leads. If cold visit and follow-up exist under the same company, merge is recommended.',
+                  'Duplicate handling is now automatic: if BD owner mismatches, only the earliest row is kept; if BD owner matches, rows are merged into one lead and cold visit/follow-up rows become follow-up records.',
               })}
             />
             {duplicateGroups.map((group) => (
@@ -1285,21 +1525,15 @@ export function PmLeadImportPage() {
                 <div className="text-slate-500">
                   {group.sources.length > 0 ? group.sources.join(', ') : t('pages.pmLeadImport.noSource', { defaultValue: 'No source' })}
                 </div>
-                <Select
-                  style={{ width: 240 }}
-                  value={duplicateStrategyByCompany[group.companyKey] ?? group.suggestedStrategy}
-                  options={[
-                    { label: t('pages.pmLeadImport.mergeIntoOne', { defaultValue: 'Merge into one lead' }), value: 'merge' },
-                    { label: t('pages.pmLeadImport.createSeparately', { defaultValue: 'Create separately' }), value: 'separate' },
-                  ]}
-                  onChange={(nextValue: DuplicateStrategy) =>
-                    setDuplicateStrategyByCompany((current) => ({
-                      ...current,
-                      [group.companyKey]: nextValue,
-                    }))
-                  }
-                  getPopupContainer={getPopupContainer}
-                />
+                <div className="text-slate-600">
+                  {group.handlingMode === 'keep_earliest'
+                    ? t('pages.pmLeadImport.keepEarliestWhenBdMismatch', {
+                        defaultValue: 'BD owner mismatch: keep earliest row only',
+                      })
+                    : t('pages.pmLeadImport.mergeWithFollowupsWhenBdMatch', {
+                        defaultValue: 'Same BD owner: merge into one lead and append follow-up records',
+                      })}
+                </div>
               </div>
             ))}
           </Space>

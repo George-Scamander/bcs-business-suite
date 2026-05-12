@@ -4,8 +4,10 @@ import {
   useMemo,
   useState,
 } from 'react'
+import dayjs from 'dayjs'
 import {
   Button,
+  DatePicker,
   Drawer,
   Input,
   Select,
@@ -67,8 +69,22 @@ const ONBOARDING_STATUS_VALUES: OnboardingStatus[] = [
 function parseOnboardingFiltersFromSearch(searchParams: URLSearchParams): { filters: OnboardingFilters; keyword: string } {
   const statusParam = searchParams.get('status')
   const status = statusParam && ONBOARDING_STATUS_VALUES.includes(statusParam as OnboardingStatus) ? (statusParam as OnboardingStatus) : undefined
+  const createdFrom = searchParams.get('createdFrom') ?? undefined
+  const createdTo = searchParams.get('createdTo') ?? undefined
   const keyword = searchParams.get('q') ?? ''
   const activeOnly = searchParams.get('activeOnly') === '1'
+
+  if (createdFrom || createdTo) {
+    return {
+      filters: {
+        ...(status ? { status } : {}),
+        ...(activeOnly ? { activeOnly: true } : {}),
+        createdFrom: createdFrom || undefined,
+        createdTo: createdTo || undefined,
+      },
+      keyword,
+    }
+  }
 
   if (status) {
     return {
@@ -318,6 +334,28 @@ export function AdminOnboardingReviewCenterPage() {
             options={getOnboardingStatusOptions(t)}
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
+          />
+          <DatePicker
+            style={{ width: 170 }}
+            placeholder={t('pages.adminOnboardingReview.createdFrom', { defaultValue: 'Created From' })}
+            value={filters.createdFrom ? dayjs(filters.createdFrom) : undefined}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                createdFrom: value ? value.startOf('day').toISOString() : undefined,
+              }))
+            }
+          />
+          <DatePicker
+            style={{ width: 170 }}
+            placeholder={t('pages.adminOnboardingReview.createdTo', { defaultValue: 'Created To' })}
+            value={filters.createdTo ? dayjs(filters.createdTo) : undefined}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                createdTo: value ? value.endOf('day').toISOString() : undefined,
+              }))
+            }
           />
           <Input.Search
             allowClear

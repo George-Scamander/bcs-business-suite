@@ -4,12 +4,14 @@ import {
   useMemo,
   useState,
 } from 'react'
+import dayjs from 'dayjs'
 import {
   Button,
   Card,
   Col,
   Row,
   Select,
+  Space,
   Statistic,
   message,
 } from 'antd'
@@ -24,11 +26,11 @@ import {
 } from 'react-router-dom'
 
 import {
-  MetricCard,
-} from '../../../components/common/MetricCard'
-import {
   getSalesProductCategoryOptions,
 } from '../../../lib/business-constants'
+import {
+  MetricCard,
+} from '../../../components/common/MetricCard'
 import {
   PageTitleBar,
 } from '../../../components/common/PageTitleBar'
@@ -47,6 +49,8 @@ import type {
 } from '../../../types/business'
 import type {
   AdminSalesCategoryMetrics,
+  AdminDashboardMetrics,
+  AdminDashboardPeriod,
 } from '../../dashboard/api'
 
 interface PendingCaseRow {
@@ -56,6 +60,9 @@ interface PendingCaseRow {
   sla_due_at: string | null
 }
 
+type MetricKey = keyof AdminDashboardMetrics
+type DashboardFilterValue = 'all' | AdminDashboardPeriod
+
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 2,
@@ -63,10 +70,23 @@ function formatCurrency(value: number): string {
   }).format(value)
 }
 
+function buildPeriodQuery(period: AdminDashboardPeriod): URLSearchParams {
+  const today = dayjs()
+  const startOfToday = today.startOf('day')
+
+  const start = period === 'yesterday' ? startOfToday.subtract(1, 'day') : startOfToday.subtract(6, 'day')
+  const end = period === 'yesterday' ? startOfToday.subtract(1, 'millisecond') : today.endOf('day')
+
+  const params = new URLSearchParams()
+  params.set('createdFrom', start.toISOString())
+  params.set('createdTo', end.toISOString())
+  return params
+}
+
 export function AdminDashboardPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const [metrics, setMetrics] = useState({
+  const [metricsDefault, setMetricsDefault] = useState<AdminDashboardMetrics>({
     totalLeads: 0,
     signedLeads: 0,
     activeOnboardingCases: 0,
@@ -74,6 +94,25 @@ export function AdminDashboardPage() {
     delayedProjects: 0,
     activeUsers: 0,
   })
+  const [metricsByPeriod, setMetricsByPeriod] = useState<Record<AdminDashboardPeriod, AdminDashboardMetrics>>({
+    yesterday: {
+      totalLeads: 0,
+      signedLeads: 0,
+      activeOnboardingCases: 0,
+      totalProjects: 0,
+      delayedProjects: 0,
+      activeUsers: 0,
+    },
+    last7Days: {
+      totalLeads: 0,
+      signedLeads: 0,
+      activeOnboardingCases: 0,
+      totalProjects: 0,
+      delayedProjects: 0,
+      activeUsers: 0,
+    },
+  })
+  const [globalPeriodFilter, setGlobalPeriodFilter] = useState<DashboardFilterValue>('all')
   const [pendingCases, setPendingCases] = useState<PendingCaseRow[]>([])
   const [salesCategoryMetrics, setSalesCategoryMetrics] = useState<AdminSalesCategoryMetrics[]>([])
   const [selectedCategory, setSelectedCategory] = useState<SalesProductCategory>('TIRE')
@@ -83,13 +122,19 @@ export function AdminDashboardPage() {
     setLoading(true)
 
     try {
-      const [metricData, onboardingCases, salesMetrics] = await Promise.all([
+      const [metricDefault, metricYesterday, metricLast7Days, onboardingCases, salesMetrics] = await Promise.all([
         getAdminDashboardMetrics(),
+        getAdminDashboardMetrics('yesterday'),
+        getAdminDashboardMetrics('last7Days'),
         listOnboardingCases(),
         getAdminSalesCategoryMetrics(),
       ])
 
-      setMetrics(metricData)
+      setMetricsDefault(metricDefault)
+      setMetricsByPeriod({
+        yesterday: metricYesterday,
+        last7Days: metricLast7Days,
+      })
       setSalesCategoryMetrics(salesMetrics)
       setPendingCases(
         onboardingCases
@@ -128,6 +173,31 @@ export function AdminDashboardPage() {
     [salesCategoryMetrics, selectedCategory],
   )
 
+  function openModuleList(path: string, period?: AdminDashboardPeriod, extraQuery?: Record<string, string>) {
+    const params = period ? buildPeriodQuery(period) : new URLSearchParams()
+
+    if (extraQuery) {
+      Object.entries(extraQuery).forEach(([key, value]) => {
+        params.set(key, value)
+      })
+    }
+
+    const queryString = params.toString()
+    navigate(queryString ? `${path}?${queryString}` : path)
+  }
+
+  const selectedMetrics = useMemo(() => {
+    if (globalPeriodFilter === 'all') {
+      return metricsDefault
+    }
+    return metricsByPeriod[globalPeriodFilter]
+  }, [globalPeriodFilter, metricsByPeriod, metricsDefault])
+
+  function renderMetricCard(key: MetricKey, title: string, path: string, extraQuery?: Record<string, string>) {
+    const periodForJump = globalPeriodFilter === 'all' ? undefined : globalPeriodFilter
+    return <MetricCard title={title} value={selectedMetrics[key]} onClick={() => openModuleList(path, periodForJump, extraQuery)} />
+  }
+
   return (
     <>
       <PageTitleBar
@@ -138,48 +208,59 @@ export function AdminDashboardPage() {
         extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
+      <div className="mb-3 flex justify-end">
+        <Space size={8} align="center">
+          <span className="text-sm text-slate-500">{t('labels.filter', { defaultValue: 'Filter' })}</span>
+          <Select
+            size="small"
+            value={globalPeriodFilter}
+            style={{ width: 154 }}
+            options={[
+              { value: 'all', label: t('labels.defaultPeriod', { defaultValue: 'Default' }) },
+              { value: 'last7Days', label: t('labels.last7Days', { defaultValue: 'Last 7 Days' }) },
+              { value: 'yesterday', label: t('labels.yesterday', { defaultValue: 'Yesterday' }) },
+            ]}
+            onChange={(value: DashboardFilterValue) => setGlobalPeriodFilter(value)}
+          />
+        </Space>
+      </div>
+
       <Row gutter={[16, 16]} className="mb-5">
         <Col xs={24} md={12} xl={4}>
-          <MetricCard
-            title={t('pages.adminDashboard.metrics.totalLeads', { defaultValue: 'Total Leads' })}
-            value={metrics.totalLeads}
-            onClick={() => navigate('/app/admin/leads/pool')}
-          />
+          {renderMetricCard('totalLeads', t('pages.adminDashboard.metrics.totalLeads', { defaultValue: 'Total Leads' }), '/app/admin/leads/pool')}
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard
-            title={t('pages.adminDashboard.metrics.signedLeads', { defaultValue: 'Signed Leads' })}
-            value={metrics.signedLeads}
-            onClick={() => navigate('/app/admin/leads/pool?status=SIGNED')}
-          />
+          {renderMetricCard('signedLeads', t('pages.adminDashboard.metrics.signedLeads', { defaultValue: 'Signed Leads' }), '/app/admin/leads/pool', { status: 'SIGNED' })}
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard
-            title={t('pages.adminDashboard.metrics.onboardingActive', { defaultValue: 'Onboarding Active' })}
-            value={metrics.activeOnboardingCases}
-            onClick={() => navigate('/app/admin/onboarding/review-center?activeOnly=1')}
-          />
+          {renderMetricCard(
+            'activeOnboardingCases',
+            t('pages.adminDashboard.metrics.onboardingActive', { defaultValue: 'Onboarding Active' }),
+            '/app/admin/onboarding/review-center',
+            { activeOnly: '1' },
+          )}
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard
-            title={t('pages.adminDashboard.metrics.totalProjects', { defaultValue: 'Total Projects' })}
-            value={metrics.totalProjects}
-            onClick={() => navigate('/app/admin/projects/overview')}
-          />
+          {renderMetricCard(
+            'totalProjects',
+            t('pages.adminDashboard.metrics.totalProjects', { defaultValue: 'Total Projects' }),
+            '/app/admin/projects/overview',
+          )}
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard
-            title={t('pages.adminDashboard.metrics.delayedProjects', { defaultValue: 'Delayed Projects' })}
-            value={metrics.delayedProjects}
-            onClick={() => navigate('/app/admin/projects/overview?status=DELAYED')}
-          />
+          {renderMetricCard(
+            'delayedProjects',
+            t('pages.adminDashboard.metrics.delayedProjects', { defaultValue: 'Delayed Projects' }),
+            '/app/admin/projects/overview',
+            { status: 'DELAYED' },
+          )}
         </Col>
         <Col xs={24} md={12} xl={4}>
-          <MetricCard
-            title={t('pages.adminDashboard.metrics.activeUsers', { defaultValue: 'Active Users' })}
-            value={metrics.activeUsers}
-            onClick={() => navigate('/app/admin/users-roles')}
-          />
+          {renderMetricCard(
+            'activeUsers',
+            t('pages.adminDashboard.metrics.activeUsers', { defaultValue: 'Active Users' }),
+            '/app/admin/users-roles',
+          )}
         </Col>
       </Row>
 

@@ -486,7 +486,7 @@ export function LeadFormPage() {
             </Form.Item>
 
             <Form.Item name="next_followup_at" label={t('pages.leadForm.nextFollowupTime', { defaultValue: 'Next Follow-up Time' })}>
-              <DatePicker showTime className="w-full" />
+              <DatePicker className="w-full" />
             </Form.Item>
           </div>
 

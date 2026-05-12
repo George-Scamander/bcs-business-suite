@@ -4,8 +4,10 @@ import {
   useMemo,
   useState,
 } from 'react'
+import dayjs from 'dayjs'
 import {
   Button,
+  DatePicker,
   Popconfirm,
   Select,
   Space,
@@ -18,6 +20,9 @@ import {
 import {
   useTranslation,
 } from 'react-i18next'
+import {
+  useSearchParams,
+} from 'react-router-dom'
 
 import {
   PageTitleBar,
@@ -48,23 +53,49 @@ interface UserWithRoles {
   }>
 }
 
+interface UserRoleFilters {
+  createdFrom?: string
+  createdTo?: string
+}
+
+function parseUserRoleFiltersFromSearch(searchParams: URLSearchParams): UserRoleFilters {
+  const createdFrom = searchParams.get('createdFrom') ?? undefined
+  const createdTo = searchParams.get('createdTo') ?? undefined
+  return {
+    createdFrom: createdFrom || undefined,
+    createdTo: createdTo || undefined,
+  }
+}
+
 export function UserRoleManagementPage() {
   const { t } = useTranslation()
+  const [searchParams] = useSearchParams()
   const [rows, setRows] = useState<UserWithRoles[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [selectedRoleByUser, setSelectedRoleByUser] = useState<Record<string, number>>({})
+  const [filters, setFilters] = useState<UserRoleFilters>(() => parseUserRoleFiltersFromSearch(searchParams))
   const [loading, setLoading] = useState(true)
 
   const loadData = useCallback(async () => {
     setLoading(true)
 
+    let profilesQuery = supabase
+      .from('profiles')
+      .select(
+        'id, email, full_name, is_active, user_role_relations:user_role_relations!user_role_relations_user_id_fkey(id, role_id, role:roles(id, code, name, description))',
+      )
+      .order('created_at', { ascending: false })
+
+    if (filters.createdFrom) {
+      profilesQuery = profilesQuery.gte('created_at', filters.createdFrom)
+    }
+
+    if (filters.createdTo) {
+      profilesQuery = profilesQuery.lte('created_at', filters.createdTo)
+    }
+
     const [profilesResult, rolesResult] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select(
-          'id, email, full_name, is_active, user_role_relations:user_role_relations!user_role_relations_user_id_fkey(id, role_id, role:roles(id, code, name, description))',
-        )
-        .order('created_at', { ascending: false }),
+      profilesQuery,
       supabase.from('roles').select('*').order('id', { ascending: true }),
     ])
 
@@ -94,7 +125,7 @@ export function UserRoleManagementPage() {
 
     setRows(normalizedRows as UserWithRoles[])
     setRoles((rolesResult.data ?? []) as Role[])
-  }, [])
+  }, [filters.createdFrom, filters.createdTo])
 
   async function assignRole(userId: string) {
     const roleId = selectedRoleByUser[userId]
@@ -166,6 +197,11 @@ export function UserRoleManagementPage() {
     void loadData()
   }, [loadData])
 
+  useEffect(() => {
+    const parsed = parseUserRoleFiltersFromSearch(searchParams)
+    setFilters((current) => (JSON.stringify(current) === JSON.stringify(parsed) ? current : parsed))
+  }, [searchParams])
+
   return (
     <>
       <PageTitleBar
@@ -175,6 +211,36 @@ export function UserRoleManagementPage() {
         })}
         extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
+
+      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+        <Space wrap>
+          <DatePicker
+            style={{ width: 170 }}
+            placeholder={t('pages.userRoles.createdFrom', { defaultValue: 'Created From' })}
+            value={filters.createdFrom ? dayjs(filters.createdFrom) : undefined}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                createdFrom: value ? value.startOf('day').toISOString() : undefined,
+              }))
+            }
+          />
+          <DatePicker
+            style={{ width: 170 }}
+            placeholder={t('pages.userRoles.createdTo', { defaultValue: 'Created To' })}
+            value={filters.createdTo ? dayjs(filters.createdTo) : undefined}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                createdTo: value ? value.endOf('day').toISOString() : undefined,
+              }))
+            }
+          />
+          <Button type="primary" onClick={() => void loadData()}>
+            {t('labels.apply', { defaultValue: 'Apply' })}
+          </Button>
+        </Space>
+      </div>
 
       <Table
         loading={loading}

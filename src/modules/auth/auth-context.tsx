@@ -5,6 +5,11 @@ import type { Session, User } from '@supabase/supabase-js'
 import type { LocaleCode, Permission, Profile, Role, RoleCode } from '../../types/rbac'
 import { recordLogin, recordOperationLog } from '../../lib/supabase/logs'
 import { supabase } from '../../lib/supabase/client'
+import {
+  RELEASE_ANNOUNCEMENT_ENTITY_TYPE,
+  RELEASE_ANNOUNCEMENT_ID,
+  RELEASE_ANNOUNCEMENT_TYPE,
+} from '../shared/release-announcement'
 
 interface AuthContextValue {
   user: User | null
@@ -25,6 +30,20 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+
+async function clearReleaseAnnouncementNotifications(userId: string): Promise<void> {
+  const result = await supabase
+    .from('notifications')
+    .delete()
+    .eq('user_id', userId)
+    .eq('type', RELEASE_ANNOUNCEMENT_TYPE)
+    .eq('entity_type', RELEASE_ANNOUNCEMENT_ENTITY_TYPE)
+    .eq('entity_id', RELEASE_ANNOUNCEMENT_ID)
+
+  if (result.error) {
+    throw result.error
+  }
+}
 
 async function ensureProfile(user: User): Promise<Profile> {
   const selectResult = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle<Profile>()
@@ -217,6 +236,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
         email,
       },
     })
+
+    const signedInUserId = signInResult.data.user?.id
+    if (signedInUserId) {
+      await clearReleaseAnnouncementNotifications(signedInUserId)
+    }
   }, [])
 
   const signOut = useCallback(async () => {

@@ -146,6 +146,7 @@ function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: L
   const industry = searchParams.get('industry') ?? undefined
   const createdFrom = searchParams.get('createdFrom') ?? undefined
   const createdTo = searchParams.get('createdTo') ?? undefined
+  const assignedBdId = searchParams.get('bdId') ?? undefined
   const keyword = searchParams.get('q') ?? ''
 
   const filters: LeadFilters = {
@@ -155,6 +156,7 @@ function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: L
     industry: industry || undefined,
     createdFrom: createdFrom || undefined,
     createdTo: createdTo || undefined,
+    assignedBdId: assignedBdId || undefined,
   }
 
   if (followupParam === 'due') {
@@ -191,6 +193,8 @@ export function BdLeadsListPage() {
   const [userOptions, setUserOptions] = useState<UserOption[]>([])
 
   const canAssign = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_ASSIGN)
+  const canFilterByBd = roles.includes('super_admin') || roles.includes('project_manager')
+  const shouldScopeToOwner = !canFilterByBd
   const canImport = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_IMPORT)
   const canCreateLead = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_WRITE)
   const leadStatusOptions = useMemo(
@@ -207,7 +211,6 @@ export function BdLeadsListPage() {
     setLoading(true)
 
     try {
-      const shouldScopeToOwner = !(roles.includes('super_admin') || roles.includes('project_manager'))
       const result = await listLeads({
         ...filters,
         keyword: keyword.trim() || undefined,
@@ -222,10 +225,10 @@ export function BdLeadsListPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters, keyword, roles, t, user])
+  }, [filters, keyword, shouldScopeToOwner, t, user])
 
   const loadUsers = useCallback(async () => {
-    if (!canAssign) {
+    if (!canAssign && !canFilterByBd) {
       return
     }
 
@@ -239,7 +242,7 @@ export function BdLeadsListPage() {
           : t('pages.bdLeads.loadAssigneeFail', { defaultValue: 'Failed to load users for assignment' })
       message.error(text)
     }
-  }, [canAssign, t])
+  }, [canAssign, canFilterByBd, t])
 
   useEffect(() => {
     void loadRows()
@@ -368,6 +371,26 @@ export function BdLeadsListPage() {
     }))
   }, [userOptions])
 
+  const bdUserOptions = useMemo(
+    () =>
+      userOptions.map((item) => ({
+        value: item.id,
+        label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
+      })),
+    [userOptions],
+  )
+
+  const bdUserNameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const item of userOptions) {
+      map.set(item.id, item.full_name || item.email)
+    }
+    if (user?.id && user.email) {
+      map.set(user.id, map.get(user.id) ?? user.email)
+    }
+    return map
+  }, [user?.email, user?.id, userOptions])
+
   return (
     <>
       <PageTitleBar
@@ -476,6 +499,23 @@ export function BdLeadsListPage() {
             value={filters.intentPackage}
             onChange={(value) => setFilters((current) => ({ ...current, intentPackage: value || undefined }))}
           />
+          {canFilterByBd ? (
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder={t('pages.bdLeads.bdOwnerPlaceholder', { defaultValue: 'BD Owner' })}
+              style={{ width: 240 }}
+              options={bdUserOptions}
+              value={filters.assignedBdId}
+              onChange={(value) =>
+                setFilters((current) => ({
+                  ...current,
+                  assignedBdId: value || undefined,
+                }))
+              }
+            />
+          ) : null}
           <DatePicker
             style={{ width: 170 }}
             placeholder={t('pages.bdLeads.createdFrom', { defaultValue: 'Created From' })}
@@ -523,7 +563,24 @@ export function BdLeadsListPage() {
         }}
         pagination={{ pageSize: 12 }}
         columns={[
-          { title: t('pages.bdLeads.columns.leadCode', { defaultValue: 'Lead Code' }), dataIndex: 'lead_code', width: 170 },
+          {
+            title: t('pages.bdLeads.columns.leadCode', { defaultValue: 'Lead Code' }),
+            dataIndex: 'lead_code',
+            width: 220,
+            render: (value: string, row: Lead) => {
+              const bdOwnerName =
+                (row.assigned_bd_id ? bdUserNameMap.get(row.assigned_bd_id) : null) ??
+                t('pages.bdLeads.bdOwnerUnknown', { defaultValue: 'Unassigned' })
+              return (
+                <div>
+                  <div className="font-medium text-slate-900">{value}</div>
+                  <div className="mt-0.5 text-xs text-slate-500">
+                    {t('pages.bdLeads.bdOwnerLabel', { defaultValue: 'BD Owner' })}: {bdOwnerName}
+                  </div>
+                </div>
+              )
+            },
+          },
           { title: t('pages.bdLeads.columns.company', { defaultValue: 'Company' }), dataIndex: 'company_name' },
           { title: t('pages.bdLeads.columns.industry', { defaultValue: 'Industry' }), dataIndex: 'industry', width: 160 },
           { title: t('pages.bdLeads.columns.region', { defaultValue: 'Region' }), dataIndex: 'region', width: 140 },

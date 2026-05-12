@@ -18,6 +18,8 @@ export interface ProjectFilters {
   status?: ProjectStatus
   pmOwnerId?: string
   bdOwnerId?: string
+  createdFrom?: string
+  createdTo?: string
   keyword?: string
 }
 
@@ -108,6 +110,14 @@ export async function listProjects(filters: ProjectFilters = {}): Promise<Projec
     query = query.eq('bd_owner_id', filters.bdOwnerId)
   }
 
+  if (filters.createdFrom) {
+    query = query.gte('created_at', filters.createdFrom)
+  }
+
+  if (filters.createdTo) {
+    query = query.lte('created_at', filters.createdTo)
+  }
+
   if (filters.keyword) {
     query = query.or(`name.ilike.%${filters.keyword}%,project_code.ilike.%${filters.keyword}%`)
   }
@@ -134,6 +144,14 @@ export async function listDeletedProjects(filters: ProjectFilters = {}): Promise
 
   if (filters.bdOwnerId) {
     query = query.eq('bd_owner_id', filters.bdOwnerId)
+  }
+
+  if (filters.createdFrom) {
+    query = query.gte('created_at', filters.createdFrom)
+  }
+
+  if (filters.createdTo) {
+    query = query.lte('created_at', filters.createdTo)
   }
 
   if (filters.keyword) {

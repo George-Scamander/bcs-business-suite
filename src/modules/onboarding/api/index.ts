@@ -20,6 +20,8 @@ export interface OnboardingFilters {
   activeOnly?: boolean
   ownerUserId?: string
   reviewerUserId?: string
+  createdFrom?: string
+  createdTo?: string
   keyword?: string
 }
 
@@ -87,6 +89,14 @@ export async function listOnboardingCases(filters: OnboardingFilters = {}): Prom
 
   if (filters.reviewerUserId) {
     query = query.eq('reviewer_user_id', filters.reviewerUserId)
+  }
+
+  if (filters.createdFrom) {
+    query = query.gte('created_at', filters.createdFrom)
+  }
+
+  if (filters.createdTo) {
+    query = query.lte('created_at', filters.createdTo)
   }
 
   if (filters.keyword) {

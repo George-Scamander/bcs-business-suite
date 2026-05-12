@@ -6,6 +6,7 @@ import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { SUPPORTED_LOCALES } from '../../../lib/constants'
 import { recordOperationLog } from '../../../lib/supabase/logs'
 import { supabase } from '../../../lib/supabase/client'
+import { useAppTheme, type ThemePreference } from '../../../app/providers/theme-context'
 import { useAuth } from '../../auth/auth-context'
 
 interface ProfileFormValues {
@@ -18,6 +19,7 @@ export function ProfileSettingsPage() {
   const [form] = Form.useForm<ProfileFormValues>()
   const { t } = useTranslation()
   const { user, profile, refreshProfile } = useAuth()
+  const { preference, setPreference } = useAppTheme()
 
   useEffect(() => {
     form.setFieldsValue({
@@ -100,6 +102,23 @@ export function ProfileSettingsPage() {
                 { value: 'Asia/Makassar', label: 'Asia/Makassar (UTC+8)' },
                 { value: 'Asia/Jayapura', label: 'Asia/Jayapura (UTC+9)' },
                 { value: 'UTC', label: 'UTC' },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label={t('pages.profileSettings.themeMode', { defaultValue: 'Appearance Mode' })}
+            extra={t('pages.profileSettings.themeModeHelp', {
+              defaultValue: 'Auto follows your iOS/Android system setting. You can also set Light or Dark manually.',
+            })}
+          >
+            <Select
+              value={preference}
+              onChange={(value: ThemePreference) => setPreference(value)}
+              options={[
+                { value: 'system', label: t('pages.profileSettings.themeSystem', { defaultValue: 'Auto (System)' }) },
+                { value: 'light', label: t('pages.profileSettings.themeLight', { defaultValue: 'Light' }) },
+                { value: 'dark', label: t('pages.profileSettings.themeDark', { defaultValue: 'Dark' }) },
               ]}
             />
           </Form.Item>

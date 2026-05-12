@@ -452,7 +452,7 @@ export function SalesSupervisionPage() {
               label={t('pages.salesSupervision.columns.soldAt', { defaultValue: 'Sold Time' })}
               rules={[{ required: true, message: t('pages.salesSupervision.soldAtRequired', { defaultValue: 'Sold time is required' }) }]}
             >
-              <DatePicker showTime className="w-full" />
+              <DatePicker className="w-full" />
             </Form.Item>
           </div>
           <Form.Item name="note" label={t('pages.salesSupervision.note', { defaultValue: 'Remark' })}>

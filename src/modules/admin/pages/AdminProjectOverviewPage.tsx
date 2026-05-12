@@ -4,9 +4,11 @@ import {
   useMemo,
   useState,
 } from 'react'
+import dayjs from 'dayjs'
 import {
   Button,
   Col,
+  DatePicker,
   Input,
   Progress,
   Row,
@@ -52,10 +54,16 @@ const PROJECT_STATUS_VALUES: ProjectStatus[] = ['NOT_STARTED', 'IN_PROGRESS', 'O
 function parseProjectFiltersFromSearch(searchParams: URLSearchParams): { filters: ProjectFilters; keyword: string } {
   const statusParam = searchParams.get('status')
   const status = statusParam && PROJECT_STATUS_VALUES.includes(statusParam as ProjectStatus) ? (statusParam as ProjectStatus) : undefined
+  const createdFrom = searchParams.get('createdFrom') ?? undefined
+  const createdTo = searchParams.get('createdTo') ?? undefined
   const keyword = searchParams.get('q') ?? ''
 
   return {
-    filters: status ? { status } : {},
+    filters: {
+      ...(status ? { status } : {}),
+      createdFrom: createdFrom || undefined,
+      createdTo: createdTo || undefined,
+    },
     keyword,
   }
 }
@@ -152,6 +160,28 @@ export function AdminProjectOverviewPage() {
             options={getProjectStatusOptions(t)}
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
+          />
+          <DatePicker
+            style={{ width: 170 }}
+            placeholder={t('pages.adminProjectOverview.createdFrom', { defaultValue: 'Created From' })}
+            value={filters.createdFrom ? dayjs(filters.createdFrom) : undefined}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                createdFrom: value ? value.startOf('day').toISOString() : undefined,
+              }))
+            }
+          />
+          <DatePicker
+            style={{ width: 170 }}
+            placeholder={t('pages.adminProjectOverview.createdTo', { defaultValue: 'Created To' })}
+            value={filters.createdTo ? dayjs(filters.createdTo) : undefined}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                createdTo: value ? value.endOf('day').toISOString() : undefined,
+              }))
+            }
           />
           <Input.Search
             allowClear

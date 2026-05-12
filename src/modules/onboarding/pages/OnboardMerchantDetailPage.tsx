@@ -562,13 +562,13 @@ export function OnboardMerchantDetailPage() {
               label={t('pages.onboardMerchantDetail.fields.activityAt', { defaultValue: 'Activity Time' })}
               rules={[{ required: true }]}
             >
-              <DatePicker showTime className="w-full" />
+              <DatePicker className="w-full" />
             </Form.Item>
             <Form.Item
               name="scheduled_at"
               label={t('pages.onboardMerchantDetail.fields.scheduledAt', { defaultValue: 'Scheduled Time' })}
             >
-              <DatePicker showTime className="w-full" />
+              <DatePicker className="w-full" />
             </Form.Item>
             <Form.Item
               name="assignee_id"

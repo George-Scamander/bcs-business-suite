@@ -31,9 +31,34 @@ export interface AdminSalesCategoryMetrics {
   totalAmount: number
 }
 
+export type AdminDashboardPeriod = 'yesterday' | 'last7Days'
+
+interface DateRangeFilter {
+  column: string
+  from?: string
+  to?: string
+}
+
+function getAdminPeriodDateRange(period: AdminDashboardPeriod): { from: string; to: string } {
+  const now = new Date()
+  const startOfToday = new Date(now)
+  startOfToday.setHours(0, 0, 0, 0)
+
+  const from = new Date(startOfToday)
+  if (period === 'yesterday') {
+    from.setDate(from.getDate() - 1)
+  } else {
+    from.setDate(from.getDate() - 6)
+  }
+
+  const to = period === 'yesterday' ? new Date(startOfToday.getTime() - 1) : now
+  return { from: from.toISOString(), to: to.toISOString() }
+}
+
 async function count(
   table: string,
   filters?: Array<{ column: string; value: string | number | boolean | null; op?: 'eq' | 'neq' | 'is' }>,
+  dateRange?: DateRangeFilter,
 ): Promise<number> {
   let query = supabase.from(table).select('*', { count: 'exact', head: true })
 
@@ -47,6 +72,14 @@ async function count(
     }
   }
 
+  if (dateRange?.from) {
+    query = query.gte(dateRange.column, dateRange.from)
+  }
+
+  if (dateRange?.to) {
+    query = query.lte(dateRange.column, dateRange.to)
+  }
+
   const result = await query
 
   if (result.error) {
@@ -56,7 +89,8 @@ async function count(
   return result.count ?? 0
 }
 
-export async function getAdminDashboardMetrics(): Promise<AdminDashboardMetrics> {
+export async function getAdminDashboardMetrics(period?: AdminDashboardPeriod): Promise<AdminDashboardMetrics> {
+  const periodRange = period ? getAdminPeriodDateRange(period) : null
   const [
     totalLeads,
     signedLeads,
@@ -65,21 +99,28 @@ export async function getAdminDashboardMetrics(): Promise<AdminDashboardMetrics>
     delayedProjects,
     activeUsers,
   ] = await Promise.all([
-    count('leads', [{ column: 'deleted_at', value: null, op: 'is' }]),
+    count('leads', [{ column: 'deleted_at', value: null, op: 'is' }], periodRange ? { column: 'created_at', ...periodRange } : undefined),
     count('leads', [
       { column: 'deleted_at', value: null, op: 'is' },
       { column: 'status', value: 'SIGNED' },
-    ]),
+    ], periodRange ? { column: 'created_at', ...periodRange } : undefined),
     count('onboarding_cases', [
       { column: 'status', value: 'COMPLETED', op: 'neq' },
       { column: 'status', value: 'REJECTED', op: 'neq' },
-    ]),
-    count('projects', [{ column: 'deleted_at', value: null, op: 'is' }]),
+    ], periodRange ? { column: 'created_at', ...periodRange } : undefined),
+    count('projects', [{ column: 'deleted_at', value: null, op: 'is' }], periodRange ? { column: 'created_at', ...periodRange } : undefined),
     count('projects', [
       { column: 'deleted_at', value: null, op: 'is' },
       { column: 'status', value: 'DELAYED' },
-    ]),
-    count('profiles', [{ column: 'is_active', value: true }]),
+    ], periodRange ? { column: 'created_at', ...periodRange } : undefined),
+    count(
+      'profiles',
+      [
+        { column: 'is_active', value: true },
+        { column: 'deleted_at', value: null, op: 'is' },
+      ],
+      periodRange ? { column: 'created_at', ...periodRange } : undefined,
+    ),
   ])
 
   return {

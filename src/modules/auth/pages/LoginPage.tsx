@@ -192,7 +192,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-dvh place-items-center px-4 py-10 bg-[radial-gradient(circle_at_20%_20%,rgba(226,232,240,0.55),transparent_45%),linear-gradient(120deg,#f3f4f6,#e5e7eb)]">
+    <div className="login-page-shell grid min-h-dvh place-items-center px-4 py-10">
       <Card className="w-full max-w-md shadow-[0_20px_45px_-24px_rgba(15,23,42,0.35)]">
         <div className="mb-4 flex justify-end">
           <Select

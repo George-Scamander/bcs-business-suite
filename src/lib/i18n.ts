@@ -1115,7 +1115,7 @@ const resources = {
       role: {
         super_admin: '超级管理员',
         bd_user: 'BD用户',
-        project_manager: '项目经理',
+        project_manager: '项目管理',
       },
       nav: {
         'admin-dashboard': '管理员看板',
@@ -2168,7 +2168,7 @@ const resources = {
       role: {
         super_admin: '超級管理員',
         bd_user: 'BD用戶',
-        project_manager: '項目經理',
+        project_manager: '項目管理',
       },
       nav: {
         'admin-dashboard': '管理員主控台',

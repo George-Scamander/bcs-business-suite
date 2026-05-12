@@ -25,7 +25,7 @@ import {
   UnorderedListOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import { Avatar, Button, Drawer, Grid, Layout, Menu, Select, Space, Tag, Typography } from 'antd'
+import { Avatar, Button, Drawer, Grid, Layout, Menu, Modal, Select, Space, Tag, Typography } from 'antd'
 import { message } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -34,6 +34,7 @@ import { APP_NAME, APP_VERSION, NAV_ITEMS_BY_ROLE, ROLE_LABELS, SUPPORTED_LOCALE
 import type { LocaleCode, RoleCode } from '../../types/rbac'
 import { useAuth } from '../../modules/auth/auth-context'
 import i18n from '../../lib/i18n'
+import { getReleaseAnnouncementContent, RELEASE_ANNOUNCEMENT_ID } from '../../modules/shared/release-announcement'
 
 const { Header, Sider, Content } = Layout
 
@@ -86,11 +87,13 @@ function resolvePrimaryRole(roles: RoleCode[]): RoleCode {
 }
 
 const MOBILE_HOME_PATHS = new Set(['/app', '/app/admin/dashboard', '/app/bd/dashboard', '/app/pm/dashboard'])
+const RELEASE_MODAL_SEEN_KEY_PREFIX = 'release-announcement-seen'
 
 export function AppLayout() {
   const { t } = useTranslation()
   const { profile, roles, signOut, updateLocale } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [releaseModalOpen, setReleaseModalOpen] = useState(false)
   const [locale, setLocale] = useState(profile?.locale ?? 'en')
   const screens = Grid.useBreakpoint()
   const navigate = useNavigate()
@@ -130,6 +133,17 @@ export function AppLayout() {
     }
   }, [profile?.locale])
 
+  useEffect(() => {
+    if (!profile?.id) {
+      setReleaseModalOpen(false)
+      return
+    }
+
+    const storageKey = `${RELEASE_MODAL_SEEN_KEY_PREFIX}:${RELEASE_ANNOUNCEMENT_ID}:${profile.id}`
+    const hasSeen = localStorage.getItem(storageKey) === '1'
+    setReleaseModalOpen(!hasSeen)
+  }, [profile?.id])
+
   async function handleLocaleChange(value: LocaleCode) {
     setLocale(value)
     await i18n.changeLanguage(value)
@@ -155,6 +169,23 @@ export function AppLayout() {
     navigate('/app', { replace: true })
   }
 
+  function handleAppTitleClick() {
+    window.location.assign('/app')
+  }
+
+  function handleCloseReleaseModal() {
+    if (profile?.id) {
+      const storageKey = `${RELEASE_MODAL_SEEN_KEY_PREFIX}:${RELEASE_ANNOUNCEMENT_ID}:${profile.id}`
+      localStorage.setItem(storageKey, '1')
+    }
+    setReleaseModalOpen(false)
+  }
+
+  const releaseAnnouncement = useMemo(
+    () => getReleaseAnnouncementContent((locale as LocaleCode) ?? profile?.locale ?? 'en'),
+    [locale, profile?.locale],
+  )
+
   const sideMenu = (
     <Menu
       mode="inline"
@@ -167,10 +198,12 @@ export function AppLayout() {
   return (
     <Layout className="min-h-dvh">
       {screens.md ? (
-        <Sider width={248} className="bg-white border-r border-slate-200">
-          <div className="px-5 py-5 border-b border-slate-200">
+        <Sider width={248} className="app-surface border-r app-border">
+          <div className="px-5 py-5 border-b app-border">
             <Typography.Title level={4} className="mb-1">
-              {t('common.appName', { defaultValue: APP_NAME })}
+              <button type="button" onClick={handleAppTitleClick} className="border-0 bg-transparent p-0 text-left text-inherit">
+                {t('common.appName', { defaultValue: APP_NAME })}
+              </button>
             </Typography.Title>
             <Space size={8} align="center">
               <Tag color="red" className="m-0">
@@ -193,10 +226,10 @@ export function AppLayout() {
           bodyStyle={{ padding: 0 }}
         >
           <div className="px-4 pb-3">
-            <Typography.Text className="block text-sm font-medium text-slate-900">
+            <Typography.Text className="block text-sm font-medium app-text">
               {profile?.full_name ?? profile?.email}
             </Typography.Text>
-            <Typography.Text className="block text-xs text-slate-500">{profile?.email}</Typography.Text>
+            <Typography.Text className="block text-xs app-text-soft">{profile?.email}</Typography.Text>
             <div className="mt-2">
               <Tag color="red" className="m-0">
                 {t(`role.${primaryRole}`, { defaultValue: ROLE_LABELS[primaryRole] })}
@@ -213,7 +246,7 @@ export function AppLayout() {
       )}
 
       <Layout>
-        <Header className="h-auto min-h-[64px] border-b border-slate-200 bg-white px-3 py-2 sm:px-4 md:px-6">
+        <Header className="h-auto min-h-[64px] border-b app-border app-surface px-3 py-2 sm:px-4 md:px-6">
           {isMobile ? (
             <>
               <div className="flex w-full items-center justify-between gap-2">
@@ -227,9 +260,11 @@ export function AppLayout() {
                     />
                   ) : null}
                   <Button icon={<MenuOutlined />} onClick={() => setDrawerOpen(true)} type="text" />
-                  <Typography.Text className="block text-base font-bold tracking-wide text-slate-900">
-                    {t('common.appName', { defaultValue: APP_NAME })}
-                  </Typography.Text>
+                  <button type="button" onClick={handleAppTitleClick} className="border-0 bg-transparent p-0 text-left">
+                    <Typography.Text className="block text-base font-bold tracking-wide app-text">
+                      {t('common.appName', { defaultValue: APP_NAME })}
+                    </Typography.Text>
+                  </button>
                 </Space>
                 <Space size={4}>
                   <Button type="text" icon={<BellOutlined />} onClick={() => navigate('/app/notifications')} />
@@ -248,7 +283,7 @@ export function AppLayout() {
                   <Tag color="red" className="m-0 shrink-0">
                     {t(`role.${primaryRole}`, { defaultValue: ROLE_LABELS[primaryRole] })}
                   </Tag>
-                  <Typography.Text className="truncate text-xs text-slate-600">
+                  <Typography.Text className="truncate text-xs app-text-soft">
                     {profile?.full_name ?? profile?.email}
                   </Typography.Text>
                 </div>
@@ -265,10 +300,10 @@ export function AppLayout() {
             <div className="flex w-full items-center justify-between gap-2 md:gap-3">
               <Space>
                 <div>
-                  <Typography.Text className="block text-slate-900 font-medium">
+                  <Typography.Text className="block app-text font-medium">
                     {profile?.full_name ?? profile?.email}
                   </Typography.Text>
-                  <Typography.Text className="hidden text-xs text-slate-500 sm:block">
+                  <Typography.Text className="hidden text-xs app-text-soft sm:block">
                     {t('common.timezone', { defaultValue: 'Timezone' })}: {profile?.timezone ?? 'Asia/Jakarta'}
                   </Typography.Text>
                 </div>
@@ -293,7 +328,7 @@ export function AppLayout() {
           )}
         </Header>
 
-        <Content className={isMobile ? 'bg-[#f3f4f6] p-3 pb-28 overflow-x-hidden' : 'bg-[#f3f4f6] p-3 sm:p-4 md:p-6 overflow-x-hidden'}>
+        <Content className={isMobile ? 'app-surface-muted p-3 pb-28 overflow-x-hidden' : 'app-surface-muted p-3 sm:p-4 md:p-6 overflow-x-hidden'}>
           <Outlet />
         </Content>
 
@@ -317,6 +352,22 @@ export function AppLayout() {
             })}
           </div>
         ) : null}
+
+        <Modal
+          title={releaseAnnouncement.title}
+          open={releaseModalOpen}
+          onOk={handleCloseReleaseModal}
+          onCancel={handleCloseReleaseModal}
+          okText={t('common.confirm', { defaultValue: 'I Understand' })}
+          cancelButtonProps={{ style: { display: 'none' } }}
+          maskClosable={false}
+          centered
+          width={680}
+        >
+          <Typography.Paragraph style={{ whiteSpace: 'pre-line', marginBottom: 0 }}>
+            {releaseAnnouncement.body}
+          </Typography.Paragraph>
+        </Modal>
       </Layout>
 
     </Layout>

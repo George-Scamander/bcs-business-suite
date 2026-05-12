@@ -690,7 +690,7 @@ export function BdSalesCreatePage() {
               label={t('pages.bdSalesCreate.soldAt', { defaultValue: 'Sold Time' })}
               rules={[{ required: true, message: t('pages.bdSalesCreate.soldAtRequired', { defaultValue: 'Sold time is required' }) }]}
             >
-              <DatePicker showTime className="w-full" />
+              <DatePicker className="w-full" />
             </Form.Item>
           </div>
 

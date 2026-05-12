@@ -153,7 +153,7 @@ export function LeadFollowupTimelinePage() {
             </Form.Item>
 
             <Form.Item name="followup_at" label={t('page.leads.followupTime', { defaultValue: 'Follow-up Time' })}>
-              <DatePicker showTime className="w-full" />
+              <DatePicker className="w-full" />
             </Form.Item>
 
             <Form.Item
@@ -174,7 +174,7 @@ export function LeadFollowupTimelinePage() {
                   : []
               }
             >
-              <DatePicker showTime className="w-full" />
+              <DatePicker className="w-full" />
             </Form.Item>
           </div>
 
