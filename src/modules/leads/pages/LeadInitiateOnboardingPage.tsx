@@ -162,6 +162,8 @@ export function LeadInitiateOnboardingPage() {
                   ? t('page.leads.packageBCS', { defaultValue: 'BCS' })
                   : signedRecord.contract_package === 'PRODUCTS_SALES'
                     ? t('page.leads.packageProductsSales', { defaultValue: 'Products Sales' })
+                    : signedRecord.contract_package === 'BOTH'
+                      ? t('intentPackage.BOTH', { defaultValue: 'Both' })
                     : '-'}
               </Descriptions.Item>
               <Descriptions.Item label={t('page.leads.currency', { defaultValue: 'Currency' })}>{signedRecord.contract_currency}</Descriptions.Item>

@@ -1,6 +1,6 @@
 export type LeadStatus = 'NEW' | 'TO_FOLLOW' | 'FOLLOWING' | 'NEGOTIATING' | 'ON_HOLD' | 'LOST' | 'SIGNED' | 'REJECTED'
 
-export type IntentPackage = 'BCS' | 'PRODUCTS_SALES'
+export type IntentPackage = 'BCS' | 'PRODUCTS_SALES' | 'BOTH'
 
 export type OnboardingStatus =
   | 'NOT_STARTED'

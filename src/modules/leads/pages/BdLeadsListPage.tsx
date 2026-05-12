@@ -117,7 +117,7 @@ function parseCsv(content: string): ImportLeadRow[] {
 }
 
 const LEAD_STATUS_VALUES: LeadStatus[] = ['NEW', 'TO_FOLLOW', 'FOLLOWING', 'NEGOTIATING', 'ON_HOLD', 'LOST', 'SIGNED', 'REJECTED']
-const INTENT_PACKAGE_VALUES: IntentPackage[] = ['BCS', 'PRODUCTS_SALES']
+const INTENT_PACKAGE_VALUES: IntentPackage[] = ['BCS', 'PRODUCTS_SALES', 'BOTH']
 
 function getCurrentMonthRangeIso(): { startIso: string; endIso: string } {
   const now = new Date()

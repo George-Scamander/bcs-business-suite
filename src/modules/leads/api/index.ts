@@ -30,7 +30,9 @@ export interface LeadFilters {
 
 export interface CreateLeadInput {
   id?: string
+  lead_code?: string
   company_name: string
+  intent_package?: IntentPackage
   contact_person?: string
   contact_phone?: string
   contact_email?: string
@@ -69,6 +71,25 @@ export interface DuplicateLeadCompanyRow {
   id: string
   lead_code: string
   company_name: string
+}
+
+function resolveLeadCodePrefixByIntentPackage(intentPackage: IntentPackage | null | undefined): 'LD' | 'SP' {
+  return intentPackage === 'PRODUCTS_SALES' ? 'SP' : 'LD'
+}
+
+function rewriteLeadCodePrefix(leadCode: string, prefix: 'LD' | 'SP'): string {
+  const normalized = leadCode.trim()
+  const match = normalized.match(/^[A-Za-z]{2}-(.+)$/)
+  if (match?.[1]) {
+    return `${prefix}-${match[1]}`
+  }
+
+  const now = new Date()
+  const yyyy = now.getUTCFullYear().toString()
+  const mm = String(now.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(now.getUTCDate()).padStart(2, '0')
+  const suffix = generateUuid().replace(/-/g, '').slice(0, 6).toUpperCase()
+  return `${prefix}-${yyyy}${mm}${dd}-${suffix}`
 }
 
 export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
@@ -290,6 +311,15 @@ export async function findDuplicateLeadCompanies(companyName: string, excludeLea
 
 export async function updateLead(input: UpdateLeadInput): Promise<Lead> {
   const { id, ...data } = input
+  const currentLead = await getLeadById(id)
+  const nextIntentPackage = data.intent_package
+  const intentPackageChanged =
+    nextIntentPackage !== undefined && (currentLead.intent_package ?? null) !== (nextIntentPackage ?? null)
+
+  if (intentPackageChanged) {
+    const nextPrefix = resolveLeadCodePrefixByIntentPackage(nextIntentPackage ?? null)
+    data.lead_code = rewriteLeadCodePrefix(currentLead.lead_code, nextPrefix)
+  }
 
   const result = await supabase.from('leads').update(data).eq('id', id).select('*').single<Lead>()
 
@@ -343,7 +373,9 @@ export async function softDeleteLeads(leadIds: string[]): Promise<void> {
 }
 
 export async function hardDeleteLead(leadId: string): Promise<void> {
-  const result = await supabase.from('leads').delete().eq('id', leadId)
+  const result = await supabase.rpc('hard_delete_deleted_lead', {
+    p_lead_id: leadId,
+  })
 
   if (result.error) {
     throw result.error
@@ -362,10 +394,17 @@ export async function hardDeleteLeads(leadIds: string[]): Promise<void> {
     return
   }
 
-  const result = await supabase.from('leads').delete().in('id', leadIds)
+  const result = await supabase.rpc('hard_delete_deleted_leads_bulk', {
+    p_lead_ids: leadIds,
+  })
 
   if (result.error) {
     throw result.error
+  }
+
+  const deletedCount = Number(result.data ?? 0)
+  if (deletedCount !== leadIds.length) {
+    throw new Error(`Permanent delete partially failed: deleted ${deletedCount}/${leadIds.length} lead(s).`)
   }
 
   await recordOperationLog({

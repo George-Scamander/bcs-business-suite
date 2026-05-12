@@ -185,6 +185,8 @@ export function LeadSignContractPage() {
                   ? t('page.leads.packageBCS', { defaultValue: 'BCS' })
                   : signedRecord.contract_package === 'PRODUCTS_SALES'
                     ? t('page.leads.packageProductsSales', { defaultValue: 'Products Sales' })
+                    : signedRecord.contract_package === 'BOTH'
+                      ? t('intentPackage.BOTH', { defaultValue: 'Both' })
                     : '-'}
               </Descriptions.Item>
               <Descriptions.Item label={t('page.leads.currency', { defaultValue: 'Currency' })}>
@@ -227,10 +229,11 @@ export function LeadSignContractPage() {
                 <Select
                   options={INTENT_PACKAGE_OPTIONS.map((item) => ({
                     value: item.value,
-                    label:
-                      item.value === 'BCS'
-                        ? t('page.leads.packageBCS', { defaultValue: 'BCS' })
-                        : t('page.leads.packageProductsSales', { defaultValue: 'Products Sales' }),
+                    label: item.value === 'BCS'
+                      ? t('page.leads.packageBCS', { defaultValue: 'BCS' })
+                      : item.value === 'PRODUCTS_SALES'
+                        ? t('page.leads.packageProductsSales', { defaultValue: 'Products Sales' })
+                        : t('intentPackage.BOTH', { defaultValue: 'Both' }),
                   }))}
                 />
               </Form.Item>

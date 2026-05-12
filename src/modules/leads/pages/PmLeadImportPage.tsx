@@ -34,6 +34,9 @@ import {
   PageTitleBar,
 } from '../../../components/common/PageTitleBar'
 import {
+  getIntentPackageOptions,
+} from '../../../lib/business-constants'
+import {
   supabase,
 } from '../../../lib/supabase/client'
 import {
@@ -57,6 +60,9 @@ import {
   findCitiesByRegion,
   type RegionOption,
 } from '../lead-options'
+import type {
+  IntentPackage,
+} from '../../../types/business'
 
 interface ImportLeadRow {
   rowKey: string
@@ -71,6 +77,7 @@ interface ImportLeadRow {
   source?: string
   intent_level?: number
   estimated_value?: number
+  intent_package?: IntentPackage
   submitted_at?: string
   assigned_bd_hint?: string
   assigned_bd_id?: string
@@ -88,6 +95,7 @@ type ImportFieldKey =
   | 'source'
   | 'intent_level'
   | 'estimated_value'
+  | 'intent_package_hint'
   | 'submitted_at'
   | 'assigned_bd_hint'
 
@@ -127,6 +135,7 @@ const HEADER_ALIASES: Record<ImportFieldKey, string[]> = {
   source: ['source', 'lead source', 'sumber lead', 'source channel', 'channel', 'visiting type', 'visit type', 'visiting type2'],
   intent_level: ['intent_level', 'intent level', 'minat', 'level minat'],
   estimated_value: ['estimated_value', 'estimated value', 'nilai estimasi', 'contract value'],
+  intent_package_hint: ['expansion type', 'expansion_type', 'expansion'],
   submitted_at: [
     'submitted_at',
     'submission_date',
@@ -143,6 +152,9 @@ const HEADER_ALIASES: Record<ImportFieldKey, string[]> = {
     'time',
   ],
   assigned_bd_hint: [
+    'who you are',
+    'who you are?',
+    'who are you',
     'assigned bd',
     'assigned_bd',
     'bd',
@@ -158,6 +170,22 @@ const HEADER_ALIASES: Record<ImportFieldKey, string[]> = {
     'nama sales',
   ],
 }
+
+const BCS_EXPANSION_VALUES = new Set([
+  'bcs joining',
+  'bosch car service',
+])
+
+const PRODUCT_SALES_EXPANSION_VALUES = new Set([
+  'x project',
+  'product purchase',
+])
+
+const BOTH_EXPANSION_VALUES = new Set([
+  'both',
+  'bosch car service x project',
+  'x project bosch car service',
+])
 
 const CITY_SYNONYMS: Record<string, string[]> = {
   bekasi: ['bks', 'kota bks', 'kota bekasi'],
@@ -423,6 +451,68 @@ function parseNumber(value: string | undefined): number | undefined {
   return Number.isFinite(number) ? number : undefined
 }
 
+function resolveIntentPackageByExpansionType(expansionTypeRaw?: string): IntentPackage | undefined {
+  const normalized = normalizeLookup(expansionTypeRaw ?? '')
+  if (!normalized) {
+    return undefined
+  }
+
+  if (BOTH_EXPANSION_VALUES.has(normalized)) {
+    return 'BOTH'
+  }
+
+  if (BCS_EXPANSION_VALUES.has(normalized)) {
+    return 'BCS'
+  }
+
+  if (PRODUCT_SALES_EXPANSION_VALUES.has(normalized)) {
+    return 'PRODUCTS_SALES'
+  }
+
+  const tokens = normalized
+    .split(/[;,/|&]+/g)
+    .map((part) => normalizeLookup(part))
+    .filter(Boolean)
+
+  if (tokens.includes('both')) {
+    return 'BOTH'
+  }
+
+  const hasBcs = tokens.some((token) => BCS_EXPANSION_VALUES.has(token))
+  const hasProductSales = tokens.some((token) => PRODUCT_SALES_EXPANSION_VALUES.has(token))
+
+  if (hasBcs && hasProductSales) {
+    return 'BOTH'
+  }
+  if (hasBcs) {
+    return 'BCS'
+  }
+  if (hasProductSales) {
+    return 'PRODUCTS_SALES'
+  }
+
+  return undefined
+}
+
+function mergeIntentPackages(values: Array<IntentPackage | undefined>): IntentPackage | undefined {
+  const normalized = values.filter(Boolean) as IntentPackage[]
+  if (normalized.length === 0) {
+    return undefined
+  }
+
+  if (normalized.includes('BOTH')) {
+    return 'BOTH'
+  }
+
+  const hasBcs = normalized.includes('BCS')
+  const hasProductSales = normalized.includes('PRODUCTS_SALES')
+  if (hasBcs && hasProductSales) {
+    return 'BOTH'
+  }
+
+  return normalized[0]
+}
+
 function resolveSourceValue(
   sourceRaw: string | undefined,
   sourceOptions: Array<{ label: string; value: string }>,
@@ -501,8 +591,9 @@ function parseCsvTemplate(
       source: resolveSourceValue(rowByField.source, sourceOptions, defaultSource),
       intent_level: parseIntentLevelValue(rowByField.intent_level),
       estimated_value: parseNumber(rowByField.estimated_value),
+      intent_package: resolveIntentPackageByExpansionType(rowByField.intent_package_hint),
       submitted_at: parseTemplateDate(rowByField.submitted_at),
-      assigned_bd_hint: normalizeText(rowByField.assigned_bd_hint),
+      assigned_bd_hint: normalizeText(rowByField.assigned_bd_hint) ?? normalizeText(rowByField.contact_email),
     })
   })
 
@@ -645,6 +736,7 @@ function buildMergedLeadRow(rows: ImportLeadRow[]): { baseRow: ImportLeadRow; me
       source: preferredSource,
       intent_level: intentLevel,
       estimated_value: estimatedValue,
+      intent_package: mergeIntentPackages(rows.map((row) => row.intent_package)),
       submitted_at: coalesceText(...rows.map((row) => row.submitted_at)),
       assigned_bd_id: coalesceBdOwnerId(...rows.map((row) => row.assigned_bd_id)),
     },
@@ -693,28 +785,70 @@ function ensureCurrentOption(
   return [{ label: normalizedValue, value: normalizedValue }, ...options]
 }
 
-function matchBdUserId(hint: string | undefined, users: UserOption[]): string | undefined {
-  const normalizedHint = normalizeLookup(hint ?? '')
-  if (!normalizedHint) {
+function tokenizeBdHint(hint: string): string[] {
+  const candidates = hint
+    .split(/[;,/|&]+/g)
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  if (candidates.length === 0) {
+    return [hint]
+  }
+
+  return [hint, ...candidates]
+}
+
+function matchBdUser(hint: string | undefined, users: UserOption[]): UserOption | undefined {
+  const rawHint = normalizeText(hint)
+  if (!rawHint) {
     return undefined
   }
 
-  const exact = users.find((user) => {
-    const email = normalizeLookup(user.email)
-    const fullName = normalizeLookup(user.full_name ?? '')
-    return email === normalizedHint || fullName === normalizedHint
-  })
-  if (exact) {
-    return exact.id
+  const candidateHints = tokenizeBdHint(rawHint)
+  const normalizedCandidates = candidateHints.map((item) => normalizeLookup(item)).filter(Boolean)
+  const domains = Array.from(new Set(users.map((user) => user.email.split('@')[1]).filter(Boolean)))
+
+  for (const candidate of normalizedCandidates) {
+    const exact = users.find((user) => {
+      const email = normalizeLookup(user.email)
+      const fullName = normalizeLookup(user.full_name ?? '')
+      const localPart = normalizeLookup(user.email.split('@')[0] ?? '')
+
+      if (email === candidate || fullName === candidate || localPart === candidate) {
+        return true
+      }
+
+      if (!candidate.includes('@')) {
+        return domains.some((domain) => email === `${candidate}@${normalizeLookup(domain)}`)
+      }
+
+      return false
+    })
+
+    if (exact) {
+      return exact
+    }
   }
 
-  const partial = users.find((user) => {
-    const email = normalizeLookup(user.email)
-    const fullName = normalizeLookup(user.full_name ?? '')
-    return email.includes(normalizedHint) || fullName.includes(normalizedHint) || normalizedHint.includes(fullName)
-  })
+  for (const candidate of normalizedCandidates) {
+    const partial = users.find((user) => {
+      const email = normalizeLookup(user.email)
+      const fullName = normalizeLookup(user.full_name ?? '')
+      const localPart = normalizeLookup(user.email.split('@')[0] ?? '')
+      return (
+        email.includes(candidate) ||
+        fullName.includes(candidate) ||
+        localPart.includes(candidate) ||
+        candidate.includes(fullName)
+      )
+    })
 
-  return partial?.id
+    if (partial) {
+      return partial
+    }
+  }
+
+  return undefined
 }
 
 function hydrateBdAssignments(rows: ImportLeadRow[], users: UserOption[]): ImportLeadRow[] {
@@ -727,14 +861,15 @@ function hydrateBdAssignments(rows: ImportLeadRow[], users: UserOption[]): Impor
       return row
     }
 
-    const matchedBdId = matchBdUserId(row.assigned_bd_hint, users)
-    if (!matchedBdId) {
+    const matchedBdUser = matchBdUser(row.assigned_bd_hint, users)
+    if (!matchedBdUser) {
       return row
     }
 
     return {
       ...row,
-      assigned_bd_id: matchedBdId,
+      assigned_bd_id: matchedBdUser.id,
+      assigned_bd_hint: matchedBdUser.email,
     }
   })
 }
@@ -766,6 +901,7 @@ export function PmLeadImportPage() {
 
   const regionOptions = useMemo(() => buildRegionOptions(dictionaryItems), [dictionaryItems])
   const sourceOptions = useMemo(() => buildLeadSourceOptions(dictionaryItems), [dictionaryItems])
+  const intentPackageOptions = useMemo(() => getIntentPackageOptions(t), [t])
 
   const regionSelectOptions = useMemo(
     () =>
@@ -841,6 +977,14 @@ export function PmLeadImportPage() {
   useEffect(() => {
     void loadReferenceData()
   }, [loadReferenceData])
+
+  useEffect(() => {
+    if (bdUserOptions.length === 0) {
+      return
+    }
+
+    setRows((current) => hydrateBdAssignments(current, bdUserOptions))
+  }, [bdUserOptions])
 
   const getPopupContainer = useCallback((trigger: HTMLElement) => trigger.parentElement ?? trigger, [])
 
@@ -930,6 +1074,7 @@ export function PmLeadImportPage() {
       city: normalizeText(row.city),
       address: normalizeText(row.address),
       source: normalizeText(row.source),
+      intent_package: row.intent_package,
       intent_level: sanitizeIntentLevel(row.intent_level),
       estimated_value: row.estimated_value,
       created_at: row.submitted_at,
@@ -1166,7 +1311,7 @@ export function PmLeadImportPage() {
         bordered
         dataSource={rows}
         pagination={{ pageSize: 10 }}
-        scroll={{ x: 1560 }}
+        scroll={{ x: 1760 }}
         locale={{ emptyText: t('pages.pmLeadImport.emptyHint', { defaultValue: 'Upload and parse a template to preview rows' }) }}
         columns={[
           {
@@ -1238,6 +1383,24 @@ export function PmLeadImportPage() {
                 options={ensureCurrentOption(sourceOptions, value)}
                 onChange={(nextValue) => updateRow(row.rowKey, { source: nextValue })}
                 optionFilterProp="label"
+                getPopupContainer={getPopupContainer}
+              />
+            ),
+          },
+          {
+            title: t('pages.pmLeadImport.columns.intentPackage', { defaultValue: 'Business Segment' }),
+            dataIndex: 'intent_package',
+            width: 190,
+            render: (value: IntentPackage | undefined, row: ImportLeadRow) => (
+              <Select
+                showSearch
+                allowClear
+                style={{ width: '100%' }}
+                value={value}
+                options={intentPackageOptions}
+                onChange={(nextValue) => updateRow(row.rowKey, { intent_package: nextValue })}
+                optionFilterProp="label"
+                placeholder={t('pages.pmLeadImport.columns.intentPackage', { defaultValue: 'Business Segment' })}
                 getPopupContainer={getPopupContainer}
               />
             ),

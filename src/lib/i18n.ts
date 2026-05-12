@@ -87,6 +87,7 @@ const resources = {
       intentPackage: {
         BCS: 'BCS',
         PRODUCTS_SALES: 'Products Sales',
+        BOTH: 'Both',
       },
       auth: {
         login: {
@@ -451,6 +452,9 @@ const resources = {
           leadSource: 'Lead Source',
           leadSourceRequired: 'Lead source is required',
           selectLeadSource: 'Select lead source',
+          intentPackage: 'Business Segment',
+          intentPackageRequired: 'Business segment is required',
+          intentPackagePlaceholder: 'Select business segment',
           intentLevel: 'Intent Level (H0-H5)',
           intentLevelPlaceholder: 'Select intent level',
           estimatedContractValue: 'Estimated Contract Value',
@@ -696,7 +700,7 @@ const resources = {
           importSummarySkippedRows: '{{count}} row(s) skipped due to missing required fields',
           importFail: 'Failed to import template rows',
           requiredHeaderHint:
-            'Supports comma/semicolon templates and smart header mapping, including Visiting Form [BCS Network](Raw Data). Recommended fields: company_name or Workshop Name; optional: contact_person, contact_phone, contact_email, industry/BCS Type, region, city, address, source, intent_level, estimated_value.',
+            'Supports comma/semicolon templates and smart header mapping, including Visiting Form [BCS Network](Raw Data). Recommended fields: company_name or Workshop Name; optional: contact_person, contact_phone, contact_email, industry/BCS Type, region, city, address, source, intent_level, estimated_value, expansion type, Who you are.',
           emptyHint: 'Upload and parse a template to preview rows',
           validateCompanyRequired: 'company_name is required',
           validateRegionRequired: 'region is required',
@@ -709,6 +713,7 @@ const resources = {
             region: 'Region *',
             city: 'City *',
             source: 'Lead Source *',
+            intentPackage: 'Business Segment',
             industry: 'Industry',
             contact: 'Contact',
             bdOwner: 'BD Owner',
@@ -1132,6 +1137,7 @@ const resources = {
       intentPackage: {
         BCS: 'BCS业务',
         PRODUCTS_SALES: '产品销售',
+        BOTH: 'Both',
       },
       auth: {
         login: {
@@ -1493,6 +1499,9 @@ const resources = {
           leadSource: '线索来源',
           leadSourceRequired: '线索来源为必填项',
           selectLeadSource: '请选择线索来源',
+          intentPackage: '业务板块',
+          intentPackageRequired: '业务板块为必填项',
+          intentPackagePlaceholder: '请选择业务板块',
           intentLevel: '意向等级（H0-H5）',
           intentLevelPlaceholder: '请选择意向等级',
           estimatedContractValue: '预估合同金额',
@@ -1737,7 +1746,7 @@ const resources = {
           importSummarySkippedRows: '因必填缺失跳过 {{count}} 行',
           importFail: '导入模板数据失败',
           requiredHeaderHint:
-            '支持逗号/分号模板与智能表头映射，包含 Visiting Form [BCS Network](Raw Data) 格式。建议包含：company_name 或 Workshop Name；可选字段：contact_person、contact_phone、contact_email、industry/BCS Type、region、city、address、source、intent_level、estimated_value。',
+            '支持逗号/分号模板与智能表头映射，包含 Visiting Form [BCS Network](Raw Data) 格式。建议包含：company_name 或 Workshop Name；可选字段：contact_person、contact_phone、contact_email、industry/BCS Type、region、city、address、source、intent_level、estimated_value、expansion type、Who you are。',
           emptyHint: '请先上传并解析模板以预览数据',
           validateCompanyRequired: 'company_name 为必填',
           validateRegionRequired: 'region 为必填',
@@ -1750,6 +1759,7 @@ const resources = {
             region: '区域 *',
             city: '城市 *',
             source: '线索来源 *',
+            intentPackage: '业务板块',
             industry: '行业',
             contact: '联系人',
             bdOwner: 'BD负责人',
@@ -2138,6 +2148,7 @@ const resources = {
       intentPackage: {
         BCS: 'BCS業務',
         PRODUCTS_SALES: '產品銷售',
+        BOTH: 'Both',
       },
       auth: {
         login: {
@@ -2499,6 +2510,9 @@ const resources = {
           leadSource: '線索來源',
           leadSourceRequired: '線索來源為必填',
           selectLeadSource: '請選擇線索來源',
+          intentPackage: '業務板塊',
+          intentPackageRequired: '業務板塊為必填',
+          intentPackagePlaceholder: '請選擇業務板塊',
           intentLevel: '意向等級（H0-H5）',
           intentLevelPlaceholder: '請選擇意向等級',
           estimatedContractValue: '預估合約金額',
@@ -2743,7 +2757,7 @@ const resources = {
           importSummarySkippedRows: '因必填缺失跳過 {{count}} 行',
           importFail: '匯入範本資料失敗',
           requiredHeaderHint:
-            '支援逗號/分號範本及智能表頭映射，包含 Visiting Form [BCS Network](Raw Data) 格式。建議包含：company_name 或 Workshop Name；可選欄位：contact_person、contact_phone、contact_email、industry/BCS Type、region、city、address、source、intent_level、estimated_value。',
+            '支援逗號/分號範本及智能表頭映射，包含 Visiting Form [BCS Network](Raw Data) 格式。建議包含：company_name 或 Workshop Name；可選欄位：contact_person、contact_phone、contact_email、industry/BCS Type、region、city、address、source、intent_level、estimated_value、expansion type、Who you are。',
           emptyHint: '請先上載並解析範本以預覽資料',
           validateCompanyRequired: 'company_name 為必填',
           validateRegionRequired: 'region 為必填',
@@ -2756,6 +2770,7 @@ const resources = {
             region: '區域 *',
             city: '城市 *',
             source: '線索來源 *',
+            intentPackage: '業務板塊',
             industry: '行業',
             contact: '聯絡人',
             bdOwner: 'BD負責人',
@@ -3144,6 +3159,7 @@ const resources = {
       intentPackage: {
         BCS: 'Bisnis BCS',
         PRODUCTS_SALES: 'Penjualan Produk',
+        BOTH: 'Both',
       },
       auth: {
         login: {
@@ -3507,6 +3523,9 @@ const resources = {
           leadSource: 'Sumber Lead',
           leadSourceRequired: 'Sumber lead wajib diisi',
           selectLeadSource: 'Pilih sumber lead',
+          intentPackage: 'Segmen Bisnis',
+          intentPackageRequired: 'Segmen bisnis wajib diisi',
+          intentPackagePlaceholder: 'Pilih segmen bisnis',
           intentLevel: 'Level Minat (H0-H5)',
           intentLevelPlaceholder: 'Pilih level minat',
           estimatedContractValue: 'Estimasi Nilai Kontrak',
@@ -3751,7 +3770,7 @@ const resources = {
           importSummarySkippedRows: '{{count}} baris dilewati karena field wajib kosong',
           importFail: 'Gagal mengimpor baris template',
           requiredHeaderHint:
-            'Mendukung template pemisah koma/titik-koma dan pemetaan header cerdas, termasuk format Visiting Form [BCS Network](Raw Data). Disarankan: company_name atau Workshop Name; opsional: contact_person, contact_phone, contact_email, industry/BCS Type, region, city, address, source, intent_level, estimated_value.',
+            'Mendukung template pemisah koma/titik-koma dan pemetaan header cerdas, termasuk format Visiting Form [BCS Network](Raw Data). Disarankan: company_name atau Workshop Name; opsional: contact_person, contact_phone, contact_email, industry/BCS Type, region, city, address, source, intent_level, estimated_value, expansion type, Who you are.',
           emptyHint: 'Unggah dan parse template untuk menampilkan pratinjau data',
           validateCompanyRequired: 'company_name wajib diisi',
           validateRegionRequired: 'region wajib diisi',
@@ -3764,6 +3783,7 @@ const resources = {
             region: 'Wilayah *',
             city: 'Kota *',
             source: 'Sumber Lead *',
+            intentPackage: 'Segmen Bisnis',
             industry: 'Industri',
             contact: 'Kontak',
             bdOwner: 'Pemilik BD',

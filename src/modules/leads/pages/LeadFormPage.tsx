@@ -6,14 +6,17 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
+import { getIntentPackageOptions } from '../../../lib/business-constants'
 import { createLead, createLeadAttachment, findDuplicateLeadCompanies, getLeadById, softDeleteLead, updateLead } from '../api'
 import { useAuth } from '../../auth/auth-context'
 import { uploadPrivateDocument } from '../../../lib/supabase/storage'
 import { listDictionaryItems, type DictionaryItem } from '../../shared/api/dictionary'
 import { buildLeadSourceOptions, buildRegionOptions, findCitiesByRegion } from '../lead-options'
+import type { IntentPackage } from '../../../types/business'
 
 interface LeadFormValues {
   company_name: string
+  intent_package?: IntentPackage
   contact_person?: string
   contact_phone?: string
   contact_email?: string
@@ -98,6 +101,7 @@ export function LeadFormPage() {
 
   const regionOptions = useMemo(() => buildRegionOptions(dictionaryItems), [dictionaryItems])
   const sourceOptions = useMemo(() => buildLeadSourceOptions(dictionaryItems), [dictionaryItems])
+  const intentPackageOptions = useMemo(() => getIntentPackageOptions(t), [t])
 
   const selectedRegion = Form.useWatch('region', form)
   const selectedSource = Form.useWatch('source', form)
@@ -162,6 +166,7 @@ export function LeadFormPage() {
       const detail = await getLeadById(leadId)
       form.setFieldsValue({
         company_name: detail.company_name,
+        intent_package: detail.intent_package ?? undefined,
         contact_person: detail.contact_person ?? undefined,
         contact_phone: detail.contact_phone ?? undefined,
         contact_email: detail.contact_email ?? undefined,
@@ -248,6 +253,7 @@ export function LeadFormPage() {
     try {
       const basePayload = {
         company_name: normalizeText(values.company_name) ?? '',
+        intent_package: values.intent_package,
         contact_person: normalizeText(values.contact_person),
         contact_phone: normalizeText(values.contact_phone),
         contact_email: normalizeText(values.contact_email),
@@ -445,6 +451,26 @@ export function LeadFormPage() {
                 options={mergedSourceOptions}
                 placeholder={t('pages.leadForm.selectLeadSource', { defaultValue: 'Select lead source' })}
                 optionFilterProp="label"
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="intent_package"
+              label={t('pages.leadForm.intentPackage', { defaultValue: 'Business Segment' })}
+              rules={[
+                {
+                  required: true,
+                  message: t('pages.leadForm.intentPackageRequired', {
+                    defaultValue: 'Business segment is required',
+                  }),
+                },
+              ]}
+            >
+              <Select
+                options={intentPackageOptions}
+                placeholder={t('pages.leadForm.intentPackagePlaceholder', {
+                  defaultValue: 'Select business segment',
+                })}
               />
             </Form.Item>
 

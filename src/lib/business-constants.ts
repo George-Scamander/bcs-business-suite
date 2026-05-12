@@ -15,6 +15,7 @@ export const LEAD_STATUS_OPTIONS: Array<{ label: string; value: LeadStatus }> = 
 export const INTENT_PACKAGE_OPTIONS: Array<{ label: string; value: IntentPackage }> = [
   { label: 'BCS', value: 'BCS' },
   { label: 'Products Sales', value: 'PRODUCTS_SALES' },
+  { label: 'Both', value: 'BOTH' },
 ]
 
 export const NEXT_FOLLOWUP_ARRANGEMENT_OPTIONS: Array<{ label: string; value: 'YES' | 'NO' }> = [

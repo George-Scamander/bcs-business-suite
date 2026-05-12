@@ -73,7 +73,7 @@ function extractRoleCode(role: RoleMappingRow['role']): string | null {
 }
 
 const LEAD_STATUS_VALUES: LeadStatus[] = ['NEW', 'TO_FOLLOW', 'FOLLOWING', 'NEGOTIATING', 'ON_HOLD', 'LOST', 'SIGNED', 'REJECTED']
-const INTENT_PACKAGE_VALUES: IntentPackage[] = ['BCS', 'PRODUCTS_SALES']
+const INTENT_PACKAGE_VALUES: IntentPackage[] = ['BCS', 'PRODUCTS_SALES', 'BOTH']
 
 function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: LeadFilters; keyword: string } {
   const statusParam = searchParams.get('status')
