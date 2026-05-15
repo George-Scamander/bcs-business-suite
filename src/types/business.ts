@@ -17,7 +17,17 @@ export type ProjectStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'ON_HOLD' | 'DELAYED
 
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'ON_HOLD' | 'DONE' | 'CANCELLED'
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
-export type SalesProductCategory = 'TIRE' | 'ENGINE_OIL' | 'WINDOW_FILM' | 'BOSCH_ACCESSORY'
+export type SalesProductCategory =
+  | 'ENGINE_OIL'
+  | 'CHEMICAL'
+  | 'TIRE'
+  | 'WIPER'
+  | 'THREE_FILTERS'
+  | 'BATTERY'
+  | 'BRAKE_PAD'
+  | 'CAR_BEAUTY'
+  | 'WINDOW_FILM'
+  | 'BOSCH_ACCESSORY'
 export type OnboardMerchantType = 'BCS_FRANCHISE' | 'NON_BCS_PARTNER'
 export type MerchantActivityType = 'RENOVATION_TASK' | 'DELIVERY' | 'SALES_ORDER' | 'NOTE' | 'OTHER'
 export type MerchantActivityStatus = 'PLANNED' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED'

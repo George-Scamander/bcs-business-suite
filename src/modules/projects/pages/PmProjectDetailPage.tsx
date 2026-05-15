@@ -32,6 +32,9 @@ export function PmProjectDetailPage() {
   const [updating, setUpdating] = useState(false)
   const [project, setProject] = useState<Project | null>(null)
   const [updates, setUpdates] = useState<ProjectUpdate[]>([])
+  const deleteRetentionHint = t('labels.autoDelete30DaysHint', {
+    defaultValue: 'Moved to Recently Deleted and auto-permanently deleted after 30 days.',
+  })
 
   const loadData = useCallback(async () => {
     if (!projectId) {
@@ -144,7 +147,9 @@ export function PmProjectDetailPage() {
             <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
             <Popconfirm
               title={t('pages.pmProjectDetail.deleteConfirmTitle', { defaultValue: 'Delete this project?' })}
-              description={t('pages.pmProjectDetail.deleteConfirmDesc', { defaultValue: 'The project will be moved to Recently Deleted.' })}
+              description={`${t('pages.pmProjectDetail.deleteConfirmDesc', {
+                defaultValue: 'The project will be moved to Recently Deleted.',
+              })} ${deleteRetentionHint}`}
               okText={t('labels.delete', { defaultValue: 'Delete' })}
               cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
               onConfirm={() => void handleDeleteProject()}

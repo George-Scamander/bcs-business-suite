@@ -74,27 +74,52 @@ function extractRoleCode(role: RoleMappingRow['role']): string | null {
 
 const LEAD_STATUS_VALUES: LeadStatus[] = ['NEW', 'TO_FOLLOW', 'FOLLOWING', 'NEGOTIATING', 'ON_HOLD', 'LOST', 'SIGNED', 'REJECTED']
 const INTENT_PACKAGE_VALUES: IntentPackage[] = ['BCS', 'PRODUCTS_SALES', 'BOTH']
+const INTENT_PACKAGE_GROUP_VALUES = ['BCS_RELATED', 'NON_BCS'] as const
+const SIGNED_CONTRACT_PACKAGE_GROUP_VALUES = ['BCS_RELATED', 'NON_BCS'] as const
 
 function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: LeadFilters; keyword: string } {
   const statusParam = searchParams.get('status')
   const intentPackageParam = searchParams.get('intentPackage')
+  const intentPackageGroupParam = searchParams.get('intentPackageGroup')
+  const signedContractPackageGroupParam = searchParams.get('signedContractPackageGroup')
+  const intentLevelMinParam = searchParams.get('intentLevelMin')
+  const intentLevelMaxParam = searchParams.get('intentLevelMax')
 
   const status = statusParam && LEAD_STATUS_VALUES.includes(statusParam as LeadStatus) ? (statusParam as LeadStatus) : undefined
   const intentPackage =
     intentPackageParam && INTENT_PACKAGE_VALUES.includes(intentPackageParam as IntentPackage)
       ? (intentPackageParam as IntentPackage)
       : undefined
+  const intentPackageGroup =
+    intentPackageGroupParam && INTENT_PACKAGE_GROUP_VALUES.includes(intentPackageGroupParam as (typeof INTENT_PACKAGE_GROUP_VALUES)[number])
+      ? (intentPackageGroupParam as LeadFilters['intentPackageGroup'])
+      : undefined
+  const signedContractPackageGroup =
+    signedContractPackageGroupParam &&
+    SIGNED_CONTRACT_PACKAGE_GROUP_VALUES.includes(signedContractPackageGroupParam as (typeof SIGNED_CONTRACT_PACKAGE_GROUP_VALUES)[number])
+      ? (signedContractPackageGroupParam as LeadFilters['signedContractPackageGroup'])
+      : undefined
+  const parsedIntentLevelMin = intentLevelMinParam ? Number(intentLevelMinParam) : NaN
+  const parsedIntentLevelMax = intentLevelMaxParam ? Number(intentLevelMaxParam) : NaN
+  const intentLevelMin = Number.isFinite(parsedIntentLevelMin) ? Math.max(0, Math.min(5, parsedIntentLevelMin)) : undefined
+  const intentLevelMax = Number.isFinite(parsedIntentLevelMax) ? Math.max(0, Math.min(5, parsedIntentLevelMax)) : undefined
 
   const region = searchParams.get('region') ?? undefined
   const assignedBdId = searchParams.get('assignedBdId') ?? undefined
   const createdFrom = searchParams.get('createdFrom') ?? undefined
   const createdTo = searchParams.get('createdTo') ?? undefined
+  const excludeSigned = searchParams.get('excludeSigned') === '1'
   const keyword = searchParams.get('q') ?? ''
 
   return {
     filters: {
       status,
       intentPackage,
+      intentPackageGroup,
+      signedContractPackageGroup,
+      intentLevelMin,
+      intentLevelMax,
+      excludeSigned,
       region: region || undefined,
       assignedBdId: assignedBdId || undefined,
       createdFrom: createdFrom || undefined,
@@ -122,6 +147,9 @@ export function AdminLeadPoolPage() {
   const [selectedUserId, setSelectedUserId] = useState<string>()
   const leadStatusOptions = useMemo(() => getLeadStatusOptions(t), [t])
   const intentPackageOptions = useMemo(() => getIntentPackageOptions(t), [t])
+  const deleteRetentionHint = t('labels.autoDelete30DaysHint', {
+    defaultValue: 'Moved to Recently Deleted and auto-permanently deleted after 30 days.',
+  })
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -228,6 +256,10 @@ export function AdminLeadPoolPage() {
     )
   }, [users])
 
+  function openLeadDetail(leadId: string) {
+    navigate(`/app/bd/leads/${leadId}`)
+  }
+
   return (
     <>
       <PageTitleBar
@@ -239,9 +271,9 @@ export function AdminLeadPoolPage() {
           <Space wrap>
             <Popconfirm
               title={t('pages.adminLeadPool.deleteSelectedConfirmTitle', { defaultValue: 'Delete selected leads?' })}
-              description={t('pages.adminLeadPool.deleteSelectedConfirmDesc', {
+              description={`${t('pages.adminLeadPool.deleteSelectedConfirmDesc', {
                 defaultValue: 'Selected leads will be moved to Recently Deleted.',
-              })}
+              })} ${deleteRetentionHint}`}
               okText={t('labels.delete', { defaultValue: 'Delete' })}
               cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
               onConfirm={() => void handleBatchDelete(selectedIds)}
@@ -252,9 +284,9 @@ export function AdminLeadPoolPage() {
             </Popconfirm>
             <Popconfirm
               title={t('pages.adminLeadPool.deleteAllFilteredConfirmTitle', { defaultValue: 'Delete all filtered leads?' })}
-              description={t('pages.adminLeadPool.deleteAllFilteredConfirmDesc', {
+              description={`${t('pages.adminLeadPool.deleteAllFilteredConfirmDesc', {
                 defaultValue: 'All currently filtered leads will be moved to Recently Deleted.',
-              })}
+              })} ${deleteRetentionHint}`}
               okText={t('labels.delete', { defaultValue: 'Delete' })}
               cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
               onConfirm={() => void handleBatchDelete(rows.map((item) => item.id))}
@@ -302,6 +334,32 @@ export function AdminLeadPoolPage() {
             value={filters.intentPackage}
             onChange={(value) => setFilters((current) => ({ ...current, intentPackage: value || undefined }))}
           />
+          <Select
+            allowClear
+            style={{ width: 220 }}
+            placeholder={t('pages.adminLeadPool.intentGroupPlaceholder', { defaultValue: 'Intent Group' })}
+            value={filters.intentPackageGroup}
+            options={[
+              { value: 'BCS_RELATED', label: t('pages.adminLeadPool.intentGroupBcs', { defaultValue: 'BCS Related' }) },
+              { value: 'NON_BCS', label: t('pages.adminLeadPool.intentGroupNonBcs', { defaultValue: 'Non-BCS' }) },
+            ]}
+            onChange={(value) => setFilters((current) => ({ ...current, intentPackageGroup: value || undefined }))}
+          />
+          <Select
+            allowClear
+            style={{ width: 220 }}
+            placeholder={t('pages.adminLeadPool.intentLevelMinPlaceholder', { defaultValue: 'Intent Level Min' })}
+            value={filters.intentLevelMin}
+            options={[
+              { value: 5, label: 'H5' },
+              { value: 4, label: 'H4+' },
+              { value: 3, label: 'H3+' },
+              { value: 2, label: 'H2+' },
+              { value: 1, label: 'H1+' },
+              { value: 0, label: 'H0+' },
+            ]}
+            onChange={(value) => setFilters((current) => ({ ...current, intentLevelMin: value === undefined ? undefined : Number(value) }))}
+          />
           <DatePicker
             style={{ width: 170 }}
             placeholder={t('pages.adminLeadPool.createdFrom', { defaultValue: 'Created From' })}
@@ -338,6 +396,9 @@ export function AdminLeadPoolPage() {
             {t('labels.apply', { defaultValue: 'Apply' })}
           </Button>
         </Space>
+        <div className="mt-3 text-sm text-slate-500">
+          {t('pages.adminLeadPool.filteredTotal', { defaultValue: 'Filtered total: {{count}}', count: rows.length })}
+        </div>
       </div>
 
       <Table
@@ -350,8 +411,41 @@ export function AdminLeadPoolPage() {
           onChange: (keys) => setSelectedIds(keys as string[]),
         }}
         pagination={{ pageSize: 12 }}
+        onRow={(row) => ({
+          onClick: (event) => {
+            const target = event.target as HTMLElement
+            if (
+              target.closest('button') ||
+              target.closest('a') ||
+              target.closest('.ant-checkbox-wrapper') ||
+              target.closest('.ant-checkbox') ||
+              target.closest('input') ||
+              target.closest('label')
+            ) {
+              return
+            }
+            openLeadDetail(row.id)
+          },
+          className: 'cursor-pointer',
+        })}
         columns={[
-          { title: t('pages.adminLeadPool.columns.leadCode', { defaultValue: 'Lead Code' }), dataIndex: 'lead_code', width: 170 },
+          {
+            title: t('pages.adminLeadPool.columns.leadCode', { defaultValue: 'Lead Code' }),
+            dataIndex: 'lead_code',
+            width: 170,
+            render: (value: string, row: Lead) => (
+              <button
+                type="button"
+                className="border-0 bg-transparent p-0 text-inherit"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  openLeadDetail(row.id)
+                }}
+              >
+                {value}
+              </button>
+            ),
+          },
           { title: t('pages.adminLeadPool.columns.company', { defaultValue: 'Company' }), dataIndex: 'company_name' },
           {
             title: t('pages.adminLeadPool.columns.assignedBd', { defaultValue: 'Assigned BD' }),
@@ -360,7 +454,12 @@ export function AdminLeadPoolPage() {
             render: (value: string | null) => (value ? userNameById.get(value) ?? value : '-'),
           },
           { title: t('pages.adminLeadPool.columns.region', { defaultValue: 'Region' }), dataIndex: 'region', width: 140 },
-          { title: t('pages.adminLeadPool.columns.industry', { defaultValue: 'Industry' }), dataIndex: 'industry', width: 170 },
+          {
+            title: t('pages.adminLeadPool.columns.industry', { defaultValue: 'Industry' }),
+            dataIndex: 'industry',
+            width: 170,
+            responsive: ['md'],
+          },
           {
             title: t('pages.adminLeadPool.columns.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
@@ -369,13 +468,16 @@ export function AdminLeadPoolPage() {
           },
           {
             title: t('pages.adminLeadPool.columns.actions', { defaultValue: 'Actions' }),
-            width: 260,
+            width: 140,
             render: (_: unknown, row: Lead) => (
               <Space>
-                <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}`)}>
-                  {t('pages.adminLeadPool.view', { defaultValue: 'View' })}
-                </Button>
-                <Button size="small" onClick={() => openAssignModal(row)}>
+                <Button
+                  size="small"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    openAssignModal(row)
+                  }}
+                >
                   {t('pages.adminLeadPool.assign', { defaultValue: 'Assign' })}
                 </Button>
               </Space>

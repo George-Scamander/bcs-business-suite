@@ -36,6 +36,9 @@ import {
 import {
   PERMISSIONS,
 } from '../../../lib/permissions'
+import {
+  supabase,
+} from '../../../lib/supabase/client'
 import type {
   Lead,
   OnboardMerchant,
@@ -246,6 +249,14 @@ export function RecentlyDeletedPage() {
   }, [canManageDeletedMerchants, isSuperAdmin, keyword, roles, t, user])
 
   const loadCurrentTab = useCallback(async () => {
+    try {
+      await supabase.rpc('cleanup_expired_recently_deleted', {
+        p_retention_days: 30,
+      })
+    } catch {
+      // Ignore cleanup failures so the Recently Deleted list remains usable.
+    }
+
     if (activeTab === 'leads') {
       await loadDeletedLeads()
       return
@@ -803,7 +814,8 @@ export function RecentlyDeletedPage() {
       <PageTitleBar
         title={t('labels.recentlyDeleted', { defaultValue: 'Recently Deleted' })}
         description={t('pages.recentlyDeleted.description', {
-          defaultValue: 'Manage deleted leads and projects in one place, including restore and permanent delete.',
+          defaultValue:
+            'Deleted leads, projects, sales orders, and onboard merchants are kept for 30 days, then auto permanently deleted.',
         })}
         extra={
           <Space>

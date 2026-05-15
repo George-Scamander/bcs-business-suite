@@ -36,6 +36,7 @@ import {
 } from '../../../components/common/PageTitleBar'
 import {
   getAdminSalesCategoryMetrics,
+  getAdminLeadBoardMetrics,
   getAdminDashboardMetrics,
 } from '../../dashboard/api'
 import {
@@ -49,6 +50,7 @@ import type {
 } from '../../../types/business'
 import type {
   AdminSalesCategoryMetrics,
+  AdminLeadBoardMetrics,
   AdminDashboardMetrics,
   AdminDashboardPeriod,
 } from '../../dashboard/api'
@@ -94,6 +96,14 @@ export function AdminDashboardPage() {
     delayedProjects: 0,
     activeUsers: 0,
   })
+  const [leadBoardMetrics, setLeadBoardMetrics] = useState<AdminLeadBoardMetrics>({
+    totalLeads: 0,
+    todayNewLeads: 0,
+    bcsLeads: 0,
+    nonBcsLeads: 0,
+    highIntentLeads: 0,
+    bcsSignedLeads: 0,
+  })
   const [metricsByPeriod, setMetricsByPeriod] = useState<Record<AdminDashboardPeriod, AdminDashboardMetrics>>({
     yesterday: {
       totalLeads: 0,
@@ -122,7 +132,8 @@ export function AdminDashboardPage() {
     setLoading(true)
 
     try {
-      const [metricDefault, metricYesterday, metricLast7Days, onboardingCases, salesMetrics] = await Promise.all([
+      const [leadBoard, metricDefault, metricYesterday, metricLast7Days, onboardingCases, salesMetrics] = await Promise.all([
+        getAdminLeadBoardMetrics(),
         getAdminDashboardMetrics(),
         getAdminDashboardMetrics('yesterday'),
         getAdminDashboardMetrics('last7Days'),
@@ -130,6 +141,7 @@ export function AdminDashboardPage() {
         getAdminSalesCategoryMetrics(),
       ])
 
+      setLeadBoardMetrics(leadBoard)
       setMetricsDefault(metricDefault)
       setMetricsByPeriod({
         yesterday: metricYesterday,
@@ -208,61 +220,125 @@ export function AdminDashboardPage() {
         extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
-      <div className="mb-3 flex justify-end">
-        <Space size={8} align="center">
-          <span className="text-sm text-slate-500">{t('labels.filter', { defaultValue: 'Filter' })}</span>
-          <Select
-            size="small"
-            value={globalPeriodFilter}
-            style={{ width: 154 }}
-            options={[
-              { value: 'all', label: t('labels.defaultPeriod', { defaultValue: 'Default' }) },
-              { value: 'last7Days', label: t('labels.last7Days', { defaultValue: 'Last 7 Days' }) },
-              { value: 'yesterday', label: t('labels.yesterday', { defaultValue: 'Yesterday' }) },
-            ]}
-            onChange={(value: DashboardFilterValue) => setGlobalPeriodFilter(value)}
-          />
-        </Space>
-      </div>
-
-      <Row gutter={[16, 16]} className="mb-5">
-        <Col xs={24} md={12} xl={4}>
-          {renderMetricCard('totalLeads', t('pages.adminDashboard.metrics.totalLeads', { defaultValue: 'Total Leads' }), '/app/admin/leads/pool')}
-        </Col>
-        <Col xs={24} md={12} xl={4}>
-          {renderMetricCard('signedLeads', t('pages.adminDashboard.metrics.signedLeads', { defaultValue: 'Signed Leads' }), '/app/admin/leads/pool', { status: 'SIGNED' })}
-        </Col>
-        <Col xs={24} md={12} xl={4}>
+      <Card
+        className="mb-5"
+        title={t('pages.adminDashboard.unifiedBoardTitle', { defaultValue: 'Operational Dashboard Overview' })}
+        extra={
+          <Space size={8} align="center">
+            <span className="text-sm text-slate-500">{t('labels.filter', { defaultValue: 'Filter' })}</span>
+            <Select
+              size="small"
+              value={globalPeriodFilter}
+              style={{ width: 154 }}
+              options={[
+                { value: 'all', label: t('labels.defaultPeriod', { defaultValue: 'Default' }) },
+                { value: 'last7Days', label: t('labels.last7Days', { defaultValue: 'Last 7 Days' }) },
+                { value: 'yesterday', label: t('labels.yesterday', { defaultValue: 'Yesterday' }) },
+              ]}
+              onChange={(value: DashboardFilterValue) => setGlobalPeriodFilter(value)}
+            />
+          </Space>
+        }
+      >
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={12} xl={4}>
+            <MetricCard
+              title={t('pages.adminDashboard.metrics.totalLeads', { defaultValue: 'Total Leads' })}
+              value={leadBoardMetrics.totalLeads}
+              onClick={() => openModuleList('/app/admin/leads/pool/overview', undefined, { excludeSigned: '1' })}
+            />
+          </Col>
+          <Col xs={24} md={12} xl={4}>
+            <MetricCard
+              title={t('pages.adminDashboard.metrics.todayNewLeads', { defaultValue: 'Today New Leads' })}
+              value={leadBoardMetrics.todayNewLeads}
+              onClick={() => {
+                const todayStart = dayjs().startOf('day').toISOString()
+                const todayEnd = dayjs().endOf('day').toISOString()
+                openModuleList('/app/admin/leads/pool/today-new', undefined, {
+                  createdFrom: todayStart,
+                  createdTo: todayEnd,
+                })
+              }}
+            />
+          </Col>
+          <Col xs={24} md={12} xl={4}>
+            <MetricCard
+              title={t('pages.adminDashboard.metrics.bcsLeads', { defaultValue: 'BCS Leads' })}
+              value={leadBoardMetrics.bcsLeads}
+              onClick={() => openModuleList('/app/admin/leads/pool/bcs', undefined, { intentPackageGroup: 'BCS_RELATED' })}
+            />
+          </Col>
+          <Col xs={24} md={12} xl={4}>
+            <MetricCard
+              title={t('pages.adminDashboard.metrics.nonBcsLeads', { defaultValue: 'Non-BCS Leads' })}
+              value={leadBoardMetrics.nonBcsLeads}
+              onClick={() => openModuleList('/app/admin/leads/pool/non-bcs', undefined, { intentPackageGroup: 'NON_BCS' })}
+            />
+          </Col>
+          <Col xs={24} md={12} xl={4}>
+            <MetricCard
+              title={`${t('pages.adminDashboard.metrics.highIntentLeads', { defaultValue: 'High Intent Leads' })} ${t(
+                'pages.adminDashboard.metrics.highIntentLeadsNote',
+                { defaultValue: '*H4+' },
+              )}`}
+              value={leadBoardMetrics.highIntentLeads}
+              onClick={() =>
+                openModuleList('/app/admin/leads/pool/high-intent', undefined, {
+                  intentLevelMin: '4',
+                  intentPackageGroup: 'BCS_RELATED',
+                  excludeSigned: '1',
+                })
+              }
+            />
+          </Col>
+          <Col xs={24} md={12} xl={4}>
+            <MetricCard
+              title={t('pages.adminDashboard.metrics.bcsSignedLeads', { defaultValue: 'BCS Signed Leads' })}
+              value={leadBoardMetrics.bcsSignedLeads}
+              onClick={() =>
+                openModuleList('/app/admin/leads/pool/bcs-signed', undefined, {
+                  status: 'SIGNED',
+                  signedContractPackageGroup: 'BCS_RELATED',
+                })
+              }
+            />
+          </Col>
+          <Col xs={24} md={12} xl={4}>
+          {renderMetricCard('signedLeads', t('pages.adminDashboard.metrics.signedLeads', { defaultValue: 'Signed Leads' }), '/app/admin/leads/pool/signed', { status: 'SIGNED' })}
+          </Col>
+          <Col xs={24} md={12} xl={4}>
           {renderMetricCard(
             'activeOnboardingCases',
             t('pages.adminDashboard.metrics.onboardingActive', { defaultValue: 'Onboarding Active' }),
             '/app/admin/onboarding/review-center',
             { activeOnly: '1' },
           )}
-        </Col>
-        <Col xs={24} md={12} xl={4}>
+          </Col>
+          <Col xs={24} md={12} xl={4}>
           {renderMetricCard(
             'totalProjects',
             t('pages.adminDashboard.metrics.totalProjects', { defaultValue: 'Total Projects' }),
             '/app/admin/projects/overview',
           )}
-        </Col>
-        <Col xs={24} md={12} xl={4}>
+          </Col>
+          <Col xs={24} md={12} xl={4}>
           {renderMetricCard(
             'delayedProjects',
             t('pages.adminDashboard.metrics.delayedProjects', { defaultValue: 'Delayed Projects' }),
             '/app/admin/projects/overview',
             { status: 'DELAYED' },
           )}
-        </Col>
-        <Col xs={24} md={12} xl={4}>
+          </Col>
+          <Col xs={24} md={12} xl={4}>
           {renderMetricCard(
             'activeUsers',
             t('pages.adminDashboard.metrics.activeUsers', { defaultValue: 'Active Users' }),
             '/app/admin/users-roles',
           )}
-        </Col>
-      </Row>
+          </Col>
+        </Row>
+      </Card>
 
       <Card
         className="mb-5"

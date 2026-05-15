@@ -85,6 +85,9 @@ export function LeadFormPage() {
 
   const [loading, setLoading] = useState(Boolean(leadId))
   const [saving, setSaving] = useState(false)
+  const deleteRetentionHint = t('labels.autoDelete30DaysHint', {
+    defaultValue: 'Moved to Recently Deleted and auto-permanently deleted after 30 days.',
+  })
   const [uploading, setUploading] = useState(false)
   const [stagedFiles, setStagedFiles] = useState<UploadFile[]>([])
   const [dictionaryItems, setDictionaryItems] = useState<DictionaryItem[]>([])
@@ -532,7 +535,9 @@ export function LeadFormPage() {
             {isEdit ? (
               <Popconfirm
                 title={t('pages.leadForm.deleteConfirmTitle', { defaultValue: 'Delete this lead?' })}
-                description={t('pages.leadForm.deleteConfirmDesc', { defaultValue: 'The lead will be moved to Recently Deleted.' })}
+                description={`${t('pages.leadForm.deleteConfirmDesc', {
+                  defaultValue: 'The lead will be moved to Recently Deleted.',
+                })} ${deleteRetentionHint}`}
                 okText={t('labels.delete', { defaultValue: 'Delete' })}
                 cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
                 onConfirm={() => void handleDeleteLead()}

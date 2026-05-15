@@ -25,7 +25,7 @@ import {
   UnorderedListOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import { Avatar, Button, Drawer, Grid, Layout, Menu, Modal, Select, Space, Tag, Typography } from 'antd'
+import { Avatar, Button, Drawer, Grid, Layout, Menu, Select, Space, Tag, Typography } from 'antd'
 import { message } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -34,7 +34,6 @@ import { APP_NAME, APP_VERSION, NAV_ITEMS_BY_ROLE, ROLE_LABELS, SUPPORTED_LOCALE
 import type { LocaleCode, RoleCode } from '../../types/rbac'
 import { useAuth } from '../../modules/auth/auth-context'
 import i18n from '../../lib/i18n'
-import { getReleaseAnnouncementContent, RELEASE_ANNOUNCEMENT_ID } from '../../modules/shared/release-announcement'
 
 const { Header, Sider, Content } = Layout
 
@@ -69,7 +68,7 @@ const iconMap: Record<string, React.ReactNode> = {
 }
 
 const MOBILE_QUICK_NAV_KEYS_BY_ROLE: Record<RoleCode, string[]> = {
-  super_admin: ['admin-dashboard', 'users-roles', 'lead-pool', 'admin-onboard-merchants'],
+  super_admin: ['admin-dashboard', 'lead-pool', 'sales-supervision', 'bd-kpi-dashboard'],
   bd_user: ['bd-dashboard', 'bd-leads', 'bd-new-lead', 'bd-onboarding'],
   project_manager: ['pm-dashboard', 'pm-projects', 'pm-lead-pool', 'pm-onboard-merchants'],
 }
@@ -87,13 +86,10 @@ function resolvePrimaryRole(roles: RoleCode[]): RoleCode {
 }
 
 const MOBILE_HOME_PATHS = new Set(['/app', '/app/admin/dashboard', '/app/bd/dashboard', '/app/pm/dashboard'])
-const RELEASE_MODAL_SEEN_KEY_PREFIX = 'release-announcement-seen'
-
 export function AppLayout() {
   const { t } = useTranslation()
   const { profile, roles, signOut, updateLocale } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [releaseModalOpen, setReleaseModalOpen] = useState(false)
   const [locale, setLocale] = useState(profile?.locale ?? 'en')
   const screens = Grid.useBreakpoint()
   const navigate = useNavigate()
@@ -133,16 +129,6 @@ export function AppLayout() {
     }
   }, [profile?.locale])
 
-  useEffect(() => {
-    if (!profile?.id) {
-      setReleaseModalOpen(false)
-      return
-    }
-
-    const storageKey = `${RELEASE_MODAL_SEEN_KEY_PREFIX}:${RELEASE_ANNOUNCEMENT_ID}:${profile.id}`
-    const hasSeen = localStorage.getItem(storageKey) === '1'
-    setReleaseModalOpen(!hasSeen)
-  }, [profile?.id])
 
   async function handleLocaleChange(value: LocaleCode) {
     setLocale(value)
@@ -172,19 +158,6 @@ export function AppLayout() {
   function handleAppTitleClick() {
     window.location.assign('/app')
   }
-
-  function handleCloseReleaseModal() {
-    if (profile?.id) {
-      const storageKey = `${RELEASE_MODAL_SEEN_KEY_PREFIX}:${RELEASE_ANNOUNCEMENT_ID}:${profile.id}`
-      localStorage.setItem(storageKey, '1')
-    }
-    setReleaseModalOpen(false)
-  }
-
-  const releaseAnnouncement = useMemo(
-    () => getReleaseAnnouncementContent((locale as LocaleCode) ?? profile?.locale ?? 'en'),
-    [locale, profile?.locale],
-  )
 
   const sideMenu = (
     <Menu
@@ -218,9 +191,14 @@ export function AppLayout() {
         </Sider>
       ) : (
         <Drawer
-          title={t('common.appName', { defaultValue: APP_NAME })}
+          title={
+            <div className="flex items-center justify-between gap-2 pr-2">
+              <span>{t('common.appName', { defaultValue: APP_NAME })}</span>
+              <img src="/brands/bosch-logo.png" alt="BOSCH" className="h-9 w-auto object-contain" />
+            </div>
+          }
           placement="left"
-          width="86vw"
+          width="72vw"
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           bodyStyle={{ padding: 0 }}
@@ -256,10 +234,16 @@ export function AppLayout() {
                       icon={<ArrowLeftOutlined />}
                       onClick={handleMobileBack}
                       type="text"
+                      className="!h-11 !w-11 !text-lg"
                       aria-label={t('common.back', { defaultValue: 'Back' })}
                     />
                   ) : null}
-                  <Button icon={<MenuOutlined />} onClick={() => setDrawerOpen(true)} type="text" />
+                  <Button
+                    icon={<MenuOutlined />}
+                    onClick={() => setDrawerOpen(true)}
+                    type="text"
+                    className="!h-11 !w-11 !text-lg"
+                  />
                   <button type="button" onClick={handleAppTitleClick} className="border-0 bg-transparent p-0 text-left">
                     <Typography.Text className="block text-base font-bold tracking-wide app-text">
                       {t('common.appName', { defaultValue: APP_NAME })}
@@ -267,8 +251,18 @@ export function AppLayout() {
                   </button>
                 </Space>
                 <Space size={4}>
-                  <Button type="text" icon={<BellOutlined />} onClick={() => navigate('/app/notifications')} />
-                  <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/app/settings/profile')} />
+                  <Button
+                    type="text"
+                    icon={<BellOutlined />}
+                    onClick={() => navigate('/app/notifications')}
+                    className="!h-11 !w-11 !text-lg"
+                  />
+                  <Button
+                    type="text"
+                    icon={<SettingOutlined />}
+                    onClick={() => navigate('/app/settings/profile')}
+                    className="!h-11 !w-11 !text-lg"
+                  />
                 </Space>
               </div>
               <div className="mt-2 flex items-center gap-2">
@@ -353,21 +347,6 @@ export function AppLayout() {
           </div>
         ) : null}
 
-        <Modal
-          title={releaseAnnouncement.title}
-          open={releaseModalOpen}
-          onOk={handleCloseReleaseModal}
-          onCancel={handleCloseReleaseModal}
-          okText={t('common.confirm', { defaultValue: 'I Understand' })}
-          cancelButtonProps={{ style: { display: 'none' } }}
-          maskClosable={false}
-          centered
-          width={680}
-        >
-          <Typography.Paragraph style={{ whiteSpace: 'pre-line', marginBottom: 0 }}>
-            {releaseAnnouncement.body}
-          </Typography.Paragraph>
-        </Modal>
       </Layout>
 
     </Layout>

@@ -69,8 +69,14 @@ export const TASK_PRIORITY_OPTIONS: Array<{ label: string; value: TaskPriority }
 ]
 
 export const SALES_PRODUCT_CATEGORY_OPTIONS: Array<{ label: string; value: SalesProductCategory }> = [
-  { label: 'Tires', value: 'TIRE' },
   { label: 'Engine Oil', value: 'ENGINE_OIL' },
+  { label: 'Chemicals', value: 'CHEMICAL' },
+  { label: 'Tires', value: 'TIRE' },
+  { label: 'Wiper', value: 'WIPER' },
+  { label: 'Three Filters', value: 'THREE_FILTERS' },
+  { label: 'Battery', value: 'BATTERY' },
+  { label: 'Brake Pad', value: 'BRAKE_PAD' },
+  { label: 'Car Beauty', value: 'CAR_BEAUTY' },
   { label: 'Window Film', value: 'WINDOW_FILM' },
   { label: 'Bosch Accessories', value: 'BOSCH_ACCESSORY' },
 ]

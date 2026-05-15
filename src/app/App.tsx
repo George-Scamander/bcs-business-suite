@@ -8,6 +8,7 @@ import { LoginPage } from '../modules/auth/pages/LoginPage'
 import { ForgotPasswordPage } from '../modules/auth/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '../modules/auth/pages/ResetPasswordPage'
 import { AdminDashboardPage } from '../modules/admin/pages/AdminDashboardPage'
+import { AdminLeadPoolPage } from '../modules/admin/pages/AdminLeadPoolPage'
 import { UserRoleManagementPage } from '../modules/admin/pages/UserRoleManagementPage'
 import { AdminOnboardingReviewCenterPage } from '../modules/admin/pages/AdminOnboardingReviewCenterPage'
 import { AdminProjectOverviewPage } from '../modules/admin/pages/AdminProjectOverviewPage'
@@ -80,7 +81,63 @@ export default function App() {
               path="admin/leads/pool"
               element={
                 <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
-                  <BdLeadsListPage />
+                  <AdminLeadPoolPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/leads/pool/overview"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                  <AdminLeadPoolPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/leads/pool/today-new"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                  <AdminLeadPoolPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/leads/pool/bcs"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                  <AdminLeadPoolPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/leads/pool/non-bcs"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                  <AdminLeadPoolPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/leads/pool/high-intent"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                  <AdminLeadPoolPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/leads/pool/signed"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                  <AdminLeadPoolPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/leads/pool/bcs-signed"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                  <AdminLeadPoolPage />
                 </RoleGuard>
               }
             />

@@ -65,6 +65,8 @@ interface SupervisionFilters {
   bdUserId?: string
   soldFrom?: string
   soldTo?: string
+  category?: SalesProductCategory
+  brandKeyword?: string
 }
 
 interface DraftSalesItem {
@@ -80,6 +82,16 @@ interface EditSalesFormValues {
   sold_at: dayjs.Dayjs
   note?: string
 }
+
+const BRAND_FILTER_OPTIONS = [
+  'Bosch',
+  'X-owl',
+  'Sinopec',
+  'Sailun',
+].map((brand) => ({
+  label: brand,
+  value: brand,
+}))
 
 function newDraftItem(): DraftSalesItem {
   return {
@@ -116,6 +128,11 @@ export function SalesSupervisionPage() {
   const [editingRow, setEditingRow] = useState<SalesOrderRow | null>(null)
   const [editSaving, setEditSaving] = useState(false)
   const [editItems, setEditItems] = useState<DraftSalesItem[]>([newDraftItem()])
+  const [detailModalOpen, setDetailModalOpen] = useState(false)
+  const [detailRow, setDetailRow] = useState<SalesOrderRow | null>(null)
+  const deleteRetentionHint = t('labels.autoDelete30DaysHint', {
+    defaultValue: 'Moved to Recently Deleted and auto-permanently deleted after 30 days.',
+  })
 
   const categoryLabelByValue = useMemo(() => {
     return new Map(getSalesProductCategoryOptions(t).map((item) => [item.value, item.label]))
@@ -133,6 +150,8 @@ export function SalesSupervisionPage() {
           bdUserId: filters.bdUserId,
           soldFrom: filters.soldFrom,
           soldTo: filters.soldTo,
+          category: filters.category,
+          brandKeyword: filters.brandKeyword,
         }),
         listActiveUsers(),
       ])
@@ -144,7 +163,7 @@ export function SalesSupervisionPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters.bdUserId, filters.soldFrom, filters.soldTo, keyword, t])
+  }, [filters.bdUserId, filters.soldFrom, filters.soldTo, filters.category, filters.brandKeyword, keyword, t])
 
   useEffect(() => {
     void loadData()
@@ -159,6 +178,11 @@ export function SalesSupervisionPage() {
       note: row.note ?? undefined,
     })
     setEditModalOpen(true)
+  }
+
+  function openDetailModal(row: SalesOrderRow) {
+    setDetailRow(row)
+    setDetailModalOpen(true)
   }
 
   function addEditItem() {
@@ -247,7 +271,7 @@ export function SalesSupervisionPage() {
   return (
     <>
       <PageTitleBar
-        title={t('pages.salesSupervision.title', { defaultValue: 'Sales Supervision' })}
+        title={t('pages.salesSupervision.title', { defaultValue: 'Sales Management' })}
         description={t('pages.salesSupervision.description', {
           defaultValue: 'PMO and Admin can monitor BD sales orders and auto-created SP leads in one place.',
         })}
@@ -273,6 +297,33 @@ export function SalesSupervisionPage() {
               onChange={(value) => setFilters((current) => ({ ...current, bdUserId: value || undefined }))}
             />
           ) : null}
+          <Select
+            allowClear
+            style={{ width: 220 }}
+            placeholder={t('pages.salesSupervision.categoryPlaceholder', { defaultValue: 'Sales Category' })}
+            options={categoryOptions}
+            value={filters.category}
+            onChange={(value) => setFilters((current) => ({ ...current, category: (value as SalesProductCategory | undefined) ?? undefined }))}
+          />
+          <Select
+            mode="tags"
+            maxCount={1}
+            allowClear
+            showSearch
+            style={{ width: 280 }}
+            placeholder={t('pages.salesSupervision.brandPlaceholder', {
+              defaultValue: 'Brand (Bosch / X-owl / Sinopec / Sailun)',
+            })}
+            options={BRAND_FILTER_OPTIONS}
+            value={filters.brandKeyword ? [filters.brandKeyword] : []}
+            onChange={(values) => {
+              const first = Array.isArray(values) && values.length > 0 ? String(values[0]).trim() : ''
+              setFilters((current) => ({
+                ...current,
+                brandKeyword: first || undefined,
+              }))
+            }}
+          />
           <DatePicker
             style={{ width: 180 }}
             placeholder={t('pages.salesSupervision.soldFrom', { defaultValue: 'Sold from' })}
@@ -309,45 +360,33 @@ export function SalesSupervisionPage() {
         loading={loading}
         dataSource={rows}
         pagination={{ pageSize: 12 }}
-        expandable={{
-          expandedRowRender: (row) => (
-            <Table
-              rowKey="id"
-              size="small"
-              pagination={false}
-              dataSource={row.items}
-              columns={[
-                {
-                  title: t('pages.salesSupervision.columns.category', { defaultValue: 'Category' }),
-                  dataIndex: 'category',
-                  width: 220,
-                  render: (value: string) => categoryLabelByValue.get(value as SalesProductCategory) ?? value,
-                },
-                {
-                  title: t('pages.salesSupervision.columns.productName', { defaultValue: 'Product / Description' }),
-                  dataIndex: 'product_name',
-                  render: (value: string | null) => value ?? '-',
-                },
-                {
-                  title: t('pages.salesSupervision.columns.quantity', { defaultValue: 'Qty' }),
-                  dataIndex: 'quantity',
-                  width: 90,
-                },
-                {
-                  title: t('pages.salesSupervision.columns.unitPrice', { defaultValue: 'Unit Price' }),
-                  dataIndex: 'unit_price',
-                  width: 130,
-                  render: (value: number | null) => (value === null ? '-' : Number(value).toLocaleString()),
-                },
-              ]}
-            />
-          ),
-        }}
+        onRow={(row) => ({
+          onClick: (event) => {
+            const target = event.target as HTMLElement
+            if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('label')) {
+              return
+            }
+            openDetailModal(row)
+          },
+          className: 'cursor-pointer',
+        })}
         columns={[
           {
             title: t('pages.salesSupervision.columns.orderNo', { defaultValue: 'Order No' }),
             dataIndex: 'order_no',
             width: 170,
+            render: (value: string, row: SalesOrderRow) => (
+              <button
+                type="button"
+                className="border-0 bg-transparent p-0 text-inherit"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  openDetailModal(row)
+                }}
+              >
+                {value}
+              </button>
+            ),
           },
           {
             title: t('pages.salesSupervision.columns.companyName', { defaultValue: 'Company' }),
@@ -400,9 +439,9 @@ export function SalesSupervisionPage() {
                 </Button>
                 <Popconfirm
                   title={t('pages.salesSupervision.deleteConfirmTitle', { defaultValue: 'Delete this sales order?' })}
-                  description={t('pages.salesSupervision.deleteConfirmDesc', {
+                  description={`${t('pages.salesSupervision.deleteConfirmDesc', {
                     defaultValue: 'The sales order will be moved to Recently Deleted.',
-                  })}
+                  })} ${deleteRetentionHint}`}
                   okText={t('labels.delete', { defaultValue: 'Delete' })}
                   cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
                   onConfirm={() => void handleDelete(row)}
@@ -416,6 +455,63 @@ export function SalesSupervisionPage() {
           },
         ]}
       />
+
+      <Modal
+        title={
+          detailRow
+            ? `${t('pages.salesSupervision.detailTitle', { defaultValue: 'Sales Detail' })} · ${detailRow.order_no}`
+            : t('pages.salesSupervision.detailTitle', { defaultValue: 'Sales Detail' })
+        }
+        open={detailModalOpen}
+        width={960}
+        footer={null}
+        onCancel={() => {
+          setDetailModalOpen(false)
+          setDetailRow(null)
+        }}
+      >
+        {detailRow ? (
+          <>
+            <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div><strong>{t('pages.salesSupervision.columns.companyName', { defaultValue: 'Company' })}:</strong> {detailRow.company_name}</div>
+              <div><strong>{t('pages.salesSupervision.columns.leadCode', { defaultValue: 'Lead Code' })}:</strong> {detailRow.lead?.lead_code ?? '-'}</div>
+              <div><strong>{t('pages.salesSupervision.columns.bdOwner', { defaultValue: 'BD Owner' })}:</strong> {detailRow.bd_owner?.full_name ? `${detailRow.bd_owner.full_name} (${detailRow.bd_owner.email})` : detailRow.bd_owner?.email ?? detailRow.bd_user_id}</div>
+              <div><strong>{t('pages.salesSupervision.columns.soldAt', { defaultValue: 'Sold Time' })}:</strong> {dayjs(detailRow.sold_at).format('YYYY-MM-DD HH:mm:ss')}</div>
+            </div>
+            <Table
+              rowKey="id"
+              size="small"
+              bordered
+              pagination={false}
+              dataSource={detailRow.items}
+              columns={[
+                {
+                  title: t('pages.salesSupervision.columns.category', { defaultValue: 'Category' }),
+                  dataIndex: 'category',
+                  width: 220,
+                  render: (value: string) => categoryLabelByValue.get(value as SalesProductCategory) ?? value,
+                },
+                {
+                  title: t('pages.salesSupervision.columns.productName', { defaultValue: 'Product / Description' }),
+                  dataIndex: 'product_name',
+                  render: (value: string | null) => value ?? '-',
+                },
+                {
+                  title: t('pages.salesSupervision.columns.quantity', { defaultValue: 'Qty' }),
+                  dataIndex: 'quantity',
+                  width: 90,
+                },
+                {
+                  title: t('pages.salesSupervision.columns.unitPrice', { defaultValue: 'Unit Price' }),
+                  dataIndex: 'unit_price',
+                  width: 130,
+                  render: (value: number | null) => (value === null ? '-' : Number(value).toLocaleString()),
+                },
+              ]}
+            />
+          </>
+        ) : null}
+      </Modal>
 
       <Modal
         title={

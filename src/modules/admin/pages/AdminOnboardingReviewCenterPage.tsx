@@ -7,6 +7,7 @@ import {
 import dayjs from 'dayjs'
 import {
   Button,
+  Card,
   DatePicker,
   Drawer,
   Input,
@@ -26,6 +27,7 @@ import {
   useTranslation,
 } from 'react-i18next'
 import {
+  useNavigate,
   useSearchParams,
 } from 'react-router-dom'
 
@@ -48,6 +50,11 @@ import {
   changeOnboardingStatus,
   type OnboardingFilters,
 } from '../../onboarding/api'
+import {
+  downgradeLeadIntentLevelByReview,
+  listHighIntentDowngradeCandidates,
+  type LeadIntentDowngradeCandidate,
+} from '../../leads/api'
 import type {
   OnboardingCase,
   OnboardingDocument,
@@ -140,9 +147,12 @@ function canTransitionTo(currentStatus: OnboardingStatus, targetStatus: Onboardi
 
 export function AdminOnboardingReviewCenterPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
+  const [leadReviewLoading, setLeadReviewLoading] = useState(false)
   const [rows, setRows] = useState<OnboardingCase[]>([])
+  const [leadReviewRows, setLeadReviewRows] = useState<LeadIntentDowngradeCandidate[]>([])
   const [documentsByCase, setDocumentsByCase] = useState<Record<string, OnboardingDocument[]>>({})
   const [filters, setFilters] = useState<OnboardingFilters>(() => parseOnboardingFiltersFromSearch(searchParams).filters)
   const [keyword, setKeyword] = useState(() => parseOnboardingFiltersFromSearch(searchParams).keyword)
@@ -155,12 +165,16 @@ export function AdminOnboardingReviewCenterPage() {
     setLoading(true)
 
     try {
-      const onboardingRows = await listOnboardingCases({
-        ...filters,
-        keyword: keyword.trim() || undefined,
-      })
+      const [onboardingRows, candidateRows] = await Promise.all([
+        listOnboardingCases({
+          ...filters,
+          keyword: keyword.trim() || undefined,
+        }),
+        listHighIntentDowngradeCandidates(14),
+      ])
 
       setRows(onboardingRows)
+      setLeadReviewRows(candidateRows)
 
       const map: Record<string, OnboardingDocument[]> = {}
       await Promise.all(
@@ -302,6 +316,23 @@ export function AdminOnboardingReviewCenterPage() {
     }
   }
 
+  async function handleDowngradeLeadIntent(row: LeadIntentDowngradeCandidate) {
+    setLeadReviewLoading(true)
+    try {
+      await downgradeLeadIntentLevelByReview(row.id, 3)
+      message.success(t('pages.adminOnboardingReview.leadIntentDowngradeSuccess', { defaultValue: 'Lead intent level downgraded' }))
+      await loadData()
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.adminOnboardingReview.leadIntentDowngradeFail', { defaultValue: 'Failed to downgrade lead intent level' })
+      message.error(text)
+    } finally {
+      setLeadReviewLoading(false)
+    }
+  }
+
   const selectedDocs = useMemo(() => {
     if (!selectedCase) {
       return []
@@ -415,6 +446,65 @@ export function AdminOnboardingReviewCenterPage() {
           },
         ]}
       />
+
+      <Card
+        className="mt-5"
+        title={t('pages.adminOnboardingReview.leadIntentQueueTitle', { defaultValue: 'Lead Intent Adjustment Review' })}
+        extra={
+          <Typography.Text type="secondary">
+            {t('pages.adminOnboardingReview.leadIntentQueueHint', { defaultValue: 'High intent BCS leads idle for 14+ days' })}
+          </Typography.Text>
+        }
+      >
+        <Table
+          rowKey="id"
+          bordered
+          loading={loading || leadReviewLoading}
+          dataSource={leadReviewRows}
+          pagination={{ pageSize: 8 }}
+          locale={{
+            emptyText: t('pages.adminOnboardingReview.leadIntentQueueEmpty', {
+              defaultValue: 'No high intent leads pending downgrade review',
+            }),
+          }}
+          columns={[
+            {
+              title: t('pages.adminOnboardingReview.columns.leadCode', { defaultValue: 'Lead Code' }),
+              dataIndex: 'lead_code',
+              width: 180,
+            },
+            {
+              title: t('pages.adminOnboardingReview.columns.company', { defaultValue: 'Company' }),
+              dataIndex: 'company_name',
+            },
+            {
+              title: t('pages.adminOnboardingReview.columns.intentLevel', { defaultValue: 'Intent Level' }),
+              dataIndex: 'intent_level',
+              width: 140,
+              render: (value: number | null) => (value === null ? '-' : `H${value}`),
+            },
+            {
+              title: t('pages.adminOnboardingReview.columns.staleDays', { defaultValue: 'Idle Days' }),
+              dataIndex: 'staleDays',
+              width: 140,
+            },
+            {
+              title: t('pages.adminOnboardingReview.columns.actions', { defaultValue: 'Actions' }),
+              width: 220,
+              render: (_: unknown, row: LeadIntentDowngradeCandidate) => (
+                <Space>
+                  <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}`)}>
+                    {t('pages.adminOnboardingReview.openLead', { defaultValue: 'Open Lead' })}
+                  </Button>
+                  <Button size="small" onClick={() => void handleDowngradeLeadIntent(row)}>
+                    {t('pages.adminOnboardingReview.downgradeToLowIntent', { defaultValue: 'Downgrade to H3' })}
+                  </Button>
+                </Space>
+              ),
+            },
+          ]}
+        />
+      </Card>
 
       <Drawer
         title={

@@ -33,6 +33,7 @@ import {
 } from '../../../components/common/PageTitleBar'
 import {
   getSalesProductCategoryOptions,
+  SALES_PRODUCT_CATEGORY_OPTIONS,
 } from '../../../lib/business-constants'
 import {
   generateUuid,
@@ -77,8 +78,14 @@ interface ParsedTemplateResult {
 }
 
 const CATEGORY_DETECTORS: Array<{ category: SalesProductCategory; keywords: string[] }> = [
-  { category: 'TIRE', keywords: ['tire', 'tyre', '轮胎', '輪胎', 'ban'] },
   { category: 'ENGINE_OIL', keywords: ['oil', 'engine oil', '机油', '機油', 'oli'] },
+  { category: 'CHEMICAL', keywords: ['chemical', 'chemicals', 'additive', 'coolant', 'chem', '化学品', '化學品', '化工', 'kimia'] },
+  { category: 'TIRE', keywords: ['tire', 'tyre', '轮胎', '輪胎', 'ban'] },
+  { category: 'WIPER', keywords: ['wiper', '雨刮', '雨刷'] },
+  { category: 'THREE_FILTERS', keywords: ['filter', 'three filter', '三滤', '三濾', 'air filter', 'oil filter', 'ac filter'] },
+  { category: 'BATTERY', keywords: ['battery', 'accu', '电池', '電池'] },
+  { category: 'BRAKE_PAD', keywords: ['brake pad', 'brake', '刹车片', '煞車片'] },
+  { category: 'CAR_BEAUTY', keywords: ['detailing', 'car beauty', 'coating', '洗美', '美容', 'cuci', 'polish'] },
   { category: 'WINDOW_FILM', keywords: ['window film', 'film', '窗膜', 'kaca film'] },
   { category: 'BOSCH_ACCESSORY', keywords: ['bosch', 'accessory', '配件', 'aksesoris'] },
 ]
@@ -530,7 +537,7 @@ export function BdSalesCreatePage() {
   }
 
   async function handleSubmit(values: SalesFormValues) {
-    const allowedCategories: SalesProductCategory[] = ['TIRE', 'ENGINE_OIL', 'WINDOW_FILM', 'BOSCH_ACCESSORY']
+    const allowedCategories: SalesProductCategory[] = SALES_PRODUCT_CATEGORY_OPTIONS.map((item) => item.value)
     const validItems = items
       .map((item) => ({
         category:

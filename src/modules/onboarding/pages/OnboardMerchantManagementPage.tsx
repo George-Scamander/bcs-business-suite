@@ -90,6 +90,9 @@ export function OnboardMerchantManagementPage() {
   const [saving, setSaving] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingRow, setEditingRow] = useState<OnboardMerchant | null>(null)
+  const deleteRetentionHint = t('labels.autoDelete30DaysHint', {
+    defaultValue: 'Moved to Recently Deleted and auto-permanently deleted after 30 days.',
+  })
 
   const [keyword, setKeyword] = useState('')
   const [typeFilter, setTypeFilter] = useState<OnboardMerchantType>()
@@ -543,9 +546,9 @@ export function OnboardMerchantManagementPage() {
                 {canManage ? (
                   <Popconfirm
                     title={t('pages.onboardMerchant.deleteConfirmTitle', { defaultValue: 'Delete this onboard merchant?' })}
-                    description={t('pages.onboardMerchant.deleteConfirmDesc', {
+                    description={`${t('pages.onboardMerchant.deleteConfirmDesc', {
                       defaultValue: 'This merchant will be hidden from active list.',
-                    })}
+                    })} ${deleteRetentionHint}`}
                     okText={t('labels.delete', { defaultValue: 'Delete' })}
                     cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
                     onConfirm={() => void handleDelete(row)}

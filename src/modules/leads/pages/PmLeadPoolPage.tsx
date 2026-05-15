@@ -264,7 +264,12 @@ export function PmLeadPoolPage() {
             render: (value: string | null) => (value ? userNameById.get(value) ?? value : '-'),
           },
           { title: t('pages.pmLeadPool.columns.region', { defaultValue: 'Region' }), dataIndex: 'region', width: 140 },
-          { title: t('pages.pmLeadPool.columns.industry', { defaultValue: 'Industry' }), dataIndex: 'industry', width: 170 },
+          {
+            title: t('pages.pmLeadPool.columns.industry', { defaultValue: 'Industry' }),
+            dataIndex: 'industry',
+            width: 170,
+            responsive: ['md'],
+          },
           {
             title: t('pages.pmLeadPool.columns.status', { defaultValue: 'Status' }),
             dataIndex: 'status',

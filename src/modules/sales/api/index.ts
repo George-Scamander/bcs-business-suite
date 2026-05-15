@@ -52,6 +52,8 @@ export interface SalesOrderFilters {
   keyword?: string
   soldFrom?: string
   soldTo?: string
+  category?: SalesProductCategory
+  brandKeyword?: string
 }
 
 export interface UpdateSalesOrderInput {
@@ -96,6 +98,42 @@ function extractDatabaseError(error: unknown, fallback: string): Error {
 
 function normalizeCompanyName(value: string): string {
   return value.toLowerCase().replace(/[\s\p{P}_]+/gu, '').trim()
+}
+
+function normalizeBrandKeyword(value?: string): string | undefined {
+  const normalized = value?.trim()
+  return normalized ? normalized : undefined
+}
+
+async function resolveSalesOrderIdsByItemFilters(filters: SalesOrderFilters): Promise<string[] | null> {
+  const brandKeyword = normalizeBrandKeyword(filters.brandKeyword)
+  if (!filters.category && !brandKeyword) {
+    return null
+  }
+
+  let itemsQuery = supabase.from('sales_order_items').select('sales_order_id')
+
+  if (filters.category) {
+    itemsQuery = itemsQuery.eq('category', filters.category)
+  }
+
+  if (brandKeyword) {
+    itemsQuery = itemsQuery.ilike('product_name', `%${brandKeyword}%`)
+  }
+
+  const itemsResult = await itemsQuery
+  if (itemsResult.error) {
+    throw itemsResult.error
+  }
+
+  const ids = Array.from(
+    new Set(
+      (itemsResult.data ?? [])
+        .map((item) => String(item.sales_order_id ?? '').trim())
+        .filter(Boolean),
+    ),
+  )
+  return ids
 }
 
 function buildSpLeadCode(dateIso: string): string {
@@ -348,6 +386,11 @@ export async function createSalesOrderWithAutoLead(input: CreateSalesOrderInput)
 }
 
 export async function listSalesOrders(filters: SalesOrderFilters = {}): Promise<SalesOrderRow[]> {
+  const matchedOrderIds = await resolveSalesOrderIdsByItemFilters(filters)
+  if (matchedOrderIds && matchedOrderIds.length === 0) {
+    return []
+  }
+
   let query = supabase
     .from('sales_orders')
     .select(
@@ -374,6 +417,10 @@ export async function listSalesOrders(filters: SalesOrderFilters = {}): Promise<
 
   if (filters.soldTo) {
     query = query.lte('sold_at', filters.soldTo)
+  }
+
+  if (matchedOrderIds) {
+    query = query.in('id', matchedOrderIds)
   }
 
   const result = await query
@@ -404,6 +451,11 @@ export async function listSalesOrderTemplatesByOwner(ownerId: string): Promise<S
 }
 
 export async function listDeletedSalesOrders(filters: SalesOrderFilters = {}): Promise<SalesOrderRow[]> {
+  const matchedOrderIds = await resolveSalesOrderIdsByItemFilters(filters)
+  if (matchedOrderIds && matchedOrderIds.length === 0) {
+    return []
+  }
+
   let query = supabase
     .from('sales_orders')
     .select(
@@ -430,6 +482,10 @@ export async function listDeletedSalesOrders(filters: SalesOrderFilters = {}): P
 
   if (filters.soldTo) {
     query = query.lte('sold_at', filters.soldTo)
+  }
+
+  if (matchedOrderIds) {
+    query = query.in('id', matchedOrderIds)
   }
 
   const result = await query

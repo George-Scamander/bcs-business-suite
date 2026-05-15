@@ -15,14 +15,20 @@ export interface LeadAttachment {
 
 export interface LeadFilters {
   status?: LeadStatus
+  excludeSigned?: boolean
+  createdById?: string
   region?: string
   industry?: string
   assignedBdId?: string
   intentPackage?: IntentPackage
+  intentPackageGroup?: 'BCS_RELATED' | 'NON_BCS'
+  intentLevelMin?: number
+  intentLevelMax?: number
   followupDue?: boolean
   followupDueBefore?: string
   signedFrom?: string
   signedTo?: string
+  signedContractPackageGroup?: 'BCS_RELATED' | 'NON_BCS'
   createdFrom?: string
   createdTo?: string
   keyword?: string
@@ -73,6 +79,14 @@ export interface DuplicateLeadCompanyRow {
   company_name: string
 }
 
+export interface LeadIntentDowngradeCandidate
+  extends Pick<
+    Lead,
+    'id' | 'lead_code' | 'company_name' | 'intent_level' | 'status' | 'intent_package' | 'created_at' | 'last_followup_at' | 'updated_at'
+  > {
+  staleDays: number
+}
+
 function resolveLeadCodePrefixByIntentPackage(intentPackage: IntentPackage | null | undefined): 'LD' | 'SP' {
   return intentPackage === 'PRODUCTS_SALES' ? 'SP' : 'LD'
 }
@@ -95,7 +109,7 @@ function rewriteLeadCodePrefix(leadCode: string, prefix: 'LD' | 'SP'): string {
 export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
   let signedLeadIds: string[] | null = null
 
-  if (filters.signedFrom || filters.signedTo) {
+  if (filters.signedFrom || filters.signedTo || filters.signedContractPackageGroup) {
     let signedQuery = supabase.from('signed_records').select('lead_id')
 
     if (filters.signedFrom) {
@@ -104,6 +118,12 @@ export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
 
     if (filters.signedTo) {
       signedQuery = signedQuery.lte('created_at', filters.signedTo)
+    }
+
+    if (filters.signedContractPackageGroup === 'BCS_RELATED') {
+      signedQuery = signedQuery.or('contract_package.eq.BCS,contract_package.eq.BOTH')
+    } else if (filters.signedContractPackageGroup === 'NON_BCS') {
+      signedQuery = signedQuery.eq('contract_package', 'PRODUCTS_SALES')
     }
 
     const signedResult = await signedQuery
@@ -125,6 +145,14 @@ export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
     query = query.eq('status', filters.status)
   }
 
+  if (filters.excludeSigned) {
+    query = query.neq('status', 'SIGNED')
+  }
+
+  if (filters.createdById) {
+    query = query.eq('created_by', filters.createdById)
+  }
+
   if (filters.region) {
     query = query.ilike('region', `%${filters.region}%`)
   }
@@ -139,6 +167,20 @@ export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
 
   if (filters.intentPackage) {
     query = query.eq('intent_package', filters.intentPackage)
+  }
+
+  if (filters.intentPackageGroup === 'BCS_RELATED') {
+    query = query.or('intent_package.eq.BCS,intent_package.eq.BOTH')
+  } else if (filters.intentPackageGroup === 'NON_BCS') {
+    query = query.or('intent_package.eq.PRODUCTS_SALES,intent_package.is.null')
+  }
+
+  if (filters.intentLevelMin !== undefined) {
+    query = query.gte('intent_level', filters.intentLevelMin)
+  }
+
+  if (filters.intentLevelMax !== undefined) {
+    query = query.lte('intent_level', filters.intentLevelMax)
   }
 
   if (filters.followupDue) {
@@ -175,7 +217,7 @@ export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
 export async function listDeletedLeads(filters: LeadFilters = {}): Promise<Lead[]> {
   let signedLeadIds: string[] | null = null
 
-  if (filters.signedFrom || filters.signedTo) {
+  if (filters.signedFrom || filters.signedTo || filters.signedContractPackageGroup) {
     let signedQuery = supabase.from('signed_records').select('lead_id')
 
     if (filters.signedFrom) {
@@ -184,6 +226,12 @@ export async function listDeletedLeads(filters: LeadFilters = {}): Promise<Lead[
 
     if (filters.signedTo) {
       signedQuery = signedQuery.lte('created_at', filters.signedTo)
+    }
+
+    if (filters.signedContractPackageGroup === 'BCS_RELATED') {
+      signedQuery = signedQuery.or('contract_package.eq.BCS,contract_package.eq.BOTH')
+    } else if (filters.signedContractPackageGroup === 'NON_BCS') {
+      signedQuery = signedQuery.eq('contract_package', 'PRODUCTS_SALES')
     }
 
     const signedResult = await signedQuery
@@ -205,6 +253,14 @@ export async function listDeletedLeads(filters: LeadFilters = {}): Promise<Lead[
     query = query.eq('status', filters.status)
   }
 
+  if (filters.excludeSigned) {
+    query = query.neq('status', 'SIGNED')
+  }
+
+  if (filters.createdById) {
+    query = query.eq('created_by', filters.createdById)
+  }
+
   if (filters.region) {
     query = query.ilike('region', `%${filters.region}%`)
   }
@@ -219,6 +275,20 @@ export async function listDeletedLeads(filters: LeadFilters = {}): Promise<Lead[
 
   if (filters.intentPackage) {
     query = query.eq('intent_package', filters.intentPackage)
+  }
+
+  if (filters.intentPackageGroup === 'BCS_RELATED') {
+    query = query.or('intent_package.eq.BCS,intent_package.eq.BOTH')
+  } else if (filters.intentPackageGroup === 'NON_BCS') {
+    query = query.or('intent_package.eq.PRODUCTS_SALES,intent_package.is.null')
+  }
+
+  if (filters.intentLevelMin !== undefined) {
+    query = query.gte('intent_level', filters.intentLevelMin)
+  }
+
+  if (filters.intentLevelMax !== undefined) {
+    query = query.lte('intent_level', filters.intentLevelMax)
   }
 
   if (filters.followupDue) {
@@ -307,6 +377,80 @@ export async function findDuplicateLeadCompanies(companyName: string, excludeLea
   }
 
   return (result.data ?? []) as DuplicateLeadCompanyRow[]
+}
+
+export async function listHighIntentDowngradeCandidates(staleDays = 14): Promise<LeadIntentDowngradeCandidate[]> {
+  const now = Date.now()
+  const thresholdMs = now - staleDays * 24 * 60 * 60 * 1000
+
+  const result = await supabase
+    .from('leads')
+    .select('id, lead_code, company_name, intent_level, status, intent_package, created_at, last_followup_at, updated_at')
+    .is('deleted_at', null)
+    .gte('intent_level', 4)
+    .or('intent_package.eq.BCS,intent_package.eq.BOTH')
+    .neq('status', 'SIGNED')
+    .neq('status', 'LOST')
+    .neq('status', 'REJECTED')
+    .order('updated_at', { ascending: true })
+
+  if (result.error) {
+    throw result.error
+  }
+
+  const rows = (result.data ?? []) as Array<
+    Pick<
+      Lead,
+      'id' | 'lead_code' | 'company_name' | 'intent_level' | 'status' | 'intent_package' | 'created_at' | 'last_followup_at' | 'updated_at'
+    >
+  >
+
+  const candidates: LeadIntentDowngradeCandidate[] = []
+
+  for (const row of rows) {
+    const anchorIso = row.last_followup_at ?? row.created_at
+    const anchorMs = new Date(anchorIso).getTime()
+    if (!Number.isFinite(anchorMs) || anchorMs > thresholdMs) {
+      continue
+    }
+
+    const elapsedDays = Math.floor((now - anchorMs) / (24 * 60 * 60 * 1000))
+    candidates.push({
+      ...row,
+      staleDays: Math.max(elapsedDays, staleDays),
+    })
+  }
+
+  return candidates
+}
+
+export async function downgradeLeadIntentLevelByReview(leadId: string, targetLevel = 3): Promise<Lead> {
+  const safeTarget = Math.max(0, Math.min(3, Math.floor(targetLevel)))
+
+  const result = await supabase
+    .from('leads')
+    .update({
+      intent_level: safeTarget,
+    })
+    .eq('id', leadId)
+    .select('*')
+    .single<Lead>()
+
+  if (result.error) {
+    throw result.error
+  }
+
+  await recordOperationLog({
+    module: 'leads',
+    entityType: 'leads',
+    entityId: leadId,
+    action: 'review_downgrade_intent_level',
+    afterData: {
+      intent_level: safeTarget,
+    },
+  })
+
+  return result.data
 }
 
 export async function updateLead(input: UpdateLeadInput): Promise<Lead> {

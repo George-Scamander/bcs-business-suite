@@ -228,6 +228,9 @@ export function PmProjectsListPage() {
     () => getProjectStatusOptions(t).filter((item) => item.value !== 'COMPLETED' && item.value !== 'CLOSED'),
     [t],
   )
+  const deleteRetentionHint = t('labels.autoDelete30DaysHint', {
+    defaultValue: 'Moved to Recently Deleted and auto-permanently deleted after 30 days.',
+  })
 
   return (
     <>
@@ -244,9 +247,9 @@ export function PmProjectsListPage() {
             </Button>
             <Popconfirm
               title={t('pages.pmProjects.bulkDeleteConfirmTitle', { defaultValue: 'Delete selected projects?' })}
-              description={t('pages.pmProjects.bulkDeleteConfirmDesc', {
+              description={`${t('pages.pmProjects.bulkDeleteConfirmDesc', {
                 defaultValue: 'Selected projects will be moved to Recently Deleted.',
-              })}
+              })} ${deleteRetentionHint}`}
               okText={t('labels.delete', { defaultValue: 'Delete' })}
               cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
               onConfirm={() => void handleBatchDelete(selectedIds)}
@@ -257,9 +260,9 @@ export function PmProjectsListPage() {
             </Popconfirm>
             <Popconfirm
               title={t('pages.pmProjects.bulkDeleteAllConfirmTitle', { defaultValue: 'Delete all filtered projects?' })}
-              description={t('pages.pmProjects.bulkDeleteAllConfirmDesc', {
+              description={`${t('pages.pmProjects.bulkDeleteAllConfirmDesc', {
                 defaultValue: 'All currently filtered projects will be moved to Recently Deleted.',
-              })}
+              })} ${deleteRetentionHint}`}
               okText={t('labels.delete', { defaultValue: 'Delete' })}
               cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
               onConfirm={() => void handleBatchDelete(rows.map((item) => item.id))}
@@ -366,7 +369,9 @@ export function PmProjectsListPage() {
                 </Button>
                 <Popconfirm
                   title={t('pages.pmProjects.deleteConfirmTitle', { defaultValue: 'Delete this project?' })}
-                  description={t('pages.pmProjects.deleteConfirmDesc', { defaultValue: 'The project will be moved to Recently Deleted.' })}
+                  description={`${t('pages.pmProjects.deleteConfirmDesc', {
+                    defaultValue: 'The project will be moved to Recently Deleted.',
+                  })} ${deleteRetentionHint}`}
                   okText={t('labels.delete', { defaultValue: 'Delete' })}
                   cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
                   onConfirm={() => void handleDeleteProject(row.id)}

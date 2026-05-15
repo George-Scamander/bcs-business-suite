@@ -1,7 +1,7 @@
 import type { LocaleCode, RoleCode } from '../types/rbac'
 
 export const APP_NAME = 'BCS Business Suite'
-export const APP_VERSION = 'V1.1.2'
+export const APP_VERSION = 'V1.2.0'
 export const PRIVATE_BUCKET = 'private-documents'
 
 export const SUPPORTED_LOCALES: Array<{ code: LocaleCode; label: string }> = [
@@ -25,9 +25,9 @@ export const NAV_ITEMS_BY_ROLE: Record<RoleCode, Array<{ key: string; label: str
     { key: 'users-roles', label: 'Users & Roles', path: '/app/admin/users-roles' },
     { key: 'lead-pool', label: 'Lead Pool', path: '/app/admin/leads/pool' },
     { key: 'admin-onboard-merchants', label: 'Onboard Merchants', path: '/app/admin/onboarding/merchants' },
-    { key: 'onboarding-review', label: 'Onboarding Review', path: '/app/admin/onboarding/review-center' },
+    { key: 'onboarding-review', label: 'Review Center', path: '/app/admin/onboarding/review-center' },
     { key: 'project-overview', label: 'Project Overview', path: '/app/admin/projects/overview' },
-    { key: 'sales-supervision', label: 'Sales Supervision', path: '/app/admin/sales/supervision' },
+    { key: 'sales-supervision', label: 'Sales Management', path: '/app/admin/sales/supervision' },
     { key: 'bd-kpi-dashboard', label: 'BD KPI Dashboard', path: '/app/admin/kpi/dashboard' },
     { key: 'recently-deleted', label: 'Recently Deleted', path: '/app/recently-deleted' },
     { key: 'report-export', label: 'Report Export', path: '/app/admin/reports/export' },
@@ -53,7 +53,7 @@ export const NAV_ITEMS_BY_ROLE: Record<RoleCode, Array<{ key: string; label: str
     { key: 'pm-lead-pool', label: 'Lead Pool', path: '/app/bd/leads' },
     { key: 'pm-projects', label: 'Projects', path: '/app/pm/projects' },
     { key: 'pm-onboard-merchants', label: 'Onboard Merchants', path: '/app/pm/onboarding/merchants' },
-    { key: 'sales-supervision', label: 'Sales Supervision', path: '/app/pm/sales/supervision' },
+    { key: 'sales-supervision', label: 'Sales Management', path: '/app/pm/sales/supervision' },
     { key: 'bd-kpi-dashboard', label: 'BD KPI Dashboard', path: '/app/pm/kpi/dashboard' },
     { key: 'pm-new-project', label: 'Create Project', path: '/app/pm/projects/new' },
     { key: 'recently-deleted', label: 'Recently Deleted', path: '/app/recently-deleted' },

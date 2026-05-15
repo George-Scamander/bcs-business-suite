@@ -89,6 +89,9 @@ export function LeadDetailPage() {
   const [onboardingCase, setOnboardingCase] = useState<OnboardingCase | null>(null)
   const [project, setProject] = useState<Project | null>(null)
   const [teamAttentionNote, setTeamAttentionNote] = useState('')
+  const deleteRetentionHint = t('labels.autoDelete30DaysHint', {
+    defaultValue: 'Moved to Recently Deleted and auto-permanently deleted after 30 days.',
+  })
   const [savingNote, setSavingNote] = useState(false)
 
   const canEditAttentionNote = roles.includes('super_admin')
@@ -253,7 +256,9 @@ export function LeadDetailPage() {
             {lead ? (
               <Popconfirm
                 title={t('pages.leadDetail.deleteConfirmTitle', { defaultValue: 'Delete this lead?' })}
-                description={t('pages.leadDetail.deleteConfirmDesc', { defaultValue: 'The lead will be moved to Recently Deleted.' })}
+                description={`${t('pages.leadDetail.deleteConfirmDesc', {
+                  defaultValue: 'The lead will be moved to Recently Deleted.',
+                })} ${deleteRetentionHint}`}
                 okText={t('labels.delete', { defaultValue: 'Delete' })}
                 cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
                 onConfirm={() => void handleDeleteLead()}

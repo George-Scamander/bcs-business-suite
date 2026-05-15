@@ -194,7 +194,7 @@ export function BdLeadsListPage() {
 
   const canAssign = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_ASSIGN)
   const canFilterByBd = roles.includes('super_admin') || roles.includes('project_manager')
-  const shouldScopeToOwner = !canFilterByBd
+  const shouldScopeToCreator = roles.includes('bd_user') && !roles.includes('super_admin') && !roles.includes('project_manager')
   const canImport = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_IMPORT)
   const canCreateLead = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_WRITE)
   const leadStatusOptions = useMemo(
@@ -202,6 +202,9 @@ export function BdLeadsListPage() {
     [t],
   )
   const intentPackageOptions = useMemo(() => getIntentPackageOptions(t), [t])
+  const deleteRetentionHint = t('labels.autoDelete30DaysHint', {
+    defaultValue: 'Moved to Recently Deleted and auto-permanently deleted after 30 days.',
+  })
 
   const loadRows = useCallback(async () => {
     if (!user) {
@@ -214,7 +217,8 @@ export function BdLeadsListPage() {
       const result = await listLeads({
         ...filters,
         keyword: keyword.trim() || undefined,
-        assignedBdId: shouldScopeToOwner ? user.id : filters.assignedBdId,
+        assignedBdId: shouldScopeToCreator ? undefined : filters.assignedBdId,
+        createdById: shouldScopeToCreator ? user.id : undefined,
       })
 
       setRows(result)
@@ -225,7 +229,7 @@ export function BdLeadsListPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters, keyword, shouldScopeToOwner, t, user])
+  }, [filters, keyword, shouldScopeToCreator, t, user])
 
   const loadUsers = useCallback(async () => {
     if (!canAssign && !canFilterByBd) {
@@ -406,9 +410,9 @@ export function BdLeadsListPage() {
             </Button>
             <Popconfirm
               title={t('pages.bdLeads.bulkDeleteConfirmTitle', { defaultValue: 'Delete selected leads?' })}
-              description={t('pages.bdLeads.bulkDeleteConfirmDesc', {
+              description={`${t('pages.bdLeads.bulkDeleteConfirmDesc', {
                 defaultValue: 'Selected leads will be moved to Recently Deleted.',
-              })}
+              })} ${deleteRetentionHint}`}
               okText={t('labels.delete', { defaultValue: 'Delete' })}
               cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
               onConfirm={() => void handleBatchDelete(selectedIds)}
@@ -419,9 +423,9 @@ export function BdLeadsListPage() {
             </Popconfirm>
             <Popconfirm
               title={t('pages.bdLeads.bulkDeleteAllConfirmTitle', { defaultValue: 'Delete all filtered leads?' })}
-              description={t('pages.bdLeads.bulkDeleteAllConfirmDesc', {
+              description={`${t('pages.bdLeads.bulkDeleteAllConfirmDesc', {
                 defaultValue: 'All currently filtered leads will be moved to Recently Deleted.',
-              })}
+              })} ${deleteRetentionHint}`}
               okText={t('labels.delete', { defaultValue: 'Delete' })}
               cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
               onConfirm={() => void handleBatchDelete(rows.map((item) => item.id))}
@@ -631,7 +635,9 @@ export function BdLeadsListPage() {
                 ) : null}
                 <Popconfirm
                   title={t('pages.bdLeads.deleteConfirmTitle', { defaultValue: 'Delete this lead?' })}
-                  description={t('pages.bdLeads.deleteConfirmDesc', { defaultValue: 'The lead will be moved to Recently Deleted.' })}
+                  description={`${t('pages.bdLeads.deleteConfirmDesc', {
+                    defaultValue: 'The lead will be moved to Recently Deleted.',
+                  })} ${deleteRetentionHint}`}
                   okText={t('labels.delete', { defaultValue: 'Delete' })}
                   cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
                   onConfirm={() => void handleDeleteLead(row.id)}

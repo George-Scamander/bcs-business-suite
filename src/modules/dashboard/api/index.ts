@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase/client'
+import { SALES_PRODUCT_CATEGORY_OPTIONS } from '../../../lib/business-constants'
 import type { SalesProductCategory } from '../../../types/business'
 
 export interface AdminDashboardMetrics {
@@ -8,6 +9,15 @@ export interface AdminDashboardMetrics {
   totalProjects: number
   delayedProjects: number
   activeUsers: number
+}
+
+export interface AdminLeadBoardMetrics {
+  totalLeads: number
+  todayNewLeads: number
+  bcsLeads: number
+  nonBcsLeads: number
+  highIntentLeads: number
+  bcsSignedLeads: number
 }
 
 export interface BdDashboardMetrics {
@@ -37,6 +47,19 @@ interface DateRangeFilter {
   column: string
   from?: string
   to?: string
+}
+
+function getTodayDateRange(): { from: string; to: string } {
+  const now = new Date()
+  const startOfToday = new Date(now)
+  startOfToday.setHours(0, 0, 0, 0)
+  const endOfToday = new Date(now)
+  endOfToday.setHours(23, 59, 59, 999)
+
+  return {
+    from: startOfToday.toISOString(),
+    to: endOfToday.toISOString(),
+  }
 }
 
 function getAdminPeriodDateRange(period: AdminDashboardPeriod): { from: string; to: string } {
@@ -99,7 +122,10 @@ export async function getAdminDashboardMetrics(period?: AdminDashboardPeriod): P
     delayedProjects,
     activeUsers,
   ] = await Promise.all([
-    count('leads', [{ column: 'deleted_at', value: null, op: 'is' }], periodRange ? { column: 'created_at', ...periodRange } : undefined),
+    count('leads', [
+      { column: 'deleted_at', value: null, op: 'is' },
+      { column: 'status', value: 'SIGNED', op: 'neq' },
+    ], periodRange ? { column: 'created_at', ...periodRange } : undefined),
     count('leads', [
       { column: 'deleted_at', value: null, op: 'is' },
       { column: 'status', value: 'SIGNED' },
@@ -130,6 +156,59 @@ export async function getAdminDashboardMetrics(period?: AdminDashboardPeriod): P
     totalProjects,
     delayedProjects,
     activeUsers,
+  }
+}
+
+export async function getAdminLeadBoardMetrics(): Promise<AdminLeadBoardMetrics> {
+  const todayRange = getTodayDateRange()
+
+  const [totalLeadsResult, todayNewLeadsResult, bcsLeadsResult, nonBcsLeadsResult, highIntentLeadsResult, bcsSignedRowsResult] = await Promise.all([
+    supabase.from('leads').select('*', { count: 'exact', head: true }).is('deleted_at', null).neq('status', 'SIGNED'),
+    supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .is('deleted_at', null)
+      .gte('created_at', todayRange.from)
+      .lte('created_at', todayRange.to),
+    supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .is('deleted_at', null)
+      .or('intent_package.eq.BCS,intent_package.eq.BOTH'),
+    supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .is('deleted_at', null)
+      .or('intent_package.eq.PRODUCTS_SALES,intent_package.is.null'),
+    supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .is('deleted_at', null)
+      .neq('status', 'SIGNED')
+      .gte('intent_level', 4)
+      .or('intent_package.eq.BCS,intent_package.eq.BOTH'),
+    supabase
+      .from('signed_records')
+      .select('lead_id, leads!inner(id, deleted_at)')
+      .or('contract_package.eq.BCS,contract_package.eq.BOTH')
+      .is('leads.deleted_at', null),
+  ])
+
+  for (const result of [totalLeadsResult, todayNewLeadsResult, bcsLeadsResult, nonBcsLeadsResult, highIntentLeadsResult, bcsSignedRowsResult]) {
+    if (result.error) {
+      throw result.error
+    }
+  }
+
+  const bcsSignedLeadIds = new Set((bcsSignedRowsResult.data ?? []).map((row) => row.lead_id).filter(Boolean))
+
+  return {
+    totalLeads: totalLeadsResult.count ?? 0,
+    todayNewLeads: todayNewLeadsResult.count ?? 0,
+    bcsLeads: bcsLeadsResult.count ?? 0,
+    nonBcsLeads: nonBcsLeadsResult.count ?? 0,
+    highIntentLeads: highIntentLeadsResult.count ?? 0,
+    bcsSignedLeads: bcsSignedLeadIds.size,
   }
 }
 
@@ -238,7 +317,7 @@ export async function getAdminSalesCategoryMetrics(): Promise<AdminSalesCategory
     throw result.error
   }
 
-  const categories: SalesProductCategory[] = ['TIRE', 'ENGINE_OIL', 'WINDOW_FILM', 'BOSCH_ACCESSORY']
+  const categories: SalesProductCategory[] = SALES_PRODUCT_CATEGORY_OPTIONS.map((item) => item.value)
   const aggregate = new Map<SalesProductCategory, AdminSalesCategoryMetrics>(
     categories.map((category) => [
       category,
