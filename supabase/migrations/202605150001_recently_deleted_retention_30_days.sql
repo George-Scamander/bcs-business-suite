@@ -41,7 +41,7 @@ $$;
 
 grant execute on function public.cleanup_expired_recently_deleted(integer) to authenticated;
 
-do $$
+do $outer$
 begin
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
     perform cron.unschedule(jobid)
@@ -51,8 +51,8 @@ begin
     perform cron.schedule(
       'cleanup_expired_recently_deleted_30d',
       '13 2 * * *',
-      $$select public.cleanup_expired_recently_deleted(30);$$
+      'select public.cleanup_expired_recently_deleted(30);'
     );
   end if;
 end;
-$$;
+$outer$;

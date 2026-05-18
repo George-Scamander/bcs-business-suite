@@ -11,15 +11,21 @@ export interface BdKpiRow {
   bdName: string
   bdEmail: string
   salesAmount: number
-  salesLeadCount: number
+  tireSalesQuantity: number
+  accessorySalesAmount: number
+  salesRecordCount: number
   bcsSignedCount: number
+  isBcsTargetExempt: boolean
 }
 
 export interface TeamKpiSummary {
   bdCount: number
   salesAmount: number
-  salesLeadCount: number
+  tireSalesQuantity: number
+  accessorySalesAmount: number
+  salesRecordCount: number
   bcsSignedCount: number
+  exemptBdCount: number
 }
 
 interface ProfileRow {
@@ -28,10 +34,15 @@ interface ProfileRow {
   full_name: string | null
 }
 
-interface LeadKpiRow {
-  assigned_bd_id: string | null
-  estimated_value: number | null
-  intent_package: string | null
+interface SalesOrderItemKpiRow {
+  category: string | null
+  quantity: number | null
+  unit_price: number | null
+}
+
+interface SalesOrderKpiRow {
+  bd_user_id: string | null
+  items: SalesOrderItemKpiRow[] | null
 }
 
 interface MerchantKpiRow {
@@ -43,11 +54,15 @@ interface BdAggregateRow {
   bdName: string
   bdEmail: string
   salesAmount: number
-  salesLeadCount: number
+  tireSalesQuantity: number
+  accessorySalesAmount: number
+  salesRecordCount: number
   bcsSignedCount: number
+  isBcsTargetExempt: boolean
 }
 
 export async function queryBdKpiSummary(filters: BdKpiFilters = {}): Promise<{ rows: BdKpiRow[]; team: TeamKpiSummary }> {
+  const BCS_EXEMPTION_THRESHOLD = 5_000_000
   const keyword = filters.keyword?.trim().toLowerCase() ?? ''
 
   const profileResult = await supabase
@@ -81,38 +96,36 @@ export async function queryBdKpiSummary(filters: BdKpiFilters = {}): Promise<{ r
         bdName: profile.full_name ?? profile.email,
         bdEmail: profile.email,
         salesAmount: 0,
-        salesLeadCount: 0,
+        tireSalesQuantity: 0,
+        accessorySalesAmount: 0,
+        salesRecordCount: 0,
         bcsSignedCount: 0,
+        isBcsTargetExempt: false,
       },
     ]),
   )
 
-  let leadsQuery = supabase
-    .from('leads')
-    .select('assigned_bd_id, estimated_value, intent_package')
+  let salesQuery = supabase
+    .from('sales_orders')
+    .select('bd_user_id, items:sales_order_items(category, quantity, unit_price)')
     .is('deleted_at', null)
 
   if (filters.dateFrom) {
-    leadsQuery = leadsQuery.gte('created_at', filters.dateFrom)
+    salesQuery = salesQuery.gte('sold_at', filters.dateFrom)
   }
   if (filters.dateTo) {
-    leadsQuery = leadsQuery.lte('created_at', filters.dateTo)
+    salesQuery = salesQuery.lte('sold_at', filters.dateTo)
   }
 
-  const leadsResult = await leadsQuery
-  if (leadsResult.error) {
-    throw leadsResult.error
+  const salesResult = await salesQuery
+  if (salesResult.error) {
+    throw salesResult.error
   }
 
-  const leadsRows = (leadsResult.data ?? []) as LeadKpiRow[]
-  for (const row of leadsRows) {
-    const bdUserId = row.assigned_bd_id
+  const salesRows = (salesResult.data ?? []) as SalesOrderKpiRow[]
+  for (const row of salesRows) {
+    const bdUserId = row.bd_user_id
     if (!bdUserId) {
-      continue
-    }
-
-    const intentPackage = row.intent_package
-    if (intentPackage !== 'PRODUCTS_SALES' && intentPackage !== 'BOTH') {
       continue
     }
 
@@ -121,11 +134,29 @@ export async function queryBdKpiSummary(filters: BdKpiFilters = {}): Promise<{ r
       continue
     }
 
-    const salesLeadAmount = Number(row.estimated_value ?? 0)
-    if (salesLeadAmount > 0) {
-      targetRow.salesAmount += salesLeadAmount
+    targetRow.salesRecordCount += 1
+
+    for (const item of row.items ?? []) {
+      const unitPrice = Number(item.unit_price ?? 0)
+      const quantity = Math.max(0, Number(item.quantity ?? 0))
+      const amount = unitPrice > 0 && quantity > 0 ? unitPrice * quantity : 0
+
+      if (item.category === 'TIRE') {
+        targetRow.tireSalesQuantity += quantity
+      } else {
+        if (amount > 0) {
+          targetRow.accessorySalesAmount += amount
+        }
+      }
+
+      if (amount > 0) {
+        targetRow.salesAmount += amount
+      }
     }
-    targetRow.salesLeadCount += 1
+  }
+
+  for (const aggregateRow of aggregateByBdId.values()) {
+    aggregateRow.isBcsTargetExempt = aggregateRow.salesAmount > BCS_EXEMPTION_THRESHOLD
   }
 
   let merchantQuery = supabase
@@ -177,14 +208,20 @@ export async function queryBdKpiSummary(filters: BdKpiFilters = {}): Promise<{ r
     .sort((a, b) => b.salesAmount + b.bcsSignedCount - (a.salesAmount + a.bcsSignedCount))
 
   const teamSalesAmount = rows.reduce((sum, row) => sum + row.salesAmount, 0)
-  const teamSalesLeadCount = rows.reduce((sum, row) => sum + row.salesLeadCount, 0)
+  const teamTireSalesQuantity = rows.reduce((sum, row) => sum + row.tireSalesQuantity, 0)
+  const teamAccessorySalesAmount = rows.reduce((sum, row) => sum + row.accessorySalesAmount, 0)
+  const teamSalesRecordCount = rows.reduce((sum, row) => sum + row.salesRecordCount, 0)
   const teamBcsSignedCount = rows.reduce((sum, row) => sum + row.bcsSignedCount, 0)
+  const teamExemptBdCount = rows.reduce((sum, row) => sum + (row.isBcsTargetExempt ? 1 : 0), 0)
 
   const team: TeamKpiSummary = {
     bdCount: rows.length,
     salesAmount: teamSalesAmount,
-    salesLeadCount: teamSalesLeadCount,
+    tireSalesQuantity: teamTireSalesQuantity,
+    accessorySalesAmount: teamAccessorySalesAmount,
+    salesRecordCount: teamSalesRecordCount,
     bcsSignedCount: teamBcsSignedCount,
+    exemptBdCount: teamExemptBdCount,
   }
 
   return { rows, team }

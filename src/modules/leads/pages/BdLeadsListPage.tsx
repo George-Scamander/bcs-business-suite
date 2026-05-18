@@ -194,7 +194,7 @@ export function BdLeadsListPage() {
 
   const canAssign = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_ASSIGN)
   const canFilterByBd = roles.includes('super_admin') || roles.includes('project_manager')
-  const shouldScopeToCreator = roles.includes('bd_user') && !roles.includes('super_admin') && !roles.includes('project_manager')
+  const shouldScopeToMyLeads = roles.includes('bd_user') && !roles.includes('super_admin') && !roles.includes('project_manager')
   const canImport = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_IMPORT)
   const canCreateLead = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_WRITE)
   const leadStatusOptions = useMemo(
@@ -217,11 +217,15 @@ export function BdLeadsListPage() {
       const result = await listLeads({
         ...filters,
         keyword: keyword.trim() || undefined,
-        assignedBdId: shouldScopeToCreator ? undefined : filters.assignedBdId,
-        createdById: shouldScopeToCreator ? user.id : undefined,
+        assignedBdId: shouldScopeToMyLeads ? undefined : filters.assignedBdId,
+        createdById: undefined,
       })
 
-      setRows(result)
+      const scopedRows = shouldScopeToMyLeads
+        ? result.filter((item) => item.assigned_bd_id === user.id || item.created_by === user.id)
+        : result
+
+      setRows(scopedRows)
       setSelectedIds([])
     } catch (error) {
       const text = error instanceof Error ? error.message : t('pages.bdLeads.loadFail', { defaultValue: 'Failed to load leads' })
@@ -229,7 +233,7 @@ export function BdLeadsListPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters, keyword, shouldScopeToCreator, t, user])
+  }, [filters, keyword, shouldScopeToMyLeads, t, user])
 
   const loadUsers = useCallback(async () => {
     if (!canAssign && !canFilterByBd) {
@@ -398,9 +402,9 @@ export function BdLeadsListPage() {
   return (
     <>
       <PageTitleBar
-        title={t('pages.bdLeads.title', { defaultValue: 'Lead List' })}
+        title={t('pages.bdLeads.title', { defaultValue: 'My Leads' })}
         description={t('pages.bdLeads.description', {
-          defaultValue: 'Manage BD opportunities, keep follow-up discipline, and move leads through the conversion pipeline.',
+          defaultValue: 'Manage only your own leads (created by you or assigned to you).',
         })}
         extra={
           <Space>

@@ -55,6 +55,7 @@ export function NotificationsPage() {
     }
 
     setItems((current) => current.map((item) => (item.id === notificationId ? { ...item, is_read: true } : item)))
+    window.dispatchEvent(new Event('notifications:changed'))
   }
 
   useEffect(() => {
@@ -101,7 +102,7 @@ export function NotificationsPage() {
                 }
                 description={
                   <>
-                    <Typography.Paragraph className="mb-1">{item.body}</Typography.Paragraph>
+                    <Typography.Paragraph className="mb-1 whitespace-pre-line">{item.body}</Typography.Paragraph>
                     <Typography.Text type="secondary">
                       {new Date(item.created_at).toLocaleString()}
                     </Typography.Text>

@@ -18,6 +18,10 @@ export interface CreateSalesOrderInput {
   items: CreateSalesOrderItemInput[]
 }
 
+export interface CreateSalesOrderWithAssignedBdInput extends CreateSalesOrderInput {
+  bd_user_id: string
+}
+
 export interface CreateSalesOrderResult {
   order_id: string
   order_no: string
@@ -373,6 +377,9 @@ export async function createSalesOrderWithAutoLead(input: CreateSalesOrderInput)
     if (rpcError.code === '42883' || rpcError.code === 'PGRST202' || rpcError.code === '42702') {
       return createSalesOrderWithAutoLeadFallback(input)
     }
+    if ((rpcError.message ?? '').toLowerCase().includes('unsupported sales category')) {
+      return createSalesOrderWithAutoLeadFallback(input)
+    }
 
     throw extractDatabaseError(result.error, 'Failed to create sales order')
   }
@@ -383,6 +390,94 @@ export async function createSalesOrderWithAutoLead(input: CreateSalesOrderInput)
   }
 
   return row as CreateSalesOrderResult
+}
+
+export async function createSalesOrderWithAutoLeadAndAssignBd(
+  input: CreateSalesOrderWithAssignedBdInput,
+): Promise<CreateSalesOrderResult> {
+  const targetBdUserId = input.bd_user_id.trim()
+  if (!targetBdUserId) {
+    throw new Error('BD owner is required')
+  }
+
+  const actorUserId = await getCurrentUserId()
+  const orderInput: CreateSalesOrderInput = {
+    company_name: input.company_name,
+    sold_at: input.sold_at,
+    note: input.note,
+    onboard_merchant_id: input.onboard_merchant_id,
+    items: input.items,
+  }
+  const result = await createSalesOrderWithAutoLead(orderInput)
+  const nowIso = new Date().toISOString()
+
+  const orderOwnerUpdateResult = await supabase
+    .from('sales_orders')
+    .update({
+      bd_user_id: targetBdUserId,
+      updated_by: actorUserId,
+      updated_at: nowIso,
+    })
+    .eq('id', result.order_id)
+
+  if (orderOwnerUpdateResult.error) {
+    throw extractDatabaseError(orderOwnerUpdateResult.error, 'Failed to assign BD owner to sales order')
+  }
+
+  if (result.lead_id) {
+    const leadResult = await supabase
+      .from('leads')
+      .select('assigned_bd_id')
+      .eq('id', result.lead_id)
+      .maybeSingle<{ assigned_bd_id: string | null }>()
+
+    if (leadResult.error) {
+      throw extractDatabaseError(leadResult.error, 'Failed to load linked lead owner')
+    }
+
+    const previousAssignedBdId = leadResult.data?.assigned_bd_id ?? null
+    const leadOwnerUpdateResult = await supabase
+      .from('leads')
+      .update({
+        assigned_bd_id: targetBdUserId,
+        updated_by: actorUserId,
+        updated_at: nowIso,
+      })
+      .eq('id', result.lead_id)
+      .is('deleted_at', null)
+
+    if (leadOwnerUpdateResult.error) {
+      throw extractDatabaseError(leadOwnerUpdateResult.error, 'Failed to assign BD owner to linked lead')
+    }
+
+    if (previousAssignedBdId !== targetBdUserId) {
+      const assignmentLogResult = await supabase.from('lead_assignment_logs').insert({
+        lead_id: result.lead_id,
+        from_user_id: previousAssignedBdId,
+        to_user_id: targetBdUserId,
+        action: 'TRANSFER',
+        reason: 'sales_supervision_create_assign_bd',
+      })
+
+      if (assignmentLogResult.error && !['42501'].includes(assignmentLogResult.error.code ?? '')) {
+        throw extractDatabaseError(assignmentLogResult.error, 'Failed to write lead assignment log')
+      }
+    }
+  }
+
+  await recordOperationLog({
+    module: 'sales',
+    entityType: 'sales_orders',
+    entityId: result.order_id,
+    action: 'create_sales_order_and_assign_bd',
+    afterData: {
+      lead_id: result.lead_id,
+      lead_code: result.lead_code,
+      target_bd_user_id: targetBdUserId,
+    },
+  })
+
+  return result
 }
 
 export async function listSalesOrders(filters: SalesOrderFilters = {}): Promise<SalesOrderRow[]> {

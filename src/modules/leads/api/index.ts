@@ -34,6 +34,42 @@ export interface LeadFilters {
   keyword?: string
 }
 
+export interface DepartmentLeadFilters {
+  status?: LeadStatus
+  region?: string
+  industry?: string
+  intentPackage?: IntentPackage
+  createdFrom?: string
+  createdTo?: string
+  keyword?: string
+}
+
+export interface DepartmentLeadRow {
+  id: string
+  lead_code: string
+  company_name: string
+  status: LeadStatus
+  contact_person: string | null
+  contact_phone: string | null
+  contact_email: string | null
+  industry: string | null
+  region: string | null
+  city: string | null
+  address: string | null
+  source: string | null
+  intent_package: IntentPackage | null
+  intent_level: number | null
+  assigned_bd_id: string | null
+  assigned_bd_name: string | null
+  assigned_bd_email: string | null
+  created_by: string | null
+  created_by_name: string | null
+  created_by_email: string | null
+  next_followup_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface CreateLeadInput {
   id?: string
   lead_code?: string
@@ -212,6 +248,38 @@ export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
   }
 
   return (result.data ?? []) as Lead[]
+}
+
+export async function listDepartmentLeads(filters: DepartmentLeadFilters = {}): Promise<DepartmentLeadRow[]> {
+  const result = await supabase
+    .rpc('list_department_leads_for_bd', {
+      p_keyword: filters.keyword?.trim() || null,
+      p_status: filters.status ?? null,
+      p_region: filters.region?.trim() || null,
+      p_industry: filters.industry?.trim() || null,
+      p_intent_package: filters.intentPackage ?? null,
+      p_created_from: filters.createdFrom ?? null,
+      p_created_to: filters.createdTo ?? null,
+    })
+    .returns<DepartmentLeadRow[]>()
+
+  if (!result.error) {
+    return Array.isArray(result.data) ? (result.data as DepartmentLeadRow[]) : []
+  }
+
+  const rpcErrorCode = typeof result.error.code === 'string' ? result.error.code : ''
+  const rpcErrorMessage = typeof result.error.message === 'string' ? result.error.message : ''
+  const rpcErrorDetails = typeof result.error.details === 'string' ? result.error.details : ''
+  const rpcMissing =
+    rpcErrorCode === 'PGRST202'
+    || rpcErrorCode === '42883'
+    || rpcErrorMessage.includes('list_department_leads_for_bd')
+    || rpcErrorDetails.includes('list_department_leads_for_bd')
+
+  if (!rpcMissing) {
+    throw result.error
+  }
+  throw new Error('Department leads view is unavailable: required database function list_department_leads_for_bd is not installed.')
 }
 
 export async function listDeletedLeads(filters: LeadFilters = {}): Promise<Lead[]> {

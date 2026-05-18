@@ -25,6 +25,7 @@ import { ProfileSettingsPage } from '../modules/shared/pages/ProfileSettingsPage
 import { RecentlyDeletedPage } from '../modules/shared/pages/RecentlyDeletedPage'
 import { UnauthorizedPage } from '../modules/shared/pages/UnauthorizedPage'
 import { BdLeadsListPage } from '../modules/leads/pages/BdLeadsListPage'
+import { BdDepartmentLeadsPage } from '../modules/leads/pages/BdDepartmentLeadsPage'
 import { LeadFormPage } from '../modules/leads/pages/LeadFormPage'
 import { LeadDetailPage } from '../modules/leads/pages/LeadDetailPage'
 import { LeadFollowupTimelinePage } from '../modules/leads/pages/LeadFollowupTimelinePage'
@@ -247,6 +248,14 @@ export default function App() {
               }
             />
             <Route
+              path="bd/leads/department"
+              element={
+                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                  <BdDepartmentLeadsPage />
+                </RoleGuard>
+              }
+            />
+            <Route
               path="bd/leads/new"
               element={
                 <RoleGuard allowRoles={['bd_user', 'project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
@@ -438,6 +447,14 @@ export default function App() {
                   requiredPermissions={[PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_WRITE, PERMISSIONS.LEADS_IMPORT]}
                 >
                   <PmLeadImportPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="pm/reports/export"
+              element={
+                <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.REPORTS_EXPORT]}>
+                  <AdminReportExportPage />
                 </RoleGuard>
               }
             />

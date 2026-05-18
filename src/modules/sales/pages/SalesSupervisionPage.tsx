@@ -40,6 +40,9 @@ import {
   getSalesProductCategoryOptions,
 } from '../../../lib/business-constants'
 import {
+  supabase,
+} from '../../../lib/supabase/client'
+import {
   generateUuid,
 } from '../../../lib/uuid'
 import {
@@ -50,6 +53,7 @@ import {
   type UserOption,
 } from '../../shared/api/users'
 import {
+  createSalesOrderWithAutoLeadAndAssignBd,
   listSalesOrders,
   softDeleteSalesOrder,
   updateSalesOrder,
@@ -83,6 +87,18 @@ interface EditSalesFormValues {
   note?: string
 }
 
+interface CreateSalesFormValues {
+  bd_user_id: string
+  company_name: string
+  sold_at: dayjs.Dayjs
+  note?: string
+}
+
+interface RoleMappingRow {
+  user_id: string
+  role: { code: string } | Array<{ code: string }> | null
+}
+
 const BRAND_FILTER_OPTIONS = [
   'Bosch',
   'X-owl',
@@ -92,6 +108,18 @@ const BRAND_FILTER_OPTIONS = [
   label: brand,
   value: brand,
 }))
+
+function extractRoleCode(role: RoleMappingRow['role']): string | null {
+  if (!role) {
+    return null
+  }
+
+  if (Array.isArray(role)) {
+    return role[0]?.code ?? null
+  }
+
+  return role.code
+}
 
 function newDraftItem(): DraftSalesItem {
   return {
@@ -117,13 +145,17 @@ function mapItemsForDraft(items: SalesOrderItem[] | undefined): DraftSalesItem[]
 export function SalesSupervisionPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [createForm] = Form.useForm<CreateSalesFormValues>()
   const [editForm] = Form.useForm<EditSalesFormValues>()
   const { roles } = useAuth()
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<SalesOrderRow[]>([])
-  const [users, setUsers] = useState<UserOption[]>([])
+  const [bdUsers, setBdUsers] = useState<UserOption[]>([])
   const [keyword, setKeyword] = useState('')
   const [filters, setFilters] = useState<SupervisionFilters>({})
+  const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [createSaving, setCreateSaving] = useState(false)
+  const [createItems, setCreateItems] = useState<DraftSalesItem[]>([newDraftItem()])
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingRow, setEditingRow] = useState<SalesOrderRow | null>(null)
   const [editSaving, setEditSaving] = useState(false)
@@ -139,12 +171,15 @@ export function SalesSupervisionPage() {
   }, [t])
   const categoryOptions = useMemo(() => getSalesProductCategoryOptions(t), [t])
 
-  const isAdmin = roles.includes('super_admin')
+  const isSuperAdmin = roles.includes('super_admin')
+  const isProjectManager = roles.includes('project_manager')
+  const canFilterByBd = isSuperAdmin || isProjectManager
+  const canCreateSalesLead = isSuperAdmin || isProjectManager
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [orderRows, userRows] = await Promise.all([
+      const [orderRows, userRows, roleMappingsResult] = await Promise.all([
         listSalesOrders({
           keyword: keyword.trim() || undefined,
           bdUserId: filters.bdUserId,
@@ -154,9 +189,23 @@ export function SalesSupervisionPage() {
           brandKeyword: filters.brandKeyword,
         }),
         listActiveUsers(),
+        supabase
+          .from('user_role_relations')
+          .select('user_id, role:roles(code)')
+          .returns<RoleMappingRow[]>(),
       ])
       setRows(orderRows)
-      setUsers(userRows)
+      if (roleMappingsResult.error) {
+        setBdUsers(userRows)
+      } else {
+        const bdUserIds = new Set(
+          (roleMappingsResult.data ?? [])
+            .filter((row) => extractRoleCode(row.role) === 'bd_user')
+            .map((row) => row.user_id),
+        )
+        const filteredBdUsers = userRows.filter((user) => bdUserIds.has(user.id))
+        setBdUsers(filteredBdUsers.length > 0 ? filteredBdUsers : userRows)
+      }
     } catch (error) {
       const text = error instanceof Error ? error.message : t('pages.salesSupervision.loadFail', { defaultValue: 'Failed to load sales supervision data' })
       message.error(text)
@@ -183,6 +232,33 @@ export function SalesSupervisionPage() {
   function openDetailModal(row: SalesOrderRow) {
     setDetailRow(row)
     setDetailModalOpen(true)
+  }
+
+  function openCreateModal() {
+    createForm.resetFields()
+    createForm.setFieldsValue({
+      sold_at: dayjs(),
+      bd_user_id: bdUsers[0]?.id,
+    })
+    setCreateItems([newDraftItem()])
+    setCreateModalOpen(true)
+  }
+
+  function addCreateItem() {
+    setCreateItems((current) => [...current, newDraftItem()])
+  }
+
+  function removeCreateItem(key: string) {
+    setCreateItems((current) => {
+      if (current.length <= 1) {
+        return [newDraftItem()]
+      }
+      return current.filter((item) => item.key !== key)
+    })
+  }
+
+  function updateCreateItem(key: string, patch: Partial<DraftSalesItem>) {
+    setCreateItems((current) => current.map((item) => (item.key === key ? { ...item, ...patch } : item)))
   }
 
   function addEditItem() {
@@ -259,13 +335,58 @@ export function SalesSupervisionPage() {
     }
   }
 
+  async function handleCreate(values: CreateSalesFormValues) {
+    const normalizedItems = createItems
+      .map((item) => ({
+        category: item.category,
+        product_name: item.product_name.trim() || undefined,
+        quantity: Math.max(1, Number(item.quantity || 1)),
+        unit_price: item.unit_price,
+      }))
+      .filter((item) => item.quantity > 0)
+
+    if (!normalizedItems.length) {
+      message.warning(t('pages.salesSupervision.itemsRequired', { defaultValue: 'At least one sales item is required' }))
+      return
+    }
+
+    setCreateSaving(true)
+    try {
+      const result = await createSalesOrderWithAutoLeadAndAssignBd({
+        bd_user_id: values.bd_user_id,
+        company_name: values.company_name.trim(),
+        sold_at: values.sold_at.toISOString(),
+        note: values.note ?? undefined,
+        items: normalizedItems,
+      })
+
+      message.success(
+        result.lead_created
+          ? t('pages.salesSupervision.createSuccessWithLead', {
+              defaultValue: 'Sales lead created and assigned. New lead {{leadCode}} has been added to lead pool.',
+              leadCode: result.lead_code ?? 'SP',
+            })
+          : t('pages.salesSupervision.createSuccess', { defaultValue: 'Sales lead created and assigned successfully' }),
+      )
+      setCreateModalOpen(false)
+      setCreateItems([newDraftItem()])
+      createForm.resetFields()
+      await loadData()
+    } catch (error) {
+      const text = error instanceof Error ? error.message : t('pages.salesSupervision.createFail', { defaultValue: 'Failed to create sales lead' })
+      message.error(text)
+    } finally {
+      setCreateSaving(false)
+    }
+  }
+
   const bdOptions = useMemo(
     () =>
-      users.map((user) => ({
+      bdUsers.map((user) => ({
         value: user.id,
         label: user.full_name ? `${user.full_name} (${user.email})` : user.email,
       })),
-    [users],
+    [bdUsers],
   )
 
   return (
@@ -277,6 +398,11 @@ export function SalesSupervisionPage() {
         })}
         extra={
           <Space wrap>
+            {canCreateSalesLead ? (
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+                {t('pages.salesSupervision.createSalesLead', { defaultValue: 'Create Sales Lead' })}
+              </Button>
+            ) : null}
             <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
             <Button onClick={() => navigate('/app/recently-deleted?tab=sales')}>
               {t('labels.recentlyDeleted', { defaultValue: 'Recently Deleted' })}
@@ -287,7 +413,7 @@ export function SalesSupervisionPage() {
 
       <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
         <Space wrap>
-          {isAdmin ? (
+          {canFilterByBd ? (
             <Select
               allowClear
               style={{ width: 280 }}
@@ -455,6 +581,132 @@ export function SalesSupervisionPage() {
           },
         ]}
       />
+
+      <Modal
+        title={t('pages.salesSupervision.createTitle', { defaultValue: 'Create Sales Lead' })}
+        open={createModalOpen}
+        width={980}
+        onCancel={() => {
+          setCreateModalOpen(false)
+        }}
+        onOk={() => void createForm.submit()}
+        okText={t('labels.create', { defaultValue: 'Create' })}
+        confirmLoading={createSaving}
+      >
+        <Form<CreateSalesFormValues>
+          form={createForm}
+          layout="vertical"
+          requiredMark={false}
+          onFinish={(values) => void handleCreate(values)}
+          initialValues={{ sold_at: dayjs() }}
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Form.Item
+              name="bd_user_id"
+              label={t('pages.salesSupervision.bdOwner', { defaultValue: 'BD Owner' })}
+              rules={[{ required: true, message: t('pages.salesSupervision.bdOwnerRequired', { defaultValue: 'BD owner is required' }) }]}
+            >
+              <Select
+                showSearch
+                optionFilterProp="label"
+                options={bdOptions}
+                placeholder={t('pages.salesSupervision.bdOwner', { defaultValue: 'BD Owner' })}
+              />
+            </Form.Item>
+            <Form.Item
+              name="company_name"
+              label={t('pages.salesSupervision.columns.companyName', { defaultValue: 'Company' })}
+              rules={[{ required: true, message: t('pages.salesSupervision.companyRequired', { defaultValue: 'Company name is required' }) }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="sold_at"
+              label={t('pages.salesSupervision.columns.soldAt', { defaultValue: 'Sold Time' })}
+              rules={[{ required: true, message: t('pages.salesSupervision.soldAtRequired', { defaultValue: 'Sold time is required' }) }]}
+            >
+              <DatePicker className="w-full" />
+            </Form.Item>
+          </div>
+          <Form.Item name="note" label={t('pages.salesSupervision.note', { defaultValue: 'Remark' })}>
+            <Input.TextArea rows={2} />
+          </Form.Item>
+
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-sm font-medium text-slate-700">
+              {t('pages.salesSupervision.itemsTitle', { defaultValue: 'Sales Items' })}
+            </div>
+            <Button icon={<PlusOutlined />} onClick={addCreateItem}>
+              {t('pages.salesSupervision.addItem', { defaultValue: 'Add Item' })}
+            </Button>
+          </div>
+
+          <Table
+            rowKey="key"
+            pagination={false}
+            dataSource={createItems}
+            scroll={{ x: 900 }}
+            columns={[
+              {
+                title: t('pages.salesSupervision.columns.category', { defaultValue: 'Category' }),
+                width: 220,
+                render: (_: unknown, row: DraftSalesItem) => (
+                  <Select
+                    value={row.category}
+                    options={categoryOptions}
+                    style={{ width: '100%' }}
+                    onChange={(value) => updateCreateItem(row.key, { category: value as SalesProductCategory })}
+                  />
+                ),
+              },
+              {
+                title: t('pages.salesSupervision.columns.productName', { defaultValue: 'Product / Description' }),
+                render: (_: unknown, row: DraftSalesItem) => (
+                  <Input
+                    value={row.product_name}
+                    onChange={(event) => updateCreateItem(row.key, { product_name: event.target.value })}
+                  />
+                ),
+              },
+              {
+                title: t('pages.salesSupervision.columns.quantity', { defaultValue: 'Qty' }),
+                width: 120,
+                render: (_: unknown, row: DraftSalesItem) => (
+                  <InputNumber
+                    min={1}
+                    className="w-full"
+                    value={row.quantity}
+                    onChange={(value) => updateCreateItem(row.key, { quantity: Number(value ?? 1) })}
+                  />
+                ),
+              },
+              {
+                title: t('pages.salesSupervision.columns.unitPrice', { defaultValue: 'Unit Price' }),
+                width: 160,
+                render: (_: unknown, row: DraftSalesItem) => (
+                  <InputNumber
+                    min={0}
+                    className="w-full"
+                    value={row.unit_price}
+                    onChange={(value) => updateCreateItem(row.key, { unit_price: value === null ? undefined : Number(value) })}
+                  />
+                ),
+              },
+              {
+                title: t('pages.salesSupervision.columns.actions', { defaultValue: 'Actions' }),
+                width: 90,
+                render: (_: unknown, row: DraftSalesItem) => (
+                  <Button
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => removeCreateItem(row.key)}
+                  />
+                ),
+              },
+            ]}
+          />
+        </Form>
+      </Modal>
 
       <Modal
         title={

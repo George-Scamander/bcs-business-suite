@@ -9,7 +9,7 @@ import {
 
 interface PageTitleBarProps {
   title: string
-  description?: string
+  description?: ReactNode
   extra?: ReactNode
 }
 
@@ -27,11 +27,7 @@ export function PageTitleBar({ title, description, extra }: PageTitleBarProps) {
         <Typography.Title level={4} className={`mb-1 ${isMobile ? '!text-lg' : '!text-xl sm:!text-2xl'}`}>
           {title}
         </Typography.Title>
-        {description ? (
-          <Typography.Paragraph className={`mb-0 text-slate-500 ${isMobile ? 'text-xs' : 'text-sm sm:text-base'}`}>
-            {description}
-          </Typography.Paragraph>
-        ) : null}
+        {description ? <div className={`mb-0 text-slate-500 ${isMobile ? 'text-xs' : 'text-sm sm:text-base'}`}>{description}</div> : null}
       </div>
       {extra ? (
         <div className={`page-title-extra ${isMobile ? 'w-full overflow-x-auto pb-1' : 'w-full md:w-auto'}`}>

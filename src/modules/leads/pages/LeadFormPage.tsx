@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
-import { Button, Card, DatePicker, Form, Input, InputNumber, Popconfirm, Select, Space, Upload, message } from 'antd'
+import { Button, Card, DatePicker, Form, Input, Popconfirm, Select, Space, Upload, message } from 'antd'
 import type { UploadFile } from 'antd'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -27,7 +27,6 @@ interface LeadFormValues {
   source?: string
   team_attention_note?: string
   intent_level?: number
-  estimated_value?: number
   next_followup_at?: dayjs.Dayjs
 }
 
@@ -180,7 +179,6 @@ export function LeadFormPage() {
         source: detail.source ?? undefined,
         team_attention_note: detail.team_attention_note ?? undefined,
         intent_level: detail.intent_level ?? undefined,
-        estimated_value: detail.estimated_value ?? undefined,
         next_followup_at: detail.next_followup_at ? dayjs(detail.next_followup_at) : undefined,
       })
       applyDraftIfExists()
@@ -266,7 +264,6 @@ export function LeadFormPage() {
         address: normalizeText(values.address),
         source: normalizeText(values.source),
         intent_level: values.intent_level,
-        estimated_value: values.estimated_value,
         next_followup_at: toIsoStringOrUndefined(values.next_followup_at),
       }
 
@@ -482,10 +479,6 @@ export function LeadFormPage() {
                 options={intentLevelOptions}
                 placeholder={t('pages.leadForm.intentLevelPlaceholder', { defaultValue: 'Select intent level' })}
               />
-            </Form.Item>
-
-            <Form.Item name="estimated_value" label={t('pages.leadForm.estimatedContractValue', { defaultValue: 'Estimated Contract Value' })}>
-              <InputNumber min={0} className="w-full" />
             </Form.Item>
 
             <Form.Item name="next_followup_at" label={t('pages.leadForm.nextFollowupTime', { defaultValue: 'Next Follow-up Time' })}>

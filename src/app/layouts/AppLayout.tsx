@@ -25,7 +25,7 @@ import {
   UnorderedListOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import { Avatar, Button, Drawer, Grid, Layout, Menu, Select, Space, Tag, Typography } from 'antd'
+import { Avatar, Badge, Button, Drawer, Grid, Layout, Menu, Select, Space, Tag, Typography } from 'antd'
 import { message } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -34,6 +34,7 @@ import { APP_NAME, APP_VERSION, NAV_ITEMS_BY_ROLE, ROLE_LABELS, SUPPORTED_LOCALE
 import type { LocaleCode, RoleCode } from '../../types/rbac'
 import { useAuth } from '../../modules/auth/auth-context'
 import i18n from '../../lib/i18n'
+import { supabase } from '../../lib/supabase/client'
 
 const { Header, Sider, Content } = Layout
 
@@ -53,6 +54,7 @@ const iconMap: Record<string, React.ReactNode> = {
   notifications: <BellOutlined />,
   'bd-dashboard': <HomeOutlined />,
   'bd-leads': <UnorderedListOutlined />,
+  'bd-department-leads': <ContainerOutlined />,
   'bd-new-lead': <SolutionOutlined />,
   'bd-sales-new': <ShoppingOutlined />,
   'bd-onboarding': <ContainerOutlined />,
@@ -88,9 +90,10 @@ function resolvePrimaryRole(roles: RoleCode[]): RoleCode {
 const MOBILE_HOME_PATHS = new Set(['/app', '/app/admin/dashboard', '/app/bd/dashboard', '/app/pm/dashboard'])
 export function AppLayout() {
   const { t } = useTranslation()
-  const { profile, roles, signOut, updateLocale } = useAuth()
+  const { user, profile, roles, signOut, updateLocale } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [locale, setLocale] = useState(profile?.locale ?? 'en')
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false)
   const screens = Grid.useBreakpoint()
   const navigate = useNavigate()
   const location = useLocation()
@@ -112,7 +115,9 @@ export function AppLayout() {
   }, [navigate, navItemsForRole, t])
 
   const selectedKey =
-    navItemsForRole.find((item) => location.pathname.startsWith(item.path))?.key ?? navItemsForRole[0]?.key
+    [...navItemsForRole]
+      .sort((a, b) => b.path.length - a.path.length)
+      .find((item) => location.pathname.startsWith(item.path))?.key ?? navItemsForRole[0]?.key
 
   const normalizedPath = location.pathname.replace(/\/+$/, '') || '/'
   const showMobileBackButton = isMobile && !MOBILE_HOME_PATHS.has(normalizedPath)
@@ -128,6 +133,43 @@ export function AppLayout() {
       void i18n.changeLanguage(profile.locale)
     }
   }, [profile?.locale])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadUnreadNotifications = async () => {
+      if (!user?.id) {
+        if (isMounted) {
+          setHasUnreadNotifications(false)
+        }
+        return
+      }
+
+      const result = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+
+      if (!isMounted || result.error) {
+        return
+      }
+
+      setHasUnreadNotifications((result.count ?? 0) > 0)
+    }
+
+    const handleNotificationsChanged = () => {
+      void loadUnreadNotifications()
+    }
+
+    void loadUnreadNotifications()
+    window.addEventListener('notifications:changed', handleNotificationsChanged)
+
+    return () => {
+      isMounted = false
+      window.removeEventListener('notifications:changed', handleNotificationsChanged)
+    }
+  }, [location.pathname, user?.id])
 
 
   async function handleLocaleChange(value: LocaleCode) {
@@ -253,7 +295,11 @@ export function AppLayout() {
                 <Space size={4}>
                   <Button
                     type="text"
-                    icon={<BellOutlined />}
+                    icon={(
+                      <Badge dot={hasUnreadNotifications} size="small">
+                        <BellOutlined />
+                      </Badge>
+                    )}
                     onClick={() => navigate('/app/notifications')}
                     className="!h-11 !w-11 !text-lg"
                   />
@@ -312,7 +358,15 @@ export function AppLayout() {
                   onChange={(value: LocaleCode) => void handleLocaleChange(value)}
                 />
                 <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/app/settings/profile')} />
-                <Button type="text" icon={<BellOutlined />} onClick={() => navigate('/app/notifications')} />
+                <Button
+                  type="text"
+                  icon={(
+                    <Badge dot={hasUnreadNotifications} size="small">
+                      <BellOutlined />
+                    </Badge>
+                  )}
+                  onClick={() => navigate('/app/notifications')}
+                />
                 <Avatar icon={<UserOutlined />} />
                 <Button icon={<LogoutOutlined />} onClick={() => void handleSignOut()}>
                   {t('common.logout', { defaultValue: 'Logout' })}
