@@ -24,6 +24,10 @@ import {
   PageTitleBar,
 } from '../../../components/common/PageTitleBar'
 import {
+  formatDisplayName,
+  formatUserOptionLabel,
+} from '../../../lib/user-display'
+import {
   supabase,
 } from '../../../lib/supabase/client'
 import {
@@ -71,7 +75,7 @@ export function AdminReportExportPage() {
   const userOptions = useMemo(() => {
     return users.map((user) => ({
       value: user.id,
-      label: user.full_name ? `${user.full_name} (${user.email})` : user.email,
+      label: formatUserOptionLabel(user),
     }))
   }, [users])
 
@@ -202,7 +206,7 @@ export function AdminReportExportPage() {
             order_no: row.order_no,
             lead_code: row.lead?.lead_code ?? '',
             company_name: row.company_name,
-            bd_owner: row.bd_owner?.full_name ? `${row.bd_owner.full_name} (${row.bd_owner.email ?? ''})` : row.bd_owner?.email ?? row.bd_user_id,
+            bd_owner: formatDisplayName(row.bd_owner?.full_name, row.bd_owner?.email, row.bd_user_id),
             sold_at: row.sold_at,
             created_at: row.created_at,
             item_count: normalizedItems.length,

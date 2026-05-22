@@ -8,12 +8,14 @@ import dayjs from 'dayjs'
 import {
   Button,
   DatePicker,
+  Drawer,
   Input,
   Modal,
   Select,
   Space,
   message,
 } from 'antd'
+import { SettingOutlined } from '@ant-design/icons'
 import {
   AdaptiveTable as Table,
 } from '../../../components/common/AdaptiveTable'
@@ -23,6 +25,10 @@ import {
 import {
   supabase,
 } from '../../../lib/supabase/client'
+import {
+  formatDisplayName,
+  formatUserOptionLabel,
+} from '../../../lib/user-display'
 
 import {
   PageTitleBar,
@@ -73,6 +79,7 @@ export function PmLeadPoolPage() {
   const [bdUsers, setBdUsers] = useState<UserOption[]>([])
   const [filters, setFilters] = useState<LeadFilters>({})
   const [keyword, setKeyword] = useState('')
+  const [controlPanelOpen, setControlPanelOpen] = useState(false)
 
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
@@ -146,10 +153,15 @@ export function PmLeadPoolPage() {
     }
   }
 
+  async function handleApplyControlPanel() {
+    await loadData()
+    setControlPanelOpen(false)
+  }
+
   const bdUserOptions = useMemo(() => {
     return bdUsers.map((item) => ({
       value: item.id,
-      label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
+      label: formatUserOptionLabel(item),
     }))
   }, [bdUsers])
 
@@ -157,7 +169,7 @@ export function PmLeadPoolPage() {
     return new Map(
       users.map((item) => [
         item.id,
-        item.full_name ? `${item.full_name} (${item.email})` : item.email,
+        formatDisplayName(item.full_name, item.email, item.id),
       ]),
     )
   }, [users])
@@ -172,30 +184,39 @@ export function PmLeadPoolPage() {
         extra={
           <Space wrap>
             <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
+            <Button icon={<SettingOutlined />} onClick={() => setControlPanelOpen(true)}>
+              {t('labels.controlPanel', { defaultValue: 'Control Panel' })}
+            </Button>
           </Space>
         }
       />
 
-      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
-        <Space wrap>
+      <Drawer
+        title={t('labels.controlPanel', { defaultValue: 'Control Panel' })}
+        width={460}
+        open={controlPanelOpen}
+        onClose={() => setControlPanelOpen(false)}
+        destroyOnClose={false}
+      >
+        <Space direction="vertical" size={12} className="w-full">
           <Select
             allowClear
-            style={{ width: 200 }}
+            className="w-full"
             placeholder={t('pages.bdLeads.statusPlaceholder', { defaultValue: 'Status' })}
             options={leadStatusOptions}
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
           />
           <Input
+            className="w-full"
             placeholder={t('pages.bdLeads.regionPlaceholder', { defaultValue: 'Region' })}
-            style={{ width: 180 }}
             value={filters.region}
             onChange={(event) => setFilters((current) => ({ ...current, region: event.target.value || undefined }))}
           />
           <Select
             allowClear
             showSearch
-            style={{ width: 280 }}
+            className="w-full"
             placeholder={t('pages.pmLeadPool.salesPlaceholder', { defaultValue: 'Sales / BD Owner' })}
             value={filters.assignedBdId}
             options={bdUserOptions}
@@ -204,14 +225,14 @@ export function PmLeadPoolPage() {
           />
           <Select
             allowClear
-            style={{ width: 200 }}
+            className="w-full"
             placeholder={t('pages.pmLeadPool.intentPackagePlaceholder', { defaultValue: 'BCS Business' })}
             options={intentPackageOptions}
             value={filters.intentPackage}
             onChange={(value) => setFilters((current) => ({ ...current, intentPackage: value || undefined }))}
           />
           <DatePicker
-            style={{ width: 170 }}
+            className="w-full"
             placeholder={t('pages.pmLeadPool.createdFrom', { defaultValue: 'Created From' })}
             value={filters.createdFrom ? dayjs(filters.createdFrom) : undefined}
             onChange={(value) =>
@@ -222,7 +243,7 @@ export function PmLeadPoolPage() {
             }
           />
           <DatePicker
-            style={{ width: 170 }}
+            className="w-full"
             placeholder={t('pages.pmLeadPool.createdTo', { defaultValue: 'Created To' })}
             value={filters.createdTo ? dayjs(filters.createdTo) : undefined}
             onChange={(value) =>
@@ -232,23 +253,29 @@ export function PmLeadPoolPage() {
               }))
             }
           />
-          <Input.Search
+          <Input
             allowClear
-            style={{ width: 280 }}
+            className="w-full"
             placeholder={t('pages.pmLeadPool.keywordPlaceholder', {
               defaultValue: 'Keyword (lead code/company/contact/source)',
             })}
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
-            onSearch={() => void loadData()}
+            onPressEnter={() => void handleApplyControlPanel()}
           />
-          <Button type="primary" onClick={() => void loadData()}>
-            {t('labels.apply', { defaultValue: 'Apply' })}
-          </Button>
+          <Space wrap>
+            <Button type="primary" onClick={() => void handleApplyControlPanel()}>
+              {t('labels.apply', { defaultValue: 'Apply' })}
+            </Button>
+            <Button onClick={() => setControlPanelOpen(false)}>
+              {t('common.cancel', { defaultValue: 'Cancel' })}
+            </Button>
+          </Space>
         </Space>
-      </div>
+      </Drawer>
 
       <Table
+        className="compact-data-table"
         rowKey="id"
         loading={loading}
         bordered

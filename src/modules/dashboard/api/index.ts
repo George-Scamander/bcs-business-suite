@@ -41,12 +41,62 @@ export interface AdminSalesCategoryMetrics {
   totalAmount: number
 }
 
+export interface AdminSalesInsightOrderItem {
+  category: SalesProductCategory | string
+  quantity: number
+  amount: number
+}
+
+export interface AdminSalesInsightOrder {
+  orderId: string
+  bdUserId: string
+  bdName: string
+  bdEmail: string
+  soldAt: string
+  salesAmount: number
+  items: AdminSalesInsightOrderItem[]
+}
+
 export type AdminDashboardPeriod = 'yesterday' | 'last7Days'
 
 interface DateRangeFilter {
   column: string
   from?: string
   to?: string
+}
+
+interface AdminSalesInsightRawOrderRow {
+  id: string
+  sold_at: string | null
+  bd_user_id: string | null
+  bd_owner:
+    | {
+      id: string
+      email: string
+      full_name: string | null
+    }
+    | Array<{
+    id: string
+    email: string
+    full_name: string | null
+    }>
+    | null
+  items: Array<{
+    category: string | null
+    quantity: number | null
+    unit_price: number | null
+  }> | null
+}
+
+function getCurrentNaturalMonthDateRange(): { from: string; to: string } {
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+
+  return {
+    from: startOfMonth.toISOString(),
+    to: endOfMonth.toISOString(),
+  }
 }
 
 function getTodayDateRange(): { from: string; to: string } {
@@ -308,10 +358,13 @@ export async function getPmDashboardMetrics(userId: string): Promise<PmDashboard
 }
 
 export async function getAdminSalesCategoryMetrics(): Promise<AdminSalesCategoryMetrics[]> {
+  const naturalMonthRange = getCurrentNaturalMonthDateRange()
   const result = await supabase
     .from('sales_order_items')
-    .select('category, quantity, unit_price, sales_order:sales_orders!inner(id, deleted_at)')
+    .select('category, quantity, unit_price, sales_order:sales_orders!inner(id, deleted_at, sold_at)')
     .is('sales_order.deleted_at', null)
+    .gte('sales_order.sold_at', naturalMonthRange.from)
+    .lte('sales_order.sold_at', naturalMonthRange.to)
 
   if (result.error) {
     throw result.error
@@ -343,4 +396,45 @@ export async function getAdminSalesCategoryMetrics(): Promise<AdminSalesCategory
   }
 
   return categories.map((category) => aggregate.get(category) as AdminSalesCategoryMetrics)
+}
+
+export async function getAdminSalesInsightOrders(): Promise<AdminSalesInsightOrder[]> {
+  const naturalMonthRange = getCurrentNaturalMonthDateRange()
+  const result = await supabase
+    .from('sales_orders')
+    .select(
+      'id, sold_at, bd_user_id, bd_owner:profiles!sales_orders_bd_user_id_fkey(id, email, full_name), items:sales_order_items(category, quantity, unit_price)',
+    )
+    .is('deleted_at', null)
+    .gte('sold_at', naturalMonthRange.from)
+    .lte('sold_at', naturalMonthRange.to)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  return ((result.data ?? []) as AdminSalesInsightRawOrderRow[])
+    .filter((row) => row.bd_user_id && row.sold_at)
+    .map((row) => {
+      const bdOwner = Array.isArray(row.bd_owner) ? row.bd_owner[0] : row.bd_owner
+      const mappedItems: AdminSalesInsightOrderItem[] = (row.items ?? []).map((item) => {
+        const quantity = Math.max(0, Number(item.quantity ?? 0))
+        const unitPrice = Math.max(0, Number(item.unit_price ?? 0))
+        return {
+          category: (item.category as SalesProductCategory | string | null) ?? 'UNKNOWN',
+          quantity,
+          amount: quantity * unitPrice,
+        }
+      })
+
+      return {
+        orderId: row.id,
+        bdUserId: row.bd_user_id as string,
+        bdName: bdOwner?.full_name ?? bdOwner?.email ?? String(row.bd_user_id),
+        bdEmail: bdOwner?.email ?? '',
+        soldAt: row.sold_at as string,
+        salesAmount: mappedItems.reduce((sum, item) => sum + item.amount, 0),
+        items: mappedItems,
+      }
+    })
 }

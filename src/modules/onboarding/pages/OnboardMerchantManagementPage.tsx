@@ -31,6 +31,10 @@ import {
   PageTitleBar,
 } from '../../../components/common/PageTitleBar'
 import {
+  formatDisplayName,
+  formatUserOptionLabel,
+} from '../../../lib/user-display'
+import {
   useAuth,
 } from '../../auth/auth-context'
 import {
@@ -131,7 +135,7 @@ export function OnboardMerchantManagementPage() {
     () =>
       users.map((item) => ({
         value: item.id,
-        label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
+        label: formatUserOptionLabel(item),
       })),
     [users],
   )
@@ -139,7 +143,7 @@ export function OnboardMerchantManagementPage() {
   const userNameById = useMemo(
     () =>
       new Map(
-        users.map((item) => [item.id, item.full_name ? `${item.full_name} (${item.email})` : item.email]),
+        users.map((item) => [item.id, formatDisplayName(item.full_name, item.email, item.id)]),
       ),
     [users],
   )

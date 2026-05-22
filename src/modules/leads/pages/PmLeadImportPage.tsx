@@ -37,6 +37,9 @@ import {
   getIntentPackageOptions,
 } from '../../../lib/business-constants'
 import {
+  formatUserOptionLabel,
+} from '../../../lib/user-display'
+import {
   supabase,
 } from '../../../lib/supabase/client'
 import {
@@ -1448,7 +1451,7 @@ export function PmLeadImportPage() {
   const assignBdOptions = useMemo(() => {
     return bdUserOptions.map((item) => ({
       value: item.id,
-      label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
+      label: formatUserOptionLabel(item),
     }))
   }, [bdUserOptions])
 

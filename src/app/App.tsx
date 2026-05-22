@@ -49,6 +49,7 @@ import { PmLeadImportPage } from '../modules/leads/pages/PmLeadImportPage'
 import { BdSalesCreatePage } from '../modules/sales/pages/BdSalesCreatePage'
 import { SalesSupervisionPage } from '../modules/sales/pages/SalesSupervisionPage'
 import { BdKpiDashboardPage } from '../modules/reports/pages/BdKpiDashboardPage'
+import { BdKpiInsightsPage } from '../modules/reports/pages/BdKpiInsightsPage'
 
 export default function App() {
   return (
@@ -199,6 +200,14 @@ export default function App() {
               element={
                 <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
                   <BdKpiDashboardPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/kpi/dashboard/insights"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
+                  <BdKpiInsightsPage />
                 </RoleGuard>
               }
             />
@@ -396,6 +405,14 @@ export default function App() {
               element={
                 <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
                   <BdKpiDashboardPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="pm/kpi/dashboard/insights"
+              element={
+                <RoleGuard allowRoles={['project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
+                  <BdKpiInsightsPage />
                 </RoleGuard>
               }
             />

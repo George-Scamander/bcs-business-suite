@@ -8,13 +8,16 @@ import dayjs from 'dayjs'
 import {
   Button,
   DatePicker,
+  Drawer,
   Input,
   Modal,
   Popconfirm,
   Select,
   Space,
+  Tag,
   message,
 } from 'antd'
+import { SettingOutlined } from '@ant-design/icons'
 import {
   AdaptiveTable as Table,
 } from '../../../components/common/AdaptiveTable'
@@ -28,6 +31,10 @@ import {
 import {
   supabase,
 } from '../../../lib/supabase/client'
+import {
+  formatDisplayName,
+  formatUserOptionLabel,
+} from '../../../lib/user-display'
 
 import {
   PageTitleBar,
@@ -136,11 +143,14 @@ export function AdminLeadPoolPage() {
 
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<Lead[]>([])
+  const [bdMatchedLeadIdSet, setBdMatchedLeadIdSet] = useState<Set<string>>(new Set())
+  const [todayFollowupLeadIdSet, setTodayFollowupLeadIdSet] = useState<Set<string>>(new Set())
   const [users, setUsers] = useState<UserOption[]>([])
   const [bdUsers, setBdUsers] = useState<UserOption[]>([])
   const [filters, setFilters] = useState<LeadFilters>(() => parseLeadFiltersFromSearch(searchParams).filters)
   const [keyword, setKeyword] = useState(() => parseLeadFiltersFromSearch(searchParams).keyword)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [controlPanelOpen, setControlPanelOpen] = useState(false)
 
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
@@ -155,11 +165,25 @@ export function AdminLeadPoolPage() {
     setLoading(true)
 
     try {
-      const [leadRows, userRows, roleMappingsResult] = await Promise.all([
-        listLeads({
-          ...filters,
-          keyword: keyword.trim() || undefined,
-        }),
+      const keywordValue = keyword.trim() || undefined
+      const shouldMergeTodayFollowup = Boolean(filters.assignedBdId)
+      const startOfTodayIso = dayjs().startOf('day').toISOString()
+      const endOfTodayIso = dayjs().endOf('day').toISOString()
+      const leadFilters: LeadFilters = {
+        ...filters,
+        keyword: keywordValue,
+      }
+
+      const [leadRows, todayFollowupRows, userRows, roleMappingsResult] = await Promise.all([
+        listLeads(leadFilters),
+        shouldMergeTodayFollowup
+          ? listLeads({
+              ...leadFilters,
+              assignedBdId: undefined,
+              followupFrom: startOfTodayIso,
+              followupTo: endOfTodayIso,
+            })
+          : Promise.resolve([] as Lead[]),
         listActiveUsers(),
         supabase
           .from('user_role_relations')
@@ -167,7 +191,19 @@ export function AdminLeadPoolPage() {
           .returns<RoleMappingRow[]>(),
       ])
 
-      setRows(leadRows)
+      const bdMatchedIds = shouldMergeTodayFollowup ? new Set(leadRows.map((item) => item.id)) : new Set<string>()
+      const todayFollowupIds = shouldMergeTodayFollowup ? new Set(todayFollowupRows.map((item) => item.id)) : new Set<string>()
+      const mergedRows = shouldMergeTodayFollowup
+        ? Array.from(new Map([...leadRows, ...todayFollowupRows].map((item) => [item.id, item])).values()).sort((a, b) => {
+            const aTime = new Date(a.updated_at).getTime()
+            const bTime = new Date(b.updated_at).getTime()
+            return bTime - aTime
+          })
+        : leadRows
+
+      setRows(mergedRows)
+      setBdMatchedLeadIdSet(bdMatchedIds)
+      setTodayFollowupLeadIdSet(todayFollowupIds)
       setUsers(userRows)
       if (roleMappingsResult.error) {
         setBdUsers(userRows)
@@ -187,7 +223,7 @@ export function AdminLeadPoolPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters, keyword])
+  }, [filters, keyword, t])
 
   useEffect(() => {
     void loadData()
@@ -243,7 +279,7 @@ export function AdminLeadPoolPage() {
   const userOptions = useMemo(() => {
     return bdUsers.map((item) => ({
       value: item.id,
-      label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
+      label: formatUserOptionLabel(item),
     }))
   }, [bdUsers])
 
@@ -251,13 +287,18 @@ export function AdminLeadPoolPage() {
     return new Map(
       users.map((item) => [
         item.id,
-        item.full_name ? `${item.full_name} (${item.email})` : item.email,
+        formatDisplayName(item.full_name, item.email, item.id),
       ]),
     )
   }, [users])
 
   function openLeadDetail(leadId: string) {
     navigate(`/app/bd/leads/${leadId}`)
+  }
+
+  async function handleApplyControlPanel() {
+    await loadData()
+    setControlPanelOpen(false)
   }
 
   return (
@@ -296,30 +337,39 @@ export function AdminLeadPoolPage() {
               </Button>
             </Popconfirm>
             <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
+            <Button icon={<SettingOutlined />} onClick={() => setControlPanelOpen(true)}>
+              {t('labels.controlPanel', { defaultValue: 'Control Panel' })}
+            </Button>
           </Space>
         }
       />
 
-      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
-        <Space wrap>
+      <Drawer
+        title={t('labels.controlPanel', { defaultValue: 'Control Panel' })}
+        width={460}
+        open={controlPanelOpen}
+        onClose={() => setControlPanelOpen(false)}
+        destroyOnClose={false}
+      >
+        <Space direction="vertical" size={12} className="w-full">
           <Select
             allowClear
-            style={{ width: 200 }}
+            className="w-full"
             placeholder={t('pages.adminLeadPool.statusPlaceholder', { defaultValue: 'Status' })}
             options={leadStatusOptions}
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
           />
           <Input
+            className="w-full"
             placeholder={t('pages.adminLeadPool.regionPlaceholder', { defaultValue: 'Region' })}
-            style={{ width: 180 }}
             value={filters.region}
             onChange={(event) => setFilters((current) => ({ ...current, region: event.target.value || undefined }))}
           />
           <Select
             allowClear
             showSearch
-            style={{ width: 280 }}
+            className="w-full"
             placeholder={t('pages.adminLeadPool.salesPlaceholder', { defaultValue: 'Sales / BD Owner' })}
             value={filters.assignedBdId}
             options={userOptions}
@@ -328,7 +378,7 @@ export function AdminLeadPoolPage() {
           />
           <Select
             allowClear
-            style={{ width: 200 }}
+            className="w-full"
             placeholder={t('pages.adminLeadPool.intentPackagePlaceholder', { defaultValue: 'BCS Business' })}
             options={intentPackageOptions}
             value={filters.intentPackage}
@@ -336,7 +386,7 @@ export function AdminLeadPoolPage() {
           />
           <Select
             allowClear
-            style={{ width: 220 }}
+            className="w-full"
             placeholder={t('pages.adminLeadPool.intentGroupPlaceholder', { defaultValue: 'Intent Group' })}
             value={filters.intentPackageGroup}
             options={[
@@ -347,7 +397,7 @@ export function AdminLeadPoolPage() {
           />
           <Select
             allowClear
-            style={{ width: 220 }}
+            className="w-full"
             placeholder={t('pages.adminLeadPool.intentLevelMinPlaceholder', { defaultValue: 'Intent Level Min' })}
             value={filters.intentLevelMin}
             options={[
@@ -361,7 +411,7 @@ export function AdminLeadPoolPage() {
             onChange={(value) => setFilters((current) => ({ ...current, intentLevelMin: value === undefined ? undefined : Number(value) }))}
           />
           <DatePicker
-            style={{ width: 170 }}
+            className="w-full"
             placeholder={t('pages.adminLeadPool.createdFrom', { defaultValue: 'Created From' })}
             value={filters.createdFrom ? dayjs(filters.createdFrom) : undefined}
             onChange={(value) =>
@@ -372,7 +422,7 @@ export function AdminLeadPoolPage() {
             }
           />
           <DatePicker
-            style={{ width: 170 }}
+            className="w-full"
             placeholder={t('pages.adminLeadPool.createdTo', { defaultValue: 'Created To' })}
             value={filters.createdTo ? dayjs(filters.createdTo) : undefined}
             onChange={(value) =>
@@ -382,26 +432,32 @@ export function AdminLeadPoolPage() {
               }))
             }
           />
-          <Input.Search
+          <Input
             allowClear
-            style={{ width: 280 }}
+            className="w-full"
             placeholder={t('pages.adminLeadPool.keywordPlaceholder', {
               defaultValue: 'Keyword (lead code/company/contact/source)',
             })}
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
-            onSearch={() => void loadData()}
+            onPressEnter={() => void handleApplyControlPanel()}
           />
-          <Button type="primary" onClick={() => void loadData()}>
-            {t('labels.apply', { defaultValue: 'Apply' })}
-          </Button>
+          <Space wrap>
+            <Button type="primary" onClick={() => void handleApplyControlPanel()}>
+              {t('labels.apply', { defaultValue: 'Apply' })}
+            </Button>
+            <Button onClick={() => setControlPanelOpen(false)}>
+              {t('common.cancel', { defaultValue: 'Cancel' })}
+            </Button>
+          </Space>
+          <div className="text-sm text-slate-500">
+            {t('pages.adminLeadPool.filteredTotal', { defaultValue: 'Filtered total: {{count}}', count: rows.length })}
+          </div>
         </Space>
-        <div className="mt-3 text-sm text-slate-500">
-          {t('pages.adminLeadPool.filteredTotal', { defaultValue: 'Filtered total: {{count}}', count: rows.length })}
-        </div>
-      </div>
+      </Drawer>
 
       <Table
+        className="compact-data-table"
         rowKey="id"
         loading={loading}
         bordered
@@ -434,16 +490,26 @@ export function AdminLeadPoolPage() {
             dataIndex: 'lead_code',
             width: 170,
             render: (value: string, row: Lead) => (
-              <button
-                type="button"
-                className="border-0 bg-transparent p-0 text-inherit"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  openLeadDetail(row.id)
-                }}
-              >
-                {value}
-              </button>
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  className="border-0 bg-transparent p-0 text-inherit"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    openLeadDetail(row.id)
+                  }}
+                >
+                  {value}
+                </button>
+                <Space size={6} wrap>
+                  {bdMatchedLeadIdSet.has(row.id) ? (
+                    <Tag color="blue">{t('pages.adminLeadPool.leadCodeBdMatchedTag', { defaultValue: 'BD Match' })}</Tag>
+                  ) : null}
+                  {todayFollowupLeadIdSet.has(row.id) ? (
+                    <Tag color="gold">{t('pages.adminLeadPool.leadCodeTodayFollowupTag', { defaultValue: 'Follow-up Today' })}</Tag>
+                  ) : null}
+                </Space>
+              </div>
             ),
           },
           { title: t('pages.adminLeadPool.columns.company', { defaultValue: 'Company' }), dataIndex: 'company_name' },

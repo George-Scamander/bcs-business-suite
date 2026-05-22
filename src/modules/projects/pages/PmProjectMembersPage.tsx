@@ -22,6 +22,9 @@ import {
   useTranslation,
 } from 'react-i18next'
 import {
+  formatUserOptionLabel,
+} from '../../../lib/user-display'
+import {
   useNavigate,
   useParams,
 } from 'react-router-dom'
@@ -127,7 +130,7 @@ export function PmProjectMembersPage() {
   const userOptions = useMemo(() => {
     return users.map((item) => ({
       value: item.id,
-      label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
+      label: formatUserOptionLabel(item),
     }))
   }, [users])
 

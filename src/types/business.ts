@@ -28,6 +28,8 @@ export type SalesProductCategory =
   | 'CAR_BEAUTY'
   | 'WINDOW_FILM'
   | 'BOSCH_ACCESSORY'
+export type SalesPaymentMethod = 'TOP' | 'CASH'
+export type SalesTopTerm = '30_DAYS' | '60_DAYS'
 export type OnboardMerchantType = 'BCS_FRANCHISE' | 'NON_BCS_PARTNER'
 export type MerchantActivityType = 'RENOVATION_TASK' | 'DELIVERY' | 'SALES_ORDER' | 'NOTE' | 'OTHER'
 export type MerchantActivityStatus = 'PLANNED' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED'
@@ -323,6 +325,8 @@ export interface SalesOrder {
   onboard_merchant_id: string | null
   bd_user_id: string
   sold_at: string
+  payment_method: SalesPaymentMethod
+  payment_top_term: SalesTopTerm | null
   note: string | null
   created_by: string | null
   updated_by: string | null

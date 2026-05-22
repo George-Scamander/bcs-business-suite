@@ -1,4 +1,10 @@
-import type { SalesOrder, SalesOrderItem, SalesProductCategory } from '../../../types/business'
+import type {
+  SalesOrder,
+  SalesOrderItem,
+  SalesPaymentMethod,
+  SalesProductCategory,
+  SalesTopTerm,
+} from '../../../types/business'
 import { supabase } from '../../../lib/supabase/client'
 import { recordOperationLog } from '../../../lib/supabase/logs'
 import { generateUuid } from '../../../lib/uuid'
@@ -14,6 +20,8 @@ export interface CreateSalesOrderInput {
   company_name: string
   sold_at?: string
   note?: string
+  payment_method?: SalesPaymentMethod
+  payment_top_term?: SalesTopTerm | null
   onboard_merchant_id?: string
   items: CreateSalesOrderItemInput[]
 }
@@ -64,6 +72,8 @@ export interface UpdateSalesOrderInput {
   orderId: string
   company_name: string
   sold_at: string
+  payment_method?: SalesPaymentMethod
+  payment_top_term?: SalesTopTerm | null
   note?: string | null
   items: CreateSalesOrderItemInput[]
 }
@@ -73,6 +83,20 @@ interface DatabaseErrorPayload {
   message?: string
   details?: string | null
   hint?: string | null
+}
+
+function isMissingSalesPaymentColumnsError(error: unknown): boolean {
+  const payload = (typeof error === 'object' && error !== null ? error : {}) as DatabaseErrorPayload
+  const code = String(payload.code ?? '').trim().toUpperCase()
+  const text = `${payload.message ?? ''} ${payload.details ?? ''} ${payload.hint ?? ''}`.toLowerCase()
+
+  if (code === 'PGRST204' || code === '42703') {
+    if (text.includes('payment_method') || text.includes('payment_top_term') || text.includes('sales_orders')) {
+      return true
+    }
+  }
+
+  return false
 }
 
 function extractDatabaseError(error: unknown, fallback: string): Error {
@@ -155,6 +179,25 @@ function buildSalesItemSummary(items: CreateSalesOrderItemInput[]): string {
     .join(', ')
 }
 
+function normalizePaymentTerms(
+  paymentMethod?: SalesPaymentMethod,
+  paymentTopTerm?: SalesTopTerm | null,
+): { paymentMethod: SalesPaymentMethod; paymentTopTerm: SalesTopTerm | null } {
+  const normalizedMethod: SalesPaymentMethod = paymentMethod === 'TOP' ? 'TOP' : 'CASH'
+
+  if (normalizedMethod === 'TOP') {
+    return {
+      paymentMethod: normalizedMethod,
+      paymentTopTerm: paymentTopTerm === '60_DAYS' ? '60_DAYS' : '30_DAYS',
+    }
+  }
+
+  return {
+    paymentMethod: normalizedMethod,
+    paymentTopTerm: null,
+  }
+}
+
 async function getCurrentUserId(): Promise<string> {
   const userResult = await supabase.auth.getUser()
   if (userResult.error) {
@@ -181,6 +224,7 @@ async function createSalesOrderWithAutoLeadFallback(input: CreateSalesOrderInput
   }
 
   const soldAt = input.sold_at ?? new Date().toISOString()
+  const payment = normalizePaymentTerms(input.payment_method, input.payment_top_term)
   let company = input.company_name.trim()
   let onboardMerchantLeadId: string | null = null
   let onboardMerchantId: string | null = input.onboard_merchant_id ?? null
@@ -296,20 +340,33 @@ async function createSalesOrderWithAutoLeadFallback(input: CreateSalesOrderInput
     }
   }
 
-  const orderInsertResult = await supabase
+  const orderInsertPayload = {
+    company_name: company,
+    lead_id: leadId,
+    onboard_merchant_id: onboardMerchantId,
+    bd_user_id: userId,
+    sold_at: soldAt,
+    payment_method: payment.paymentMethod,
+    payment_top_term: payment.paymentTopTerm,
+    note: input.note ?? null,
+    created_by: userId,
+    updated_by: userId,
+  }
+
+  let orderInsertResult = await supabase
     .from('sales_orders')
-    .insert({
-      company_name: company,
-      lead_id: leadId,
-      onboard_merchant_id: onboardMerchantId,
-      bd_user_id: userId,
-      sold_at: soldAt,
-      note: input.note ?? null,
-      created_by: userId,
-      updated_by: userId,
-    })
+    .insert(orderInsertPayload)
     .select('id, order_no')
     .single()
+
+  if (orderInsertResult.error && isMissingSalesPaymentColumnsError(orderInsertResult.error)) {
+    const { payment_method: _ignoredMethod, payment_top_term: _ignoredTopTerm, ...compatPayload } = orderInsertPayload
+    orderInsertResult = await supabase
+      .from('sales_orders')
+      .insert(compatPayload)
+      .select('id, order_no')
+      .single()
+  }
 
   if (orderInsertResult.error) {
     throw extractDatabaseError(orderInsertResult.error, 'Failed to create sales order')
@@ -401,6 +458,7 @@ export async function createSalesOrderWithAutoLeadAndAssignBd(
   }
 
   const actorUserId = await getCurrentUserId()
+  const payment = normalizePaymentTerms(input.payment_method, input.payment_top_term)
   const orderInput: CreateSalesOrderInput = {
     company_name: input.company_name,
     sold_at: input.sold_at,
@@ -411,14 +469,26 @@ export async function createSalesOrderWithAutoLeadAndAssignBd(
   const result = await createSalesOrderWithAutoLead(orderInput)
   const nowIso = new Date().toISOString()
 
-  const orderOwnerUpdateResult = await supabase
+  const orderUpdatePayload = {
+    bd_user_id: targetBdUserId,
+    payment_method: payment.paymentMethod,
+    payment_top_term: payment.paymentTopTerm,
+    updated_by: actorUserId,
+    updated_at: nowIso,
+  }
+
+  let orderOwnerUpdateResult = await supabase
     .from('sales_orders')
-    .update({
-      bd_user_id: targetBdUserId,
-      updated_by: actorUserId,
-      updated_at: nowIso,
-    })
+    .update(orderUpdatePayload)
     .eq('id', result.order_id)
+
+  if (orderOwnerUpdateResult.error && isMissingSalesPaymentColumnsError(orderOwnerUpdateResult.error)) {
+    const { payment_method: _ignoredMethod, payment_top_term: _ignoredTopTerm, ...compatPayload } = orderUpdatePayload
+    orderOwnerUpdateResult = await supabase
+      .from('sales_orders')
+      .update(compatPayload)
+      .eq('id', result.order_id)
+  }
 
   if (orderOwnerUpdateResult.error) {
     throw extractDatabaseError(orderOwnerUpdateResult.error, 'Failed to assign BD owner to sales order')
@@ -474,6 +544,8 @@ export async function createSalesOrderWithAutoLeadAndAssignBd(
       lead_id: result.lead_id,
       lead_code: result.lead_code,
       target_bd_user_id: targetBdUserId,
+      payment_method: payment.paymentMethod,
+      payment_top_term: payment.paymentTopTerm,
     },
   })
 
@@ -545,6 +617,16 @@ export async function listSalesOrderTemplatesByOwner(ownerId: string): Promise<S
   return (result.data ?? []) as SalesOrderRow[]
 }
 
+export async function generateSalesPaymentDueNotifications(): Promise<number> {
+  const result = await supabase.rpc('generate_sales_payment_due_notifications')
+
+  if (result.error) {
+    throw result.error
+  }
+
+  return Number(result.data ?? 0)
+}
+
 export async function listDeletedSalesOrders(filters: SalesOrderFilters = {}): Promise<SalesOrderRow[]> {
   const matchedOrderIds = await resolveSalesOrderIdsByItemFilters(filters)
   if (matchedOrderIds && matchedOrderIds.length === 0) {
@@ -595,6 +677,7 @@ export async function listDeletedSalesOrders(filters: SalesOrderFilters = {}): P
 export async function updateSalesOrder(input: UpdateSalesOrderInput): Promise<void> {
   const userId = await getCurrentUserId()
   const companyName = input.company_name.trim()
+  const payment = normalizePaymentTerms(input.payment_method, input.payment_top_term)
   if (!companyName) {
     throw new Error('Company name is required')
   }
@@ -622,16 +705,29 @@ export async function updateSalesOrder(input: UpdateSalesOrderInput): Promise<vo
     unit_price: item.unit_price ?? null,
   }))
 
-  const updateResult = await supabase
+  const nowIso = new Date().toISOString()
+  const orderUpdatePayload = {
+    company_name: companyName,
+    sold_at: input.sold_at,
+    payment_method: payment.paymentMethod,
+    payment_top_term: payment.paymentTopTerm,
+    note: input.note ?? null,
+    updated_by: userId,
+    updated_at: nowIso,
+  }
+
+  let updateResult = await supabase
     .from('sales_orders')
-    .update({
-      company_name: companyName,
-      sold_at: input.sold_at,
-      note: input.note ?? null,
-      updated_by: userId,
-      updated_at: new Date().toISOString(),
-    })
+    .update(orderUpdatePayload)
     .eq('id', input.orderId)
+
+  if (updateResult.error && isMissingSalesPaymentColumnsError(updateResult.error)) {
+    const { payment_method: _ignoredMethod, payment_top_term: _ignoredTopTerm, ...compatPayload } = orderUpdatePayload
+    updateResult = await supabase
+      .from('sales_orders')
+      .update(compatPayload)
+      .eq('id', input.orderId)
+  }
 
   if (updateResult.error) {
     throw extractDatabaseError(updateResult.error, 'Failed to update sales order')
@@ -665,17 +761,6 @@ export async function updateSalesOrder(input: UpdateSalesOrderInput): Promise<vo
       throw extractDatabaseError(leadUpdateResult.error, 'Failed to sync lead after sales update')
     }
 
-    const followupResult = await supabase.from('lead_followups').insert({
-      lead_id: order.lead_id,
-      followup_type: 'MEETING',
-      summary: `Sales order ${order.order_no} edited: ${summary}`,
-      followup_at: new Date().toISOString(),
-      created_by: userId,
-    })
-
-    if (followupResult.error) {
-      throw extractDatabaseError(followupResult.error, 'Failed to append lead follow-up after sales edit')
-    }
   }
 
   if (order.onboard_merchant_id) {
@@ -687,7 +772,7 @@ export async function updateSalesOrder(input: UpdateSalesOrderInput): Promise<vo
         activity_at: input.sold_at,
         status: 'DONE',
         updated_by: userId,
-        updated_at: new Date().toISOString(),
+        updated_at: nowIso,
       })
       .eq('related_sales_order_id', input.orderId)
       .is('deleted_at', null)
@@ -705,6 +790,8 @@ export async function updateSalesOrder(input: UpdateSalesOrderInput): Promise<vo
     afterData: {
       company_name: companyName,
       sold_at: input.sold_at,
+      payment_method: payment.paymentMethod,
+      payment_top_term: payment.paymentTopTerm,
       item_summary: summary,
     },
   })
@@ -770,17 +857,6 @@ export async function softDeleteSalesOrder(orderId: string): Promise<void> {
       throw extractDatabaseError(leadUpdateResult.error, 'Failed to sync lead after sales delete')
     }
 
-    const followupResult = await supabase.from('lead_followups').insert({
-      lead_id: order.lead_id,
-      followup_type: 'MEETING',
-      summary: `Sales order ${order.order_no} deleted`,
-      followup_at: nowIso,
-      created_by: userId,
-    })
-
-    if (followupResult.error) {
-      throw extractDatabaseError(followupResult.error, 'Failed to append lead follow-up after sales delete')
-    }
   }
 
   await recordOperationLog({
@@ -851,17 +927,6 @@ export async function restoreSalesOrder(orderId: string): Promise<void> {
       throw extractDatabaseError(leadUpdateResult.error, 'Failed to sync lead after sales restore')
     }
 
-    const followupResult = await supabase.from('lead_followups').insert({
-      lead_id: order.lead_id,
-      followup_type: 'MEETING',
-      summary: `Sales order ${order.order_no} restored`,
-      followup_at: nowIso,
-      created_by: userId,
-    })
-
-    if (followupResult.error) {
-      throw extractDatabaseError(followupResult.error, 'Failed to append lead follow-up after sales restore')
-    }
   }
 
   await recordOperationLog({

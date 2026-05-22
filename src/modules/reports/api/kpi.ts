@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase/client'
+import type { SalesProductCategory } from '../../../types/business'
 
 export interface BdKpiFilters {
   dateFrom?: string
@@ -45,6 +46,13 @@ interface SalesOrderKpiRow {
   items: SalesOrderItemKpiRow[] | null
 }
 
+interface SalesOrderDetailRow {
+  id: string
+  bd_user_id: string | null
+  sold_at: string
+  items: SalesOrderItemKpiRow[] | null
+}
+
 interface MerchantKpiRow {
   bd_owner_id: string | null
 }
@@ -59,6 +67,95 @@ interface BdAggregateRow {
   salesRecordCount: number
   bcsSignedCount: number
   isBcsTargetExempt: boolean
+}
+
+export interface BdKpiTargetSettings {
+  teamTireTarget: number
+  teamAccessoryTarget: number
+  teamBcsTarget: number
+  defaultPersonalTireTarget: number
+  defaultPersonalAccessoryTarget: number
+  defaultPersonalBcsTarget: number
+}
+
+export interface BdKpiSalesOrderDetailItem {
+  category: SalesProductCategory | string
+  quantity: number
+  amount: number
+}
+
+export interface BdKpiSalesOrderDetail {
+  orderId: string
+  bdUserId: string
+  soldAt: string
+  salesAmount: number
+  items: BdKpiSalesOrderDetailItem[]
+}
+
+const KPI_TARGET_DICTIONARY_TYPE = 'bd_kpi_target'
+
+const KPI_TARGET_CODE_MAP: Record<keyof BdKpiTargetSettings, string> = {
+  teamTireTarget: 'team_tire_target',
+  teamAccessoryTarget: 'team_accessory_target',
+  teamBcsTarget: 'team_bcs_target',
+  defaultPersonalTireTarget: 'default_personal_tire_target',
+  defaultPersonalAccessoryTarget: 'default_personal_accessory_target',
+  defaultPersonalBcsTarget: 'default_personal_bcs_target',
+}
+
+function normalizeSettingValue(value: unknown): number | null {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null
+  }
+  return parsed
+}
+
+export async function getBdKpiTargetSettings(): Promise<Partial<BdKpiTargetSettings>> {
+  const codes = Object.values(KPI_TARGET_CODE_MAP)
+  const result = await supabase
+    .from('dictionary_items')
+    .select('code, label, is_active')
+    .eq('dictionary_type', KPI_TARGET_DICTIONARY_TYPE)
+    .in('code', codes)
+
+  if (result.error) {
+    throw result.error
+  }
+
+  const rowByCode = new Map(
+    (result.data ?? [])
+      .filter((item) => item.is_active !== false)
+      .map((item) => [String(item.code), normalizeSettingValue(item.label)]),
+  )
+
+  const settings: Partial<BdKpiTargetSettings> = {}
+  for (const [key, code] of Object.entries(KPI_TARGET_CODE_MAP) as Array<[keyof BdKpiTargetSettings, string]>) {
+    const value = rowByCode.get(code)
+    if (value !== null && value !== undefined) {
+      settings[key] = value
+    }
+  }
+
+  return settings
+}
+
+export async function saveBdKpiTargetSettings(settings: BdKpiTargetSettings): Promise<void> {
+  const rows = (Object.entries(KPI_TARGET_CODE_MAP) as Array<[keyof BdKpiTargetSettings, string]>).map(([key, code], index) => ({
+    dictionary_type: KPI_TARGET_DICTIONARY_TYPE,
+    code,
+    label: String(Math.max(0, Number(settings[key] ?? 0))),
+    sort_order: (index + 1) * 10,
+    is_active: true,
+  }))
+
+  const result = await supabase.from('dictionary_items').upsert(rows, {
+    onConflict: 'dictionary_type,code',
+  })
+
+  if (result.error) {
+    throw result.error
+  }
 }
 
 export async function queryBdKpiSummary(filters: BdKpiFilters = {}): Promise<{ rows: BdKpiRow[]; team: TeamKpiSummary }> {
@@ -225,4 +322,70 @@ export async function queryBdKpiSummary(filters: BdKpiFilters = {}): Promise<{ r
   }
 
   return { rows, team }
+}
+
+export async function queryBdKpiSalesOrderDetails(
+  filters: BdKpiFilters & { bdUserIds?: string[] } = {},
+): Promise<BdKpiSalesOrderDetail[]> {
+  const cleanBdUserIds = Array.from(
+    new Set(
+      (filters.bdUserIds ?? [])
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  )
+
+  if (filters.bdUserIds && cleanBdUserIds.length === 0) {
+    return []
+  }
+
+  let salesQuery = supabase
+    .from('sales_orders')
+    .select('id, bd_user_id, sold_at, items:sales_order_items(category, quantity, unit_price)')
+    .is('deleted_at', null)
+
+  if (filters.dateFrom) {
+    salesQuery = salesQuery.gte('sold_at', filters.dateFrom)
+  }
+  if (filters.dateTo) {
+    salesQuery = salesQuery.lte('sold_at', filters.dateTo)
+  }
+  if (cleanBdUserIds.length > 0) {
+    salesQuery = salesQuery.in('bd_user_id', cleanBdUserIds)
+  }
+
+  const salesResult = await salesQuery
+  if (salesResult.error) {
+    throw salesResult.error
+  }
+
+  const salesRows = (salesResult.data ?? []) as SalesOrderDetailRow[]
+  const details: BdKpiSalesOrderDetail[] = []
+
+  for (const row of salesRows) {
+    if (!row.bd_user_id || !row.sold_at) {
+      continue
+    }
+
+    const mappedItems: BdKpiSalesOrderDetailItem[] = (row.items ?? []).map((item) => {
+      const quantity = Math.max(0, Number(item.quantity ?? 0))
+      const unitPrice = Math.max(0, Number(item.unit_price ?? 0))
+      return {
+        category: (item.category as SalesProductCategory | string | null) ?? 'UNKNOWN',
+        quantity,
+        amount: quantity > 0 && unitPrice > 0 ? quantity * unitPrice : 0,
+      }
+    })
+
+    const salesAmount = mappedItems.reduce((sum, item) => sum + item.amount, 0)
+    details.push({
+      orderId: row.id,
+      bdUserId: row.bd_user_id,
+      soldAt: row.sold_at,
+      salesAmount,
+      items: mappedItems,
+    })
+  }
+
+  return details
 }

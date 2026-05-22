@@ -30,6 +30,9 @@ import {
 import {
   useTranslation,
 } from 'react-i18next'
+import {
+  formatUserOptionLabel,
+} from '../../../lib/user-display'
 
 import {
   PageTitleBar,
@@ -287,7 +290,7 @@ export function PmProjectCreatePage() {
   const userSelectOptions = useMemo(() => {
     return userOptions.map((item) => ({
       value: item.id,
-      label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
+      label: formatUserOptionLabel(item),
     }))
   }, [userOptions])
   const taskPriorityOptions = useMemo(() => getTaskPriorityOptions(t), [t])

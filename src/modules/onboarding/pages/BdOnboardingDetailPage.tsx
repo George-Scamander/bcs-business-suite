@@ -41,6 +41,9 @@ import {
   getOnboardingStatusOptions,
 } from '../../../lib/business-constants'
 import {
+  formatUserOptionLabel,
+} from '../../../lib/user-display'
+import {
   createSignedFileUrl,
   uploadPrivateDocument,
 } from '../../../lib/supabase/storage'
@@ -280,7 +283,7 @@ export function BdOnboardingDetailPage() {
   const dropdownUserOptions = useMemo(() => {
     return userOptions.map((item) => ({
       value: item.id,
-      label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
+      label: formatUserOptionLabel(item),
     }))
   }, [userOptions])
 

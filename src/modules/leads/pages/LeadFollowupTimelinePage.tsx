@@ -53,6 +53,14 @@ interface FollowupFormValues {
   team_attention_note?: string
 }
 
+function isSalesOrderFollowup(followupType: string, summary: string): boolean {
+  const normalizedType = followupType.trim().toUpperCase()
+  if (normalizedType === 'SALES_ORDER') {
+    return true
+  }
+  return summary.trim().toLowerCase().startsWith('sales order ')
+}
+
 export function LeadFollowupTimelinePage() {
   const { t } = useTranslation()
   const [form] = Form.useForm<FollowupFormValues>()
@@ -64,7 +72,19 @@ export function LeadFollowupTimelinePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const arrangeNextFollowup = Form.useWatch('arrange_next_followup', form)
-  const visibleRows = useMemo(() => rows.filter((item) => !item.summary.startsWith('Sales Order ')), [rows])
+  const visibleRows = useMemo(() => rows.filter((item) => !isSalesOrderFollowup(item.followup_type, item.summary)), [rows])
+  const followupTypeLabelByValue = useMemo(() => {
+    const map = new Map(getFollowupTypeOptions(t).map((item) => [item.value, item.label]))
+    map.set('SALES_ORDER', t('merchantActivityType.SALES_ORDER', { defaultValue: 'Sales Order' }))
+    return map
+  }, [t])
+
+  const renderFollowupType = useCallback((followupType: string, summary: string) => {
+    if (followupType === 'MEETING' && summary.startsWith('Sales order ')) {
+      return t('merchantActivityType.SALES_ORDER', { defaultValue: 'Sales Order' })
+    }
+    return followupTypeLabelByValue.get(followupType) ?? followupType
+  }, [followupTypeLabelByValue, t])
 
   const loadData = useCallback(async () => {
     if (!leadId) {
@@ -219,7 +239,12 @@ export function LeadFollowupTimelinePage() {
             width: 200,
             render: (value: string) => new Date(value).toLocaleString(),
           },
-          { title: t('page.leads.type', { defaultValue: 'Type' }), dataIndex: 'followup_type', width: 130 },
+          {
+            title: t('page.leads.type', { defaultValue: 'Type' }),
+            dataIndex: 'followup_type',
+            width: 130,
+            render: (value: string, row: LeadFollowup) => renderFollowupType(value, row.summary),
+          },
           { title: t('page.leads.summary', { defaultValue: 'Summary' }), dataIndex: 'summary' },
           {
             title: t('page.leads.nextFollowup', { defaultValue: 'Next Follow-up' }),

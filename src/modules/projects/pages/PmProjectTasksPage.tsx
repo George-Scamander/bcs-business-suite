@@ -37,6 +37,9 @@ import {
   getTaskStatusOptions,
 } from '../../../lib/business-constants'
 import {
+  formatDisplayName,
+} from '../../../lib/user-display'
+import {
   StatusTag,
 } from '../../../components/common/StatusTag'
 import {
@@ -243,7 +246,7 @@ export function PmProjectTasksPage() {
   }
 
   const userLabelById = useMemo(() => {
-    return new Map(users.map((userRow) => [userRow.id, userRow.full_name ? `${userRow.full_name} (${userRow.email})` : userRow.email]))
+    return new Map(users.map((userRow) => [userRow.id, formatDisplayName(userRow.full_name, userRow.email, userRow.id)]))
   }, [users])
 
   const memberOptions = useMemo(() => {

@@ -37,6 +37,9 @@ import {
 import {
   StatusTag,
 } from '../../../components/common/StatusTag'
+import {
+  formatDisplayName,
+} from '../../../lib/user-display'
 
 export function BdDepartmentLeadsPage() {
   const { t } = useTranslation()
@@ -163,6 +166,7 @@ export function BdDepartmentLeadsPage() {
       </div>
 
       <Table
+        className="compact-data-table"
         rowKey="id"
         loading={loading}
         bordered
@@ -189,12 +193,12 @@ export function BdDepartmentLeadsPage() {
           {
             title: t('pages.bdDepartmentLeads.columns.bdOwner', { defaultValue: 'BD Owner' }),
             width: 220,
-            render: (_: unknown, row: DepartmentLeadRow) => row.assigned_bd_name ?? row.assigned_bd_email ?? '-',
+            render: (_: unknown, row: DepartmentLeadRow) => formatDisplayName(row.assigned_bd_name, row.assigned_bd_email),
           },
           {
             title: t('pages.bdDepartmentLeads.columns.createdBy', { defaultValue: 'Created By' }),
             width: 220,
-            render: (_: unknown, row: DepartmentLeadRow) => row.created_by_name ?? row.created_by_email ?? '-',
+            render: (_: unknown, row: DepartmentLeadRow) => formatDisplayName(row.created_by_name, row.created_by_email),
           },
           { title: t('pages.bdDepartmentLeads.columns.region', { defaultValue: 'Region' }), dataIndex: 'region', width: 140 },
           {
@@ -230,8 +234,8 @@ export function BdDepartmentLeadsPage() {
             <Descriptions.Item label={t('pages.bdDepartmentLeads.columns.intentPackage', { defaultValue: 'Business Segment' })}>{detailRow.intent_package ?? '-'}</Descriptions.Item>
             <Descriptions.Item label={t('pages.bdDepartmentLeads.columns.intentLevel', { defaultValue: 'Intent Level' })}>{detailRow.intent_level ?? '-'}</Descriptions.Item>
             <Descriptions.Item label={t('pages.bdDepartmentLeads.columns.source', { defaultValue: 'Source' })}>{detailRow.source ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label={t('pages.bdDepartmentLeads.columns.bdOwner', { defaultValue: 'BD Owner' })}>{detailRow.assigned_bd_name ?? detailRow.assigned_bd_email ?? '-'}</Descriptions.Item>
-            <Descriptions.Item label={t('pages.bdDepartmentLeads.columns.createdBy', { defaultValue: 'Created By' })}>{detailRow.created_by_name ?? detailRow.created_by_email ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.bdDepartmentLeads.columns.bdOwner', { defaultValue: 'BD Owner' })}>{formatDisplayName(detailRow.assigned_bd_name, detailRow.assigned_bd_email)}</Descriptions.Item>
+            <Descriptions.Item label={t('pages.bdDepartmentLeads.columns.createdBy', { defaultValue: 'Created By' })}>{formatDisplayName(detailRow.created_by_name, detailRow.created_by_email)}</Descriptions.Item>
             <Descriptions.Item label={t('pages.bdDepartmentLeads.columns.contactPerson', { defaultValue: 'Contact Person' })}>{detailRow.contact_person ?? '-'}</Descriptions.Item>
             <Descriptions.Item label={t('pages.bdDepartmentLeads.columns.contactPhone', { defaultValue: 'Contact Phone' })}>{detailRow.contact_phone ?? '-'}</Descriptions.Item>
             <Descriptions.Item label={t('pages.bdDepartmentLeads.columns.contactEmail', { defaultValue: 'Contact Email' })}>{detailRow.contact_email ?? '-'}</Descriptions.Item>

@@ -26,6 +26,8 @@ export interface LeadFilters {
   intentLevelMax?: number
   followupDue?: boolean
   followupDueBefore?: string
+  followupFrom?: string
+  followupTo?: string
   signedFrom?: string
   signedTo?: string
   signedContractPackageGroup?: 'BCS_RELATED' | 'NON_BCS'
@@ -223,6 +225,14 @@ export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
     query = query.not('next_followup_at', 'is', null).lt('next_followup_at', filters.followupDueBefore ?? new Date().toISOString())
   }
 
+  if (filters.followupFrom) {
+    query = query.gte('next_followup_at', filters.followupFrom)
+  }
+
+  if (filters.followupTo) {
+    query = query.lte('next_followup_at', filters.followupTo)
+  }
+
   if (signedLeadIds) {
     query = query.in('id', signedLeadIds)
   }
@@ -361,6 +371,14 @@ export async function listDeletedLeads(filters: LeadFilters = {}): Promise<Lead[
 
   if (filters.followupDue) {
     query = query.not('next_followup_at', 'is', null).lt('next_followup_at', filters.followupDueBefore ?? new Date().toISOString())
+  }
+
+  if (filters.followupFrom) {
+    query = query.gte('next_followup_at', filters.followupFrom)
+  }
+
+  if (filters.followupTo) {
+    query = query.lte('next_followup_at', filters.followupTo)
   }
 
   if (signedLeadIds) {

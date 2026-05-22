@@ -37,6 +37,7 @@ import {
 } from '../../../components/common/StatusTag'
 import {
   getSalesProductCategoryOptions,
+  getFollowupTypeOptions,
 } from '../../../lib/business-constants'
 import {
   createSignedFileUrl,
@@ -72,6 +73,14 @@ import type {
 import {
   useAuth,
 } from '../../auth/auth-context'
+
+function isSalesOrderFollowup(followupType: string, summary: string): boolean {
+  const normalizedType = followupType.trim().toUpperCase()
+  if (normalizedType === 'SALES_ORDER') {
+    return true
+  }
+  return summary.trim().toLowerCase().startsWith('sales order ')
+}
 
 export function LeadDetailPage() {
   const navigate = useNavigate()
@@ -172,10 +181,22 @@ export function LeadDetailPage() {
   const categoryLabelByValue = useMemo(() => {
     return new Map(getSalesProductCategoryOptions(t).map((item) => [item.value, item.label]))
   }, [t])
+  const followupTypeLabelByValue = useMemo(() => {
+    const map = new Map(getFollowupTypeOptions(t).map((item) => [item.value, item.label]))
+    map.set('SALES_ORDER', t('merchantActivityType.SALES_ORDER', { defaultValue: 'Sales Order' }))
+    return map
+  }, [t])
 
   const timelineFollowups = useMemo(() => {
-    return followups.filter((item) => !item.summary.startsWith('Sales Order '))
+    return followups.filter((item) => !isSalesOrderFollowup(item.followup_type, item.summary))
   }, [followups])
+
+  const renderFollowupType = useCallback((followupType: string, summary: string) => {
+    if (followupType === 'MEETING' && summary.startsWith('Sales order ')) {
+      return t('merchantActivityType.SALES_ORDER', { defaultValue: 'Sales Order' })
+    }
+    return followupTypeLabelByValue.get(followupType) ?? followupType
+  }, [followupTypeLabelByValue, t])
 
   async function handleSaveAttentionNote() {
     if (!lead || !canEditAttentionNote) {
@@ -341,7 +362,7 @@ export function LeadDetailPage() {
                 color: 'blue',
                 children: (
                   <div>
-                    <p className="mb-1 font-medium">{item.followup_type}</p>
+                    <p className="mb-1 font-medium">{renderFollowupType(item.followup_type, item.summary)}</p>
                     <p className="mb-1 text-slate-600">{item.summary}</p>
                     <p className="mb-0 text-xs text-slate-500">{new Date(item.followup_at).toLocaleString()}</p>
                   </div>

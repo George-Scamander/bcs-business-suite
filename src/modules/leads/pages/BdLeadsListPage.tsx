@@ -13,6 +13,7 @@ import {
   Popconfirm,
   Select,
   Space,
+  Tag,
   Upload,
   message,
 } from 'antd'
@@ -44,6 +45,10 @@ import {
 import {
   PERMISSIONS,
 } from '../../../lib/permissions'
+import {
+  formatDisplayName,
+  formatUserOptionLabel,
+} from '../../../lib/user-display'
 import {
   createLead,
   listLeads,
@@ -131,6 +136,15 @@ function getCurrentMonthRangeIso(): { startIso: string; endIso: string } {
   }
 }
 
+function getNextFollowupSortTimestamp(value: string | null | undefined): number | null {
+  if (!value) {
+    return null
+  }
+
+  const timestamp = dayjs(value).valueOf()
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+
 function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: LeadFilters; keyword: string } {
   const statusParam = searchParams.get('status')
   const intentPackageParam = searchParams.get('intentPackage')
@@ -180,6 +194,8 @@ export function BdLeadsListPage() {
   const { user, roles, hasPermission } = useAuth()
 
   const [rows, setRows] = useState<Lead[]>([])
+  const [bdMatchedLeadIdSet, setBdMatchedLeadIdSet] = useState<Set<string>>(new Set())
+  const [todayFollowupLeadIdSet, setTodayFollowupLeadIdSet] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState<LeadFilters>(() => parseLeadFiltersFromSearch(searchParams).filters)
   const [keyword, setKeyword] = useState(() => parseLeadFiltersFromSearch(searchParams).keyword)
@@ -214,18 +230,47 @@ export function BdLeadsListPage() {
     setLoading(true)
 
     try {
-      const result = await listLeads({
+      const keywordValue = keyword.trim() || undefined
+      const baseFilters: LeadFilters = {
         ...filters,
-        keyword: keyword.trim() || undefined,
+        keyword: keywordValue,
         assignedBdId: shouldScopeToMyLeads ? undefined : filters.assignedBdId,
         createdById: undefined,
-      })
+      }
+      const shouldMergeTodayFollowup = canFilterByBd && Boolean(baseFilters.assignedBdId) && !shouldScopeToMyLeads
+      const startOfTodayIso = dayjs().startOf('day').toISOString()
+      const endOfTodayIso = dayjs().endOf('day').toISOString()
 
-      const scopedRows = shouldScopeToMyLeads
-        ? result.filter((item) => item.assigned_bd_id === user.id || item.created_by === user.id)
+      const [result, todayFollowupRows] = await Promise.all([
+        listLeads(baseFilters),
+        shouldMergeTodayFollowup
+          ? listLeads({
+              ...baseFilters,
+              assignedBdId: undefined,
+              followupFrom: startOfTodayIso,
+              followupTo: endOfTodayIso,
+            })
+          : Promise.resolve([] as Lead[]),
+      ])
+
+      const bdMatchedIds = shouldMergeTodayFollowup ? new Set(result.map((item) => item.id)) : new Set<string>()
+      const todayFollowupIds = shouldMergeTodayFollowup ? new Set(todayFollowupRows.map((item) => item.id)) : new Set<string>()
+
+      const mergedRows = shouldMergeTodayFollowup
+        ? Array.from(new Map([...result, ...todayFollowupRows].map((item) => [item.id, item])).values()).sort((a, b) => {
+            const aTime = new Date(a.updated_at).getTime()
+            const bTime = new Date(b.updated_at).getTime()
+            return bTime - aTime
+          })
         : result
 
+      const scopedRows = shouldScopeToMyLeads
+        ? mergedRows.filter((item) => item.assigned_bd_id === user.id || item.created_by === user.id)
+        : mergedRows
+
       setRows(scopedRows)
+      setBdMatchedLeadIdSet(new Set(scopedRows.filter((item) => bdMatchedIds.has(item.id)).map((item) => item.id)))
+      setTodayFollowupLeadIdSet(new Set(scopedRows.filter((item) => todayFollowupIds.has(item.id)).map((item) => item.id)))
       setSelectedIds([])
     } catch (error) {
       const text = error instanceof Error ? error.message : t('pages.bdLeads.loadFail', { defaultValue: 'Failed to load leads' })
@@ -233,7 +278,7 @@ export function BdLeadsListPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters, keyword, shouldScopeToMyLeads, t, user])
+  }, [canFilterByBd, filters, keyword, shouldScopeToMyLeads, t, user])
 
   const loadUsers = useCallback(async () => {
     if (!canAssign && !canFilterByBd) {
@@ -375,7 +420,7 @@ export function BdLeadsListPage() {
   const assignSelectOptions = useMemo(() => {
     return userOptions.map((item) => ({
       value: item.id,
-      label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
+      label: formatUserOptionLabel(item),
     }))
   }, [userOptions])
 
@@ -383,7 +428,7 @@ export function BdLeadsListPage() {
     () =>
       userOptions.map((item) => ({
         value: item.id,
-        label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
+        label: formatUserOptionLabel(item),
       })),
     [userOptions],
   )
@@ -391,10 +436,10 @@ export function BdLeadsListPage() {
   const bdUserNameMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const item of userOptions) {
-      map.set(item.id, item.full_name || item.email)
+      map.set(item.id, formatDisplayName(item.full_name, item.email, item.id))
     }
     if (user?.id && user.email) {
-      map.set(user.id, map.get(user.id) ?? user.email)
+      map.set(user.id, map.get(user.id) ?? formatDisplayName(undefined, user.email, user.id))
     }
     return map
   }, [user?.email, user?.id, userOptions])
@@ -561,10 +606,17 @@ export function BdLeadsListPage() {
       </div>
 
       <Table
+        className="compact-data-table"
         rowKey="id"
         loading={loading}
         bordered
         dataSource={rows}
+        showSorterTooltip={{ target: 'sorter-icon' }}
+        locale={{
+          triggerAsc: t('pages.salesSupervision.sortTriggerAsc', { defaultValue: 'Click to sort ascending' }),
+          triggerDesc: t('pages.salesSupervision.sortTriggerDesc', { defaultValue: 'Click to sort descending' }),
+          cancelSort: t('pages.salesSupervision.sortCancel', { defaultValue: 'Click to cancel sorting' }),
+        }}
         rowSelection={{
           selectedRowKeys: selectedIds,
           onChange: (keys) => setSelectedIds(keys as string[]),
@@ -582,6 +634,14 @@ export function BdLeadsListPage() {
               return (
                 <div>
                   <div className="font-medium text-slate-900">{value}</div>
+                  <Space size={6} wrap className="mt-1">
+                    {bdMatchedLeadIdSet.has(row.id) ? (
+                      <Tag color="blue">{t('pages.bdLeads.leadCodeBdMatchedTag', { defaultValue: 'BD Match' })}</Tag>
+                    ) : null}
+                    {todayFollowupLeadIdSet.has(row.id) ? (
+                      <Tag color="gold">{t('pages.bdLeads.leadCodeTodayFollowupTag', { defaultValue: 'Follow-up Today' })}</Tag>
+                    ) : null}
+                  </Space>
                   <div className="mt-0.5 text-xs text-slate-500">
                     {t('pages.bdLeads.bdOwnerLabel', { defaultValue: 'BD Owner' })}: {bdOwnerName}
                   </div>
@@ -602,6 +662,26 @@ export function BdLeadsListPage() {
             title: t('pages.bdLeads.nextFollowup', { defaultValue: 'Next Follow-up' }),
             dataIndex: 'next_followup_at',
             width: 190,
+            onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' } }),
+            sorter: (a: Lead, b: Lead) => {
+              const aTimestamp = getNextFollowupSortTimestamp(a.next_followup_at)
+              const bTimestamp = getNextFollowupSortTimestamp(b.next_followup_at)
+
+              if (aTimestamp === null && bTimestamp === null) {
+                return 0
+              }
+
+              if (aTimestamp === null) {
+                return 1
+              }
+
+              if (bTimestamp === null) {
+                return -1
+              }
+
+              return aTimestamp - bTimestamp
+            },
+            sortDirections: ['descend', 'ascend'],
             render: (value: string | null) => (value ? new Date(value).toLocaleString() : '-'),
           },
           {

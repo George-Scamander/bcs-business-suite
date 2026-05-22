@@ -1,12 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
 import { Button, Card, DatePicker, Drawer, Input, InputNumber, Progress, Space, Statistic, Tooltip, message } from 'antd'
-import { InfoCircleOutlined, SettingOutlined } from '@ant-design/icons'
+import { InfoCircleOutlined, LineChartOutlined, SettingOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { AdaptiveTable as Table } from '../../../components/common/AdaptiveTable'
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
-import { queryBdKpiSummary, type BdKpiRow, type TeamKpiSummary } from '../api/kpi'
+import { PERMISSIONS } from '../../../lib/permissions'
+import { formatDisplayName, formatEmailAccount } from '../../../lib/user-display'
+import { useAuth } from '../../auth/auth-context'
+import {
+  getBdKpiTargetSettings,
+  queryBdKpiSummary,
+  saveBdKpiTargetSettings,
+  type BdKpiRow,
+  type BdKpiTargetSettings,
+  type TeamKpiSummary,
+} from '../api/kpi'
 
 type DateRange = [Dayjs | null, Dayjs | null] | null
 
@@ -46,11 +57,6 @@ function formatNumber(value: number): string {
   }).format(value)
 }
 
-function formatEmailAccount(value: string): string {
-  const [account] = value.split('@')
-  return account || value
-}
-
 function toProgressPercent(value: number): number {
   const percent = value * 100
   if (!Number.isFinite(percent)) {
@@ -72,6 +78,9 @@ function completionRate(actual: number, target: number): number {
 
 export function BdKpiDashboardPage() {
   const { t } = useTranslation()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { hasPermission } = useAuth()
   const currentMonthRange: [Dayjs, Dayjs] = [dayjs().startOf('month'), dayjs().endOf('month')]
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<BdKpiRow[]>([])
@@ -87,7 +96,12 @@ export function BdKpiDashboardPage() {
   const [defaultPersonalTireTarget, setDefaultPersonalTireTarget] = useState<number>(10)
   const [defaultPersonalAccessoryTarget, setDefaultPersonalAccessoryTarget] = useState<number>(10000)
   const [defaultPersonalBcsTarget, setDefaultPersonalBcsTarget] = useState<number>(5)
+  const [targetSaving, setTargetSaving] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
+  const canPersistTargets = hasPermission(PERMISSIONS.SYSTEM_CONFIG)
+  const insightsPath = location.pathname.startsWith('/app/admin/')
+    ? '/app/admin/kpi/dashboard/insights'
+    : '/app/pm/kpi/dashboard/insights'
 
   function toCurrentMonthRange(): [Dayjs, Dayjs] {
     return [dayjs().startOf('month'), dayjs().endOf('month')]
@@ -103,6 +117,36 @@ export function BdKpiDashboardPage() {
     setDateRangeInput(monthRange)
     setDateRange(monthRange)
   }
+
+  const loadTargetSettings = useCallback(async () => {
+    try {
+      const settings = await getBdKpiTargetSettings()
+      if (settings.teamTireTarget !== undefined) {
+        setTeamTireTarget(settings.teamTireTarget)
+      }
+      if (settings.teamAccessoryTarget !== undefined) {
+        setTeamAccessoryTarget(settings.teamAccessoryTarget)
+      }
+      if (settings.teamBcsTarget !== undefined) {
+        setTeamBcsTarget(settings.teamBcsTarget)
+      }
+      if (settings.defaultPersonalTireTarget !== undefined) {
+        setDefaultPersonalTireTarget(settings.defaultPersonalTireTarget)
+      }
+      if (settings.defaultPersonalAccessoryTarget !== undefined) {
+        setDefaultPersonalAccessoryTarget(settings.defaultPersonalAccessoryTarget)
+      }
+      if (settings.defaultPersonalBcsTarget !== undefined) {
+        setDefaultPersonalBcsTarget(settings.defaultPersonalBcsTarget)
+      }
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.bdKpi.loadTargetsFail', { defaultValue: 'Failed to load KPI target settings' })
+      message.error(text)
+    }
+  }, [t])
 
   function formatDateRangeLabel(range: DateRange): string {
     const start = range?.[0]
@@ -137,6 +181,42 @@ export function BdKpiDashboardPage() {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    void loadTargetSettings()
+  }, [loadTargetSettings])
+
+  async function handleApplyControlPanel() {
+    applyFilters()
+    setPanelOpen(false)
+
+    if (!canPersistTargets) {
+      return
+    }
+
+    const payload: BdKpiTargetSettings = {
+      teamTireTarget: safeNumber(teamTireTarget),
+      teamAccessoryTarget: safeNumber(teamAccessoryTarget),
+      teamBcsTarget: safeNumber(teamBcsTarget),
+      defaultPersonalTireTarget: safeNumber(defaultPersonalTireTarget),
+      defaultPersonalAccessoryTarget: safeNumber(defaultPersonalAccessoryTarget),
+      defaultPersonalBcsTarget: safeNumber(defaultPersonalBcsTarget),
+    }
+
+    setTargetSaving(true)
+    try {
+      await saveBdKpiTargetSettings(payload)
+      message.success(t('pages.bdKpi.saveTargetsSuccess', { defaultValue: 'KPI target settings saved' }))
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.bdKpi.saveTargetsFail', { defaultValue: 'Failed to save KPI target settings' })
+      message.error(text)
+    } finally {
+      setTargetSaving(false)
+    }
+  }
 
   const calculatedRows = useMemo(() => {
     const unifiedTargets: PersonalTargetSetting = {
@@ -179,7 +259,7 @@ export function BdKpiDashboardPage() {
         width: 240,
         render: (_value: string, row: BdKpiRow) => (
           <div>
-            <div className="font-medium text-slate-900">{row.bdName}</div>
+            <div className="font-medium text-slate-900">{formatDisplayName(row.bdName, row.bdEmail, row.bdUserId)}</div>
             <div className="text-xs text-slate-500">{formatEmailAccount(row.bdEmail)}</div>
           </div>
         ),
@@ -292,6 +372,26 @@ export function BdKpiDashboardPage() {
         extra={
           <Space wrap>
             <Button
+              icon={<LineChartOutlined />}
+              onClick={() => {
+                const params = new URLSearchParams()
+                const trimmedKeyword = keyword.trim()
+                if (trimmedKeyword) {
+                  params.set('keyword', trimmedKeyword)
+                }
+                if (dateRange?.[0]) {
+                  params.set('dateFrom', dateRange[0].startOf('day').toISOString())
+                }
+                if (dateRange?.[1]) {
+                  params.set('dateTo', dateRange[1].endOf('day').toISOString())
+                }
+                const nextUrl = params.toString() ? `${insightsPath}?${params.toString()}` : insightsPath
+                navigate(nextUrl)
+              }}
+            >
+              {t('pages.bdKpi.analysis.entry', { defaultValue: 'View Analysis' })}
+            </Button>
+            <Button
               onClick={() => {
                 setKeywordInput('')
                 setKeyword('')
@@ -393,10 +493,8 @@ export function BdKpiDashboardPage() {
           <Space wrap>
             <Button
               type="primary"
-              onClick={() => {
-                applyFilters()
-                setPanelOpen(false)
-              }}
+              loading={targetSaving}
+              onClick={() => void handleApplyControlPanel()}
             >
               {t('labels.apply', { defaultValue: 'Apply' })}
             </Button>

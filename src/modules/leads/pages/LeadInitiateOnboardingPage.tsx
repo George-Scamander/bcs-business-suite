@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { supabase } from '../../../lib/supabase/client'
+import { formatUserOptionLabel } from '../../../lib/user-display'
 import { useAuth } from '../../auth/auth-context'
 import { createOnboardingFromSigned } from '../../onboarding/api'
 import { listSignedRecords } from '../api'
@@ -99,7 +100,7 @@ export function LeadInitiateOnboardingPage() {
   const userOptions = useMemo(() => {
     return users.map((item) => ({
       value: item.id,
-      label: item.full_name ? `${item.full_name} (${item.email})` : item.email,
+      label: formatUserOptionLabel(item),
     }))
   }, [users])
 

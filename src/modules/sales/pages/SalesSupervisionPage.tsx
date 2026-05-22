@@ -43,6 +43,10 @@ import {
   supabase,
 } from '../../../lib/supabase/client'
 import {
+  formatDisplayName,
+  formatUserOptionLabel,
+} from '../../../lib/user-display'
+import {
   generateUuid,
 } from '../../../lib/uuid'
 import {
@@ -54,6 +58,7 @@ import {
 } from '../../shared/api/users'
 import {
   createSalesOrderWithAutoLeadAndAssignBd,
+  generateSalesPaymentDueNotifications,
   listSalesOrders,
   softDeleteSalesOrder,
   updateSalesOrder,
@@ -61,7 +66,9 @@ import {
 } from '../api'
 import type {
   SalesOrderItem,
+  SalesPaymentMethod,
   SalesProductCategory,
+  SalesTopTerm,
 } from '../../../types/business'
 
 interface SupervisionFilters {
@@ -84,6 +91,8 @@ interface DraftSalesItem {
 interface EditSalesFormValues {
   company_name: string
   sold_at: dayjs.Dayjs
+  payment_method: SalesPaymentMethod
+  payment_top_term?: SalesTopTerm
   note?: string
 }
 
@@ -91,6 +100,8 @@ interface CreateSalesFormValues {
   bd_user_id: string
   company_name: string
   sold_at: dayjs.Dayjs
+  payment_method: SalesPaymentMethod
+  payment_top_term?: SalesTopTerm
   note?: string
 }
 
@@ -108,6 +119,13 @@ const BRAND_FILTER_OPTIONS = [
   label: brand,
   value: brand,
 }))
+
+interface PaymentLabels {
+  top: string
+  cash: string
+  top30Days: string
+  top60Days: string
+}
 
 function extractRoleCode(role: RoleMappingRow['role']): string | null {
   if (!role) {
@@ -142,6 +160,40 @@ function mapItemsForDraft(items: SalesOrderItem[] | undefined): DraftSalesItem[]
   return mapped.length > 0 ? mapped : [newDraftItem()]
 }
 
+function renderPaymentMethodLabel(method: SalesPaymentMethod, topTerm: SalesTopTerm | null, labels: PaymentLabels): string {
+  if (method === 'TOP') {
+    return `${labels.top} (${topTerm === '60_DAYS' ? labels.top60Days : labels.top30Days})`
+  }
+
+  return labels.cash
+}
+
+function getPaymentDueAt(soldAt: string, method: SalesPaymentMethod, topTerm: SalesTopTerm | null): dayjs.Dayjs | null {
+  if (method !== 'TOP') {
+    return null
+  }
+
+  const days = topTerm === '60_DAYS' ? 60 : 30
+  return dayjs(soldAt).add(days, 'day')
+}
+
+function getReminderDaysLeft(dueAt: dayjs.Dayjs | null): number | null {
+  if (!dueAt) {
+    return null
+  }
+
+  return dueAt.startOf('day').diff(dayjs().startOf('day'), 'day')
+}
+
+function getSoldAtTimestamp(row: SalesOrderRow): number {
+  return dayjs(row.sold_at).valueOf()
+}
+
+function getPaymentSortTimestamp(row: SalesOrderRow): number {
+  const dueAt = getPaymentDueAt(row.sold_at, row.payment_method, row.payment_top_term)
+  return dueAt ? dueAt.valueOf() : getSoldAtTimestamp(row)
+}
+
 export function SalesSupervisionPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -160,6 +212,7 @@ export function SalesSupervisionPage() {
   const [editingRow, setEditingRow] = useState<SalesOrderRow | null>(null)
   const [editSaving, setEditSaving] = useState(false)
   const [editItems, setEditItems] = useState<DraftSalesItem[]>([newDraftItem()])
+  const [editOpenedFromDetail, setEditOpenedFromDetail] = useState(false)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [detailRow, setDetailRow] = useState<SalesOrderRow | null>(null)
   const deleteRetentionHint = t('labels.autoDelete30DaysHint', {
@@ -170,6 +223,29 @@ export function SalesSupervisionPage() {
     return new Map(getSalesProductCategoryOptions(t).map((item) => [item.value, item.label]))
   }, [t])
   const categoryOptions = useMemo(() => getSalesProductCategoryOptions(t), [t])
+  const paymentLabels = useMemo<PaymentLabels>(
+    () => ({
+      top: t('pages.salesSupervision.paymentMethodTopOption', { defaultValue: 'TOP' }),
+      cash: t('pages.salesSupervision.paymentMethodCashOption', { defaultValue: 'Cash' }),
+      top30Days: t('pages.salesSupervision.paymentTopTerm30Days', { defaultValue: '30 Days' }),
+      top60Days: t('pages.salesSupervision.paymentTopTerm60Days', { defaultValue: '60 Days' }),
+    }),
+    [t],
+  )
+  const paymentMethodOptions = useMemo<Array<{ value: SalesPaymentMethod; label: string }>>(
+    () => [
+      { value: 'TOP', label: paymentLabels.top },
+      { value: 'CASH', label: paymentLabels.cash },
+    ],
+    [paymentLabels],
+  )
+  const paymentTopTermOptions = useMemo<Array<{ value: SalesTopTerm; label: string }>>(
+    () => [
+      { value: '30_DAYS', label: paymentLabels.top30Days },
+      { value: '60_DAYS', label: paymentLabels.top60Days },
+    ],
+    [paymentLabels],
+  )
 
   const isSuperAdmin = roles.includes('super_admin')
   const isProjectManager = roles.includes('project_manager')
@@ -179,6 +255,20 @@ export function SalesSupervisionPage() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
+      try {
+        const insertedCount = await generateSalesPaymentDueNotifications()
+        if (insertedCount > 0) {
+          window.dispatchEvent(new Event('notifications:changed'))
+        }
+      } catch (error) {
+        const code = typeof error === 'object' && error !== null ? String((error as { code?: string }).code ?? '') : ''
+        const messageText = error instanceof Error ? error.message : ''
+        const isRpcMissing = code === '42883' || code === 'PGRST202' || messageText.toLowerCase().includes('does not exist')
+        if (!isRpcMissing) {
+          throw error
+        }
+      }
+
       const [orderRows, userRows, roleMappingsResult] = await Promise.all([
         listSalesOrders({
           keyword: keyword.trim() || undefined,
@@ -224,9 +314,20 @@ export function SalesSupervisionPage() {
     editForm.setFieldsValue({
       company_name: row.company_name,
       sold_at: dayjs(row.sold_at),
+      payment_method: row.payment_method,
+      payment_top_term: row.payment_method === 'TOP' ? (row.payment_top_term ?? '30_DAYS') : undefined,
       note: row.note ?? undefined,
     })
     setEditModalOpen(true)
+  }
+
+  function closeEditModal() {
+    setEditModalOpen(false)
+    setEditingRow(null)
+    if (editOpenedFromDetail && detailRow) {
+      setDetailModalOpen(true)
+    }
+    setEditOpenedFromDetail(false)
   }
 
   function openDetailModal(row: SalesOrderRow) {
@@ -239,6 +340,7 @@ export function SalesSupervisionPage() {
     createForm.setFieldsValue({
       sold_at: dayjs(),
       bd_user_id: bdUsers[0]?.id,
+      payment_method: 'CASH',
     })
     setCreateItems([newDraftItem()])
     setCreateModalOpen(true)
@@ -303,12 +405,15 @@ export function SalesSupervisionPage() {
         orderId: editingRow.id,
         company_name: values.company_name.trim(),
         sold_at: values.sold_at.toISOString(),
+        payment_method: values.payment_method,
+        payment_top_term: values.payment_method === 'TOP' ? values.payment_top_term : null,
         note: values.note ?? null,
         items: normalizedItems,
       })
       message.success(t('pages.salesSupervision.updateSuccess', { defaultValue: 'Sales order updated' }))
       setEditModalOpen(false)
       setEditingRow(null)
+      setEditOpenedFromDetail(false)
       await loadData()
     } catch (error) {
       const text =
@@ -356,6 +461,8 @@ export function SalesSupervisionPage() {
         bd_user_id: values.bd_user_id,
         company_name: values.company_name.trim(),
         sold_at: values.sold_at.toISOString(),
+        payment_method: values.payment_method,
+        payment_top_term: values.payment_method === 'TOP' ? values.payment_top_term : null,
         note: values.note ?? undefined,
         items: normalizedItems,
       })
@@ -384,10 +491,13 @@ export function SalesSupervisionPage() {
     () =>
       bdUsers.map((user) => ({
         value: user.id,
-        label: user.full_name ? `${user.full_name} (${user.email})` : user.email,
+        label: formatUserOptionLabel(user),
       })),
     [bdUsers],
   )
+  const detailDueAt = detailRow ? getPaymentDueAt(detailRow.sold_at, detailRow.payment_method, detailRow.payment_top_term) : null
+  const detailReminderDaysLeft = getReminderDaysLeft(detailDueAt)
+  const shouldShowDetailReminder = detailReminderDaysLeft !== null && detailReminderDaysLeft >= 0 && detailReminderDaysLeft <= 7
 
   return (
     <>
@@ -481,11 +591,19 @@ export function SalesSupervisionPage() {
       </div>
 
       <Table
+        className="compact-data-table"
         rowKey="id"
         bordered
         loading={loading}
         dataSource={rows}
         pagination={{ pageSize: 12 }}
+        scroll={{ x: 1820 }}
+        showSorterTooltip={{ target: 'sorter-icon' }}
+        locale={{
+          triggerAsc: t('pages.salesSupervision.sortTriggerAsc', { defaultValue: 'Click to sort ascending' }),
+          triggerDesc: t('pages.salesSupervision.sortTriggerDesc', { defaultValue: 'Click to sort descending' }),
+          cancelSort: t('pages.salesSupervision.sortCancel', { defaultValue: 'Click to cancel sorting' }),
+        }}
         onRow={(row) => ({
           onClick: (event) => {
             const target = event.target as HTMLElement
@@ -536,7 +654,7 @@ export function SalesSupervisionPage() {
             title: t('pages.salesSupervision.columns.bdOwner', { defaultValue: 'BD Owner' }),
             width: 260,
             render: (_: unknown, row: SalesOrderRow) =>
-              row.bd_owner?.full_name ? `${row.bd_owner.full_name} (${row.bd_owner.email})` : row.bd_owner?.email ?? row.bd_user_id,
+              formatDisplayName(row.bd_owner?.full_name, row.bd_owner?.email, row.bd_user_id),
           },
           {
             title: t('pages.salesSupervision.columns.itemCount', { defaultValue: 'Item Count' }),
@@ -547,7 +665,46 @@ export function SalesSupervisionPage() {
             title: t('pages.salesSupervision.columns.soldAt', { defaultValue: 'Sold Time' }),
             dataIndex: 'sold_at',
             width: 190,
+            onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' } }),
+            sorter: (a: SalesOrderRow, b: SalesOrderRow) => getSoldAtTimestamp(a) - getSoldAtTimestamp(b),
+            sortDirections: ['descend', 'ascend'],
             render: (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm:ss'),
+          },
+          {
+            title: t('pages.salesSupervision.paymentMethod', { defaultValue: 'Payment Method' }),
+            width: 150,
+            render: (_: unknown, row: SalesOrderRow) => renderPaymentMethodLabel(row.payment_method, row.payment_top_term, paymentLabels),
+          },
+          {
+            title: t('pages.salesSupervision.paymentDueDate', { defaultValue: 'Payment Due Date' }),
+            width: 260,
+            onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' } }),
+            sorter: (a: SalesOrderRow, b: SalesOrderRow) => getPaymentSortTimestamp(a) - getPaymentSortTimestamp(b),
+            sortDirections: ['descend', 'ascend'],
+            render: (_: unknown, row: SalesOrderRow) => {
+              const dueAt = getPaymentDueAt(row.sold_at, row.payment_method, row.payment_top_term)
+              const daysLeft = getReminderDaysLeft(dueAt)
+
+              if (!dueAt) {
+                return '-'
+              }
+
+              const shouldRemind = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7
+
+              return (
+                <Space wrap size={[8, 6]}>
+                  <span>{dueAt.format('YYYY-MM-DD')}</span>
+                  {shouldRemind ? (
+                    <Tag color="volcano">
+                      {t('pages.salesSupervision.collectionReminderTag', {
+                        defaultValue: 'Collection Reminder D-{{days}}',
+                        days: daysLeft,
+                      })}
+                    </Tag>
+                  ) : null}
+                </Space>
+              )
+            },
           },
           {
             title: t('pages.salesSupervision.columns.createdAt', { defaultValue: 'Created At' }),
@@ -557,12 +714,9 @@ export function SalesSupervisionPage() {
           },
           {
             title: t('pages.salesSupervision.columns.actions', { defaultValue: 'Actions' }),
-            width: 220,
+            width: 120,
             render: (_: unknown, row: SalesOrderRow) => (
               <Space wrap>
-                <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(row)}>
-                  {t('labels.edit', { defaultValue: 'Edit' })}
-                </Button>
                 <Popconfirm
                   title={t('pages.salesSupervision.deleteConfirmTitle', { defaultValue: 'Delete this sales order?' })}
                   description={`${t('pages.salesSupervision.deleteConfirmDesc', {
@@ -598,9 +752,9 @@ export function SalesSupervisionPage() {
           layout="vertical"
           requiredMark={false}
           onFinish={(values) => void handleCreate(values)}
-          initialValues={{ sold_at: dayjs() }}
+          initialValues={{ sold_at: dayjs(), payment_method: 'CASH' }}
         >
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <Form.Item
               name="bd_user_id"
               label={t('pages.salesSupervision.bdOwner', { defaultValue: 'BD Owner' })}
@@ -626,6 +780,26 @@ export function SalesSupervisionPage() {
               rules={[{ required: true, message: t('pages.salesSupervision.soldAtRequired', { defaultValue: 'Sold time is required' }) }]}
             >
               <DatePicker className="w-full" />
+            </Form.Item>
+            <Form.Item
+              name="payment_method"
+              label={t('pages.salesSupervision.paymentMethod', { defaultValue: 'Payment Method' })}
+              rules={[{ required: true, message: t('pages.salesSupervision.paymentMethodRequired', { defaultValue: 'Payment method is required' }) }]}
+            >
+              <Select options={paymentMethodOptions} />
+            </Form.Item>
+            <Form.Item noStyle dependencies={['payment_method']}>
+              {({ getFieldValue }) =>
+                getFieldValue('payment_method') === 'TOP' ? (
+                  <Form.Item
+                    name="payment_top_term"
+                    label={t('pages.salesSupervision.paymentTopTerm', { defaultValue: 'TOP Term' })}
+                    rules={[{ required: true, message: t('pages.salesSupervision.paymentTopTermRequired', { defaultValue: 'Please select TOP term' }) }]}
+                  >
+                    <Select options={paymentTopTermOptions} />
+                  </Form.Item>
+                ) : null
+              }
             </Form.Item>
           </div>
           <Form.Item name="note" label={t('pages.salesSupervision.note', { defaultValue: 'Remark' })}>
@@ -710,9 +884,26 @@ export function SalesSupervisionPage() {
 
       <Modal
         title={
-          detailRow
-            ? `${t('pages.salesSupervision.detailTitle', { defaultValue: 'Sales Detail' })} · ${detailRow.order_no}`
-            : t('pages.salesSupervision.detailTitle', { defaultValue: 'Sales Detail' })
+          <div className="flex items-center justify-between pr-10">
+            <span>
+              {detailRow
+                ? `${t('pages.salesSupervision.detailTitle', { defaultValue: 'Sales Detail' })} · ${detailRow.order_no}`
+                : t('pages.salesSupervision.detailTitle', { defaultValue: 'Sales Detail' })}
+            </span>
+            {detailRow ? (
+              <Button
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  setDetailModalOpen(false)
+                  setEditOpenedFromDetail(true)
+                  openEditModal(detailRow)
+                }}
+              >
+                {t('labels.edit', { defaultValue: 'Edit' })}
+              </Button>
+            ) : null}
+          </div>
         }
         open={detailModalOpen}
         width={960}
@@ -727,8 +918,13 @@ export function SalesSupervisionPage() {
             <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
               <div><strong>{t('pages.salesSupervision.columns.companyName', { defaultValue: 'Company' })}:</strong> {detailRow.company_name}</div>
               <div><strong>{t('pages.salesSupervision.columns.leadCode', { defaultValue: 'Lead Code' })}:</strong> {detailRow.lead?.lead_code ?? '-'}</div>
-              <div><strong>{t('pages.salesSupervision.columns.bdOwner', { defaultValue: 'BD Owner' })}:</strong> {detailRow.bd_owner?.full_name ? `${detailRow.bd_owner.full_name} (${detailRow.bd_owner.email})` : detailRow.bd_owner?.email ?? detailRow.bd_user_id}</div>
+              <div><strong>{t('pages.salesSupervision.columns.bdOwner', { defaultValue: 'BD Owner' })}:</strong> {formatDisplayName(detailRow.bd_owner?.full_name, detailRow.bd_owner?.email, detailRow.bd_user_id)}</div>
               <div><strong>{t('pages.salesSupervision.columns.soldAt', { defaultValue: 'Sold Time' })}:</strong> {dayjs(detailRow.sold_at).format('YYYY-MM-DD HH:mm:ss')}</div>
+              <div><strong>{t('pages.salesSupervision.paymentMethod', { defaultValue: 'Payment Method' })}:</strong> {renderPaymentMethodLabel(detailRow.payment_method, detailRow.payment_top_term, paymentLabels)}</div>
+              <div><strong>{t('pages.salesSupervision.paymentDueDate', { defaultValue: 'Payment Due Date' })}:</strong> {detailDueAt ? detailDueAt.format('YYYY-MM-DD') : '-'}</div>
+              {shouldShowDetailReminder ? (
+                <div><Tag color="volcano">{t('pages.salesSupervision.collectionReminderTag', { defaultValue: 'Collection Reminder D-{{days}}', days: detailReminderDaysLeft })}</Tag></div>
+              ) : null}
             </div>
             <Table
               rowKey="id"
@@ -774,8 +970,7 @@ export function SalesSupervisionPage() {
         open={editModalOpen}
         width={980}
         onCancel={() => {
-          setEditModalOpen(false)
-          setEditingRow(null)
+          closeEditModal()
         }}
         onOk={() => void editForm.submit()}
         okText={t('labels.save', { defaultValue: 'Save' })}
@@ -801,6 +996,26 @@ export function SalesSupervisionPage() {
               rules={[{ required: true, message: t('pages.salesSupervision.soldAtRequired', { defaultValue: 'Sold time is required' }) }]}
             >
               <DatePicker className="w-full" />
+            </Form.Item>
+            <Form.Item
+              name="payment_method"
+              label={t('pages.salesSupervision.paymentMethod', { defaultValue: 'Payment Method' })}
+              rules={[{ required: true, message: t('pages.salesSupervision.paymentMethodRequired', { defaultValue: 'Payment method is required' }) }]}
+            >
+              <Select options={paymentMethodOptions} />
+            </Form.Item>
+            <Form.Item noStyle dependencies={['payment_method']}>
+              {({ getFieldValue }) =>
+                getFieldValue('payment_method') === 'TOP' ? (
+                  <Form.Item
+                    name="payment_top_term"
+                    label={t('pages.salesSupervision.paymentTopTerm', { defaultValue: 'TOP Term' })}
+                    rules={[{ required: true, message: t('pages.salesSupervision.paymentTopTermRequired', { defaultValue: 'Please select TOP term' }) }]}
+                  >
+                    <Select options={paymentTopTermOptions} />
+                  </Form.Item>
+                ) : null
+              }
             </Form.Item>
           </div>
           <Form.Item name="note" label={t('pages.salesSupervision.note', { defaultValue: 'Remark' })}>
