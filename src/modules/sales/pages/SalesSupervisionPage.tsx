@@ -6,6 +6,7 @@ import {
 } from 'react'
 import dayjs from 'dayjs'
 import {
+  AutoComplete,
   Button,
   DatePicker,
   Form,
@@ -59,10 +60,12 @@ import {
 import {
   createSalesOrderWithAutoLeadAndAssignBd,
   generateSalesPaymentDueNotifications,
+  listTirePriceCatalog,
   listSalesOrders,
   softDeleteSalesOrder,
   updateSalesOrder,
   type SalesOrderRow,
+  type TirePriceCatalogRow,
 } from '../api'
 import type {
   SalesOrderItem,
@@ -194,6 +197,22 @@ function getPaymentSortTimestamp(row: SalesOrderRow): number {
   return dueAt ? dueAt.valueOf() : getSoldAtTimestamp(row)
 }
 
+function resolveBusinessTag(row: SalesOrderRow): 'BCS' | 'BOTH' | null {
+  const leadIntentPackage = row.lead?.intent_package
+  if (leadIntentPackage === 'BCS') {
+    return 'BCS'
+  }
+  if (leadIntentPackage === 'BOTH') {
+    return 'BOTH'
+  }
+
+  if (row.onboard_merchant?.onboarding_type === 'BCS_FRANCHISE') {
+    return 'BCS'
+  }
+
+  return null
+}
+
 export function SalesSupervisionPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -212,6 +231,7 @@ export function SalesSupervisionPage() {
   const [editingRow, setEditingRow] = useState<SalesOrderRow | null>(null)
   const [editSaving, setEditSaving] = useState(false)
   const [editItems, setEditItems] = useState<DraftSalesItem[]>([newDraftItem()])
+  const [tireCatalogRows, setTireCatalogRows] = useState<TirePriceCatalogRow[]>([])
   const [editOpenedFromDetail, setEditOpenedFromDetail] = useState(false)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [detailRow, setDetailRow] = useState<SalesOrderRow | null>(null)
@@ -223,6 +243,14 @@ export function SalesSupervisionPage() {
     return new Map(getSalesProductCategoryOptions(t).map((item) => [item.value, item.label]))
   }, [t])
   const categoryOptions = useMemo(() => getSalesProductCategoryOptions(t), [t])
+  const tireModelOptions = useMemo(
+    () =>
+      tireCatalogRows.map((row) => ({
+        value: row.model_label,
+        label: `${row.model_label} · IDR ${new Intl.NumberFormat().format(Number(row.price_incl_vat ?? 0))}`,
+      })),
+    [tireCatalogRows],
+  )
   const paymentLabels = useMemo<PaymentLabels>(
     () => ({
       top: t('pages.salesSupervision.paymentMethodTopOption', { defaultValue: 'TOP' }),
@@ -307,6 +335,26 @@ export function SalesSupervisionPage() {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadTireCatalog() {
+      try {
+        const rows = await listTirePriceCatalog(undefined, 600)
+        if (!cancelled) {
+          setTireCatalogRows(rows)
+        }
+      } catch {
+        if (!cancelled) {
+          setTireCatalogRows([])
+        }
+      }
+    }
+    void loadTireCatalog()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function openEditModal(row: SalesOrderRow) {
     setEditingRow(row)
@@ -635,6 +683,15 @@ export function SalesSupervisionPage() {
           {
             title: t('pages.salesSupervision.columns.companyName', { defaultValue: 'Company' }),
             dataIndex: 'company_name',
+            render: (value: string, row: SalesOrderRow) => {
+              const businessTag = resolveBusinessTag(row)
+              return (
+                <Space size={[8, 6]} wrap>
+                  <span>{value}</span>
+                  {businessTag ? <Tag color="blue">{businessTag}</Tag> : null}
+                </Space>
+              )
+            },
           },
           {
             title: t('pages.salesSupervision.columns.leadCode', { defaultValue: 'Lead Code' }),
@@ -836,10 +893,26 @@ export function SalesSupervisionPage() {
               {
                 title: t('pages.salesSupervision.columns.productName', { defaultValue: 'Product / Description' }),
                 render: (_: unknown, row: DraftSalesItem) => (
-                  <Input
-                    value={row.product_name}
-                    onChange={(event) => updateCreateItem(row.key, { product_name: event.target.value })}
-                  />
+                  row.category === 'TIRE' ? (
+                    <AutoComplete
+                      value={row.product_name}
+                      options={tireModelOptions}
+                      filterOption={(inputValue, option) =>
+                        String(option?.value ?? '')
+                          .toLowerCase()
+                          .includes(inputValue.toLowerCase())
+                      }
+                      onChange={(value) => updateCreateItem(row.key, { product_name: value })}
+                      placeholder={t('pages.salesSupervision.tireModelHint', {
+                        defaultValue: 'Type tire model keywords; suggestions are optional',
+                      })}
+                    />
+                  ) : (
+                    <Input
+                      value={row.product_name}
+                      onChange={(event) => updateCreateItem(row.key, { product_name: event.target.value })}
+                    />
+                  )
                 ),
               },
               {
@@ -1052,10 +1125,26 @@ export function SalesSupervisionPage() {
               {
                 title: t('pages.salesSupervision.columns.productName', { defaultValue: 'Product / Description' }),
                 render: (_: unknown, row: DraftSalesItem) => (
-                  <Input
-                    value={row.product_name}
-                    onChange={(event) => updateEditItem(row.key, { product_name: event.target.value })}
-                  />
+                  row.category === 'TIRE' ? (
+                    <AutoComplete
+                      value={row.product_name}
+                      options={tireModelOptions}
+                      filterOption={(inputValue, option) =>
+                        String(option?.value ?? '')
+                          .toLowerCase()
+                          .includes(inputValue.toLowerCase())
+                      }
+                      onChange={(value) => updateEditItem(row.key, { product_name: value })}
+                      placeholder={t('pages.salesSupervision.tireModelHint', {
+                        defaultValue: 'Type tire model keywords; suggestions are optional',
+                      })}
+                    />
+                  ) : (
+                    <Input
+                      value={row.product_name}
+                      onChange={(event) => updateEditItem(row.key, { product_name: event.target.value })}
+                    />
+                  )
                 ),
               },
               {

@@ -107,6 +107,7 @@ export function LeadFormPage() {
 
   const selectedRegion = Form.useWatch('region', form)
   const selectedSource = Form.useWatch('source', form)
+  const selectedIntentPackage = Form.useWatch('intent_package', form)
   const cityOptions = useMemo(() => {
     return findCitiesByRegion(regionOptions, selectedRegion).map((city) => ({
       value: city,
@@ -220,6 +221,12 @@ export function LeadFormPage() {
 
     form.setFieldValue('city', undefined)
   }, [cityOptions, form, selectedRegion])
+
+  useEffect(() => {
+    if (selectedIntentPackage === 'PRODUCTS_SALES') {
+      form.setFieldValue('intent_level', undefined)
+    }
+  }, [form, selectedIntentPackage])
 
   async function uploadAttachments(targetLeadId: string) {
     if (!user || stagedFiles.length === 0 || !canUploadAttachments) {
@@ -474,12 +481,14 @@ export function LeadFormPage() {
               />
             </Form.Item>
 
-            <Form.Item name="intent_level" label={t('pages.leadForm.intentLevel', { defaultValue: 'Intent Level (H0-H5)' })}>
-              <Select
-                options={intentLevelOptions}
-                placeholder={t('pages.leadForm.intentLevelPlaceholder', { defaultValue: 'Select intent level' })}
-              />
-            </Form.Item>
+            {selectedIntentPackage !== 'PRODUCTS_SALES' ? (
+              <Form.Item name="intent_level" label={t('pages.leadForm.intentLevel', { defaultValue: 'Intent Level (H0-H5)' })}>
+                <Select
+                  options={intentLevelOptions}
+                  placeholder={t('pages.leadForm.intentLevelPlaceholder', { defaultValue: 'Select intent level' })}
+                />
+              </Form.Item>
+            ) : null}
 
             <Form.Item name="next_followup_at" label={t('pages.leadForm.nextFollowupTime', { defaultValue: 'Next Follow-up Time' })}>
               <DatePicker className="w-full" />

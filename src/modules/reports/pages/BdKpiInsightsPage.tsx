@@ -11,6 +11,7 @@ import {
   Card,
   DatePicker,
   Empty,
+  Grid,
   Input,
   Progress,
   Segmented,
@@ -173,6 +174,8 @@ function formatTrendLabel(date: Dayjs, bucket: TrendBucket): string {
 
 export function BdKpiInsightsPage() {
   const { t } = useTranslation()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -645,14 +648,14 @@ export function BdKpiInsightsPage() {
       />
 
       <Card className="mb-3" size="small">
-        <Space wrap className="w-full">
+        <Space direction={isMobile ? 'vertical' : 'horizontal'} wrap className="w-full">
           <RangePicker value={dateRangeInput} onChange={(value) => setDateRangeInput(value)} />
           <Input
             allowClear
             value={keywordInput}
             onChange={(event) => setKeywordInput(event.target.value)}
             placeholder={t('pages.bdKpi.keyword', { defaultValue: 'Search BD name or email' })}
-            className="w-[280px]"
+            className={isMobile ? 'w-full' : 'w-[280px]'}
           />
           <Button type="primary" onClick={applyFilters}>
             {t('labels.apply', { defaultValue: 'Apply' })}
@@ -747,11 +750,11 @@ export function BdKpiInsightsPage() {
                 const actualPercent = (safeNumber(row.actual) / maxMetricValue) * 100
                 return (
                   <div key={row.key}>
-                    <div className="mb-1 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 text-xs">
+                    <div className={`mb-1 grid items-start gap-2 text-xs ${isMobile ? 'grid-cols-1' : 'grid-cols-[minmax(0,1fr)_auto]'}`}>
                       <span className="truncate font-medium text-slate-700" title={row.label}>
                         {row.label}
                       </span>
-                      <span className="whitespace-nowrap text-right text-slate-500">
+                      <span className={isMobile ? 'text-slate-500' : 'whitespace-nowrap text-right text-slate-500'}>
                         {t('pages.bdKpi.analysis.target', { defaultValue: 'Target' })}:{' '}
                         {renderMetricValue(metric, row.target)} |{' '}
                         {t('pages.bdKpi.analysis.actual', { defaultValue: 'Actual' })}:{' '}
@@ -796,65 +799,105 @@ export function BdKpiInsightsPage() {
                   placeholder={t('pages.bdKpi.analysis.selectBd', { defaultValue: 'Select BD' })}
                 />
               </div>
-              <div className="w-full overflow-x-auto">
-                <table className="w-full min-w-[680px] border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-600">
-                        BD
-                      </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-center text-xs font-semibold text-slate-600">
-                        {t('pages.bdKpi.analysis.tireCompletionRate', { defaultValue: 'Tire Completion' })}
-                      </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-center text-xs font-semibold text-slate-600">
-                        {t('pages.bdKpi.analysis.accessoryCompletionRate', { defaultValue: 'Accessory Completion' })}
-                      </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-center text-xs font-semibold text-slate-600">
-                        {t('pages.bdKpi.analysis.bcsCompletionRate', { defaultValue: 'BCS Completion' })}
-                      </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-center text-xs font-semibold text-slate-600">
-                        {t('pages.bdKpi.columns.overall', { defaultValue: 'Overall Completion' })}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {completionMatrixRows.map((row) => {
-                      const isSelected = row.key === selectedBdUserId
-                      return (
-                        <tr
-                          key={row.key}
-                          className={isSelected ? 'bg-blue-50/60' : undefined}
-                        >
-                          <td className="border-b border-slate-100 px-3 py-2 align-middle">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedBdUserId(row.key)}
-                              className="flex w-full items-center gap-2 text-left"
-                            >
-                              <Tag color={isSelected ? 'geekblue' : 'blue'} bordered={false}>
-                                #{row.rank}
-                              </Tag>
-                              <span className="truncate text-sm font-medium text-slate-700" title={row.label}>
-                                {row.label}
-                              </span>
-                            </button>
-                          </td>
-                          {[row.tireCompletionRate, row.accessoryCompletionRate, row.bcsCompletionRate, row.overallCompletionRate].map((value, index) => (
-                            <td key={`${row.key}-${index}`} className="border-b border-slate-100 px-2 py-2 align-middle">
-                              <div
-                                className="rounded-md px-2 py-2 text-center text-xs font-semibold"
-                                style={getCompletionHeatStyle(value)}
-                              >
-                                {formatPercent(value)}
+              {isMobile ? (
+                <div className="space-y-2">
+                  {completionMatrixRows.map((row) => {
+                    const isSelected = row.key === selectedBdUserId
+                    return (
+                      <button
+                        key={row.key}
+                        type="button"
+                        onClick={() => setSelectedBdUserId(row.key)}
+                        className={`w-full rounded-lg border p-3 text-left ${isSelected ? 'border-blue-300 bg-blue-50/60' : 'border-slate-200 bg-white'}`}
+                      >
+                        <div className="mb-2 flex items-center gap-2">
+                          <Tag color={isSelected ? 'geekblue' : 'blue'} bordered={false}>
+                            #{row.rank}
+                          </Tag>
+                          <span className="truncate text-sm font-medium text-slate-700" title={row.label}>
+                            {row.label}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { label: t('pages.bdKpi.analysis.tireCompletionRate', { defaultValue: 'Tire Completion' }), value: row.tireCompletionRate },
+                            { label: t('pages.bdKpi.analysis.accessoryCompletionRate', { defaultValue: 'Accessory Completion' }), value: row.accessoryCompletionRate },
+                            { label: t('pages.bdKpi.analysis.bcsCompletionRate', { defaultValue: 'BCS Completion' }), value: row.bcsCompletionRate },
+                            { label: t('pages.bdKpi.columns.overall', { defaultValue: 'Overall Completion' }), value: row.overallCompletionRate },
+                          ].map((item) => (
+                            <div key={`${row.key}-${item.label}`}>
+                              <div className="mb-1 text-[11px] text-slate-500">{item.label}</div>
+                              <div className="rounded-md px-2 py-2 text-center text-xs font-semibold" style={getCompletionHeatStyle(item.value)}>
+                                {formatPercent(item.value)}
                               </div>
-                            </td>
+                            </div>
                           ))}
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full min-w-[680px] border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="border-b border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-600">
+                          BD
+                        </th>
+                        <th className="border-b border-slate-200 px-3 py-2 text-center text-xs font-semibold text-slate-600">
+                          {t('pages.bdKpi.analysis.tireCompletionRate', { defaultValue: 'Tire Completion' })}
+                        </th>
+                        <th className="border-b border-slate-200 px-3 py-2 text-center text-xs font-semibold text-slate-600">
+                          {t('pages.bdKpi.analysis.accessoryCompletionRate', { defaultValue: 'Accessory Completion' })}
+                        </th>
+                        <th className="border-b border-slate-200 px-3 py-2 text-center text-xs font-semibold text-slate-600">
+                          {t('pages.bdKpi.analysis.bcsCompletionRate', { defaultValue: 'BCS Completion' })}
+                        </th>
+                        <th className="border-b border-slate-200 px-3 py-2 text-center text-xs font-semibold text-slate-600">
+                          {t('pages.bdKpi.columns.overall', { defaultValue: 'Overall Completion' })}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {completionMatrixRows.map((row) => {
+                        const isSelected = row.key === selectedBdUserId
+                        return (
+                          <tr
+                            key={row.key}
+                            className={isSelected ? 'bg-blue-50/60' : undefined}
+                          >
+                            <td className="border-b border-slate-100 px-3 py-2 align-middle">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedBdUserId(row.key)}
+                                className="flex w-full items-center gap-2 text-left"
+                              >
+                                <Tag color={isSelected ? 'geekblue' : 'blue'} bordered={false}>
+                                  #{row.rank}
+                                </Tag>
+                                <span className="truncate text-sm font-medium text-slate-700" title={row.label}>
+                                  {row.label}
+                                </span>
+                              </button>
+                            </td>
+                            {[row.tireCompletionRate, row.accessoryCompletionRate, row.bcsCompletionRate, row.overallCompletionRate].map((value, index) => (
+                              <td key={`${row.key}-${index}`} className="border-b border-slate-100 px-2 py-2 align-middle">
+                                <div
+                                  className="rounded-md px-2 py-2 text-center text-xs font-semibold"
+                                  style={getCompletionHeatStyle(value)}
+                                >
+                                  {formatPercent(value)}
+                                </div>
+                              </td>
+                            ))}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </Card>
 
             <Card
@@ -964,8 +1007,8 @@ export function BdKpiInsightsPage() {
                     })}
                   </div>
 
-                  <div className="w-full overflow-x-auto">
-                    <svg viewBox={`0 0 ${trendLineChart.viewWidth} ${trendLineChart.viewHeight}`} className="min-w-[680px] w-full">
+                  <div className={isMobile ? 'w-full overflow-x-hidden' : 'w-full overflow-x-auto'}>
+                    <svg viewBox={`0 0 ${trendLineChart.viewWidth} ${trendLineChart.viewHeight}`} className="w-full">
                       {trendLineChart.gridLines.map((line) => (
                         <g key={line.y}>
                           <line x1={22} y1={line.y} x2={trendLineChart.viewWidth - 22} y2={line.y} stroke="#e2e8f0" strokeWidth={1} />
@@ -1030,7 +1073,7 @@ export function BdKpiInsightsPage() {
                 <Empty description={t('pages.bdKpi.analysis.noCategoryData', { defaultValue: 'No category sales data for selected BD' })} />
               ) : (
                 <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-start">
-                  <div className="relative h-56 w-56 shrink-0 rounded-full border border-slate-200" style={{ background: selectedPieGradient }}>
+                  <div className="relative h-44 w-44 shrink-0 rounded-full border border-slate-200 sm:h-56 sm:w-56" style={{ background: selectedPieGradient }}>
                     <div className="absolute left-1/2 top-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full bg-white shadow-sm">
                       <div className="text-xs text-slate-500">{t('pages.bdKpi.analysis.total', { defaultValue: 'Total' })}</div>
                       <div className="text-sm font-semibold text-slate-700">{formatCurrency(selectedCategoryShare.total)}</div>

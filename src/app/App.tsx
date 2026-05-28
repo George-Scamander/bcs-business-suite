@@ -8,6 +8,7 @@ import { LoginPage } from '../modules/auth/pages/LoginPage'
 import { ForgotPasswordPage } from '../modules/auth/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '../modules/auth/pages/ResetPasswordPage'
 import { AdminDashboardPage } from '../modules/admin/pages/AdminDashboardPage'
+import { AdminAiDataAssistantPage } from '../modules/admin/pages/AdminAiDataAssistantPage'
 import { AdminLeadPoolPage } from '../modules/admin/pages/AdminLeadPoolPage'
 import { UserRoleManagementPage } from '../modules/admin/pages/UserRoleManagementPage'
 import { AdminOnboardingReviewCenterPage } from '../modules/admin/pages/AdminOnboardingReviewCenterPage'
@@ -192,6 +193,18 @@ export default function App() {
               element={
                 <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
                   <SalesSupervisionPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/sales/product-insight"
+              element={<Navigate to="/app/admin/sales/supervision" replace />}
+            />
+            <Route
+              path="admin/ai/data-assistant"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
+                  <AdminAiDataAssistantPage />
                 </RoleGuard>
               }
             />

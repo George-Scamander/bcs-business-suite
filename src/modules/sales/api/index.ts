@@ -43,6 +43,7 @@ export interface SalesOrderRow extends SalesOrder {
     id: string
     lead_code: string
     company_name: string
+    intent_package: string | null
   } | null
   onboard_merchant: {
     id: string
@@ -66,6 +67,19 @@ export interface SalesOrderFilters {
   soldTo?: string
   category?: SalesProductCategory
   brandKeyword?: string
+}
+
+export interface TirePriceCatalogRow {
+  id: number
+  sap_code: string | null
+  size: string
+  description: string
+  load_index: string | null
+  speed_symbol: string | null
+  category: string | null
+  price_incl_vat: number
+  model_label: string
+  is_active: boolean
 }
 
 export interface UpdateSalesOrderInput {
@@ -131,6 +145,28 @@ function normalizeCompanyName(value: string): string {
 function normalizeBrandKeyword(value?: string): string | undefined {
   const normalized = value?.trim()
   return normalized ? normalized : undefined
+}
+
+export async function listTirePriceCatalog(keyword?: string, limit = 200): Promise<TirePriceCatalogRow[]> {
+  const normalizedKeyword = keyword?.trim()
+  let query = supabase
+    .from('tire_price_catalog')
+    .select('id, sap_code, size, description, load_index, speed_symbol, category, price_incl_vat, model_label, is_active')
+    .eq('is_active', true)
+    .order('model_label', { ascending: true })
+    .limit(Math.min(1000, Math.max(1, limit)))
+
+  if (normalizedKeyword) {
+    query = query.or(
+      `model_label.ilike.%${normalizedKeyword}%,size.ilike.%${normalizedKeyword}%,description.ilike.%${normalizedKeyword}%,sap_code.ilike.%${normalizedKeyword}%`,
+    )
+  }
+
+  const result = await query
+  if (result.error) {
+    throw result.error
+  }
+  return (result.data ?? []) as TirePriceCatalogRow[]
 }
 
 async function resolveSalesOrderIdsByItemFilters(filters: SalesOrderFilters): Promise<string[] | null> {
@@ -360,7 +396,9 @@ async function createSalesOrderWithAutoLeadFallback(input: CreateSalesOrderInput
     .single()
 
   if (orderInsertResult.error && isMissingSalesPaymentColumnsError(orderInsertResult.error)) {
-    const { payment_method: _ignoredMethod, payment_top_term: _ignoredTopTerm, ...compatPayload } = orderInsertPayload
+    const compatPayload = { ...orderInsertPayload } as Record<string, unknown>
+    delete compatPayload.payment_method
+    delete compatPayload.payment_top_term
     orderInsertResult = await supabase
       .from('sales_orders')
       .insert(compatPayload)
@@ -483,7 +521,9 @@ export async function createSalesOrderWithAutoLeadAndAssignBd(
     .eq('id', result.order_id)
 
   if (orderOwnerUpdateResult.error && isMissingSalesPaymentColumnsError(orderOwnerUpdateResult.error)) {
-    const { payment_method: _ignoredMethod, payment_top_term: _ignoredTopTerm, ...compatPayload } = orderUpdatePayload
+    const compatPayload = { ...orderUpdatePayload } as Record<string, unknown>
+    delete compatPayload.payment_method
+    delete compatPayload.payment_top_term
     orderOwnerUpdateResult = await supabase
       .from('sales_orders')
       .update(compatPayload)
@@ -561,7 +601,7 @@ export async function listSalesOrders(filters: SalesOrderFilters = {}): Promise<
   let query = supabase
     .from('sales_orders')
     .select(
-      '*, lead:leads(id, lead_code, company_name), onboard_merchant:onboard_merchants(id, merchant_no, company_name, onboarding_type), bd_owner:profiles!sales_orders_bd_user_id_fkey(id, email, full_name), items:sales_order_items(*)',
+      '*, lead:leads(id, lead_code, company_name, intent_package), onboard_merchant:onboard_merchants(id, merchant_no, company_name, onboarding_type), bd_owner:profiles!sales_orders_bd_user_id_fkey(id, email, full_name), items:sales_order_items(*)',
     )
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -603,7 +643,7 @@ export async function listSalesOrderTemplatesByOwner(ownerId: string): Promise<S
   const result = await supabase
     .from('sales_orders')
     .select(
-      '*, lead:leads(id, lead_code, company_name), onboard_merchant:onboard_merchants(id, merchant_no, company_name, onboarding_type), bd_owner:profiles!sales_orders_bd_user_id_fkey(id, email, full_name), items:sales_order_items(*)',
+      '*, lead:leads(id, lead_code, company_name, intent_package), onboard_merchant:onboard_merchants(id, merchant_no, company_name, onboarding_type), bd_owner:profiles!sales_orders_bd_user_id_fkey(id, email, full_name), items:sales_order_items(*)',
     )
     .eq('bd_user_id', ownerId)
     .is('deleted_at', null)
@@ -636,7 +676,7 @@ export async function listDeletedSalesOrders(filters: SalesOrderFilters = {}): P
   let query = supabase
     .from('sales_orders')
     .select(
-      '*, lead:leads(id, lead_code, company_name), onboard_merchant:onboard_merchants(id, merchant_no, company_name, onboarding_type), bd_owner:profiles!sales_orders_bd_user_id_fkey(id, email, full_name), items:sales_order_items(*)',
+      '*, lead:leads(id, lead_code, company_name, intent_package), onboard_merchant:onboard_merchants(id, merchant_no, company_name, onboarding_type), bd_owner:profiles!sales_orders_bd_user_id_fkey(id, email, full_name), items:sales_order_items(*)',
     )
     .not('deleted_at', 'is', null)
     .order('deleted_at', { ascending: false })
@@ -722,7 +762,9 @@ export async function updateSalesOrder(input: UpdateSalesOrderInput): Promise<vo
     .eq('id', input.orderId)
 
   if (updateResult.error && isMissingSalesPaymentColumnsError(updateResult.error)) {
-    const { payment_method: _ignoredMethod, payment_top_term: _ignoredTopTerm, ...compatPayload } = orderUpdatePayload
+    const compatPayload = { ...orderUpdatePayload } as Record<string, unknown>
+    delete compatPayload.payment_method
+    delete compatPayload.payment_top_term
     updateResult = await supabase
       .from('sales_orders')
       .update(compatPayload)

@@ -72,7 +72,7 @@ export interface UpdateOnboardMerchantActivityInput {
   assignee_id?: string | null
 }
 
-export interface LeadLookupRow extends Pick<Lead, 'id' | 'lead_code' | 'company_name' | 'region' | 'city' | 'contact_person' | 'contact_phone' | 'contact_email'> {}
+export type LeadLookupRow = Pick<Lead, 'id' | 'lead_code' | 'company_name' | 'region' | 'city' | 'contact_person' | 'contact_phone' | 'contact_email'>
 
 export async function listOnboardingCases(filters: OnboardingFilters = {}): Promise<OnboardingCase[]> {
   let query = supabase.from('onboarding_cases').select('*').is('deleted_at', null).order('updated_at', { ascending: false })

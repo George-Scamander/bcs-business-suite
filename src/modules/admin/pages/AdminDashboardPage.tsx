@@ -11,6 +11,7 @@ import {
   Col,
   Drawer,
   Empty,
+  Grid,
   Progress,
   Row,
   Select,
@@ -145,6 +146,8 @@ function buildPeriodQuery(period: AdminDashboardPeriod): URLSearchParams {
 
 export function AdminDashboardPage() {
   const { t } = useTranslation()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
   const navigate = useNavigate()
   const [metricsDefault, setMetricsDefault] = useState<AdminDashboardMetrics>({
     totalLeads: 0,
@@ -672,7 +675,12 @@ export function AdminDashboardPage() {
             />
           </Col>
           <Col xs={24} md={12} xl={4}>
-          {renderMetricCard('signedLeads', t('pages.adminDashboard.metrics.signedLeads', { defaultValue: 'Signed Leads' }), '/app/admin/leads/pool/signed', { status: 'SIGNED' })}
+          {renderMetricCard(
+            'signedLeads',
+            t('pages.adminDashboard.metrics.signedLeads', { defaultValue: 'Non-BCS Signed Total' }),
+            '/app/admin/leads/pool/signed',
+            { status: 'SIGNED', signedContractPackageGroup: 'NON_BCS' },
+          )}
           </Col>
           <Col xs={24} md={12} xl={4}>
           {renderMetricCard(
@@ -752,9 +760,10 @@ export function AdminDashboardPage() {
 
       <Drawer
         title={t('pages.adminDashboard.analysis.title', { defaultValue: 'Admin Sales Analysis View' })}
-        width={1200}
+        width={isMobile ? '100vw' : 1200}
         open={analysisOpen}
         onClose={() => setAnalysisOpen(false)}
+        styles={{ body: { overflowX: 'hidden' } }}
       >
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -823,62 +832,105 @@ export function AdminDashboardPage() {
                       placeholder={t('pages.adminDashboard.analysis.selectBd', { defaultValue: 'Select BD' })}
                     />
                   </div>
-                  <div className="w-full overflow-x-auto">
-                    <table className="w-full min-w-[760px] border-collapse">
-                      <thead>
-                        <tr>
-                          <th className="border-b border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-600">BD</th>
-                          <th className="border-b border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-600">
-                            {t('pages.adminDashboard.analysis.salesAmount', { defaultValue: 'Sales Amount' })}
-                          </th>
-                          <th className="border-b border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-600">
-                            {t('pages.adminDashboard.analysis.salesRecords', { defaultValue: 'Sales Records' })}
-                          </th>
-                          <th className="border-b border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-600">
-                            {t('pages.adminDashboard.analysis.categoryAmount', { defaultValue: 'Category Amount' })}
-                          </th>
-                          <th className="border-b border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-600">
-                            {t('pages.adminDashboard.analysis.amountCompletion', { defaultValue: 'Amount Completion' })}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {salesInsightMatrixRows.map((row) => {
-                          const isSelected = row.bdUserId === selectedInsightBdId
-                          return (
-                            <tr key={row.bdUserId} className={isSelected ? 'bg-blue-50/60' : undefined}>
-                              <td className="border-b border-slate-100 px-3 py-2 align-middle">
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedInsightBdId(row.bdUserId)}
-                                  className="flex w-full items-center gap-2 text-left"
-                                >
-                                  <Tag color={isSelected ? 'geekblue' : 'blue'} bordered={false}>
-                                    #{row.rank}
-                                  </Tag>
-                                  <span className="truncate text-sm font-medium text-slate-700">
-                                    {formatDisplayName(row.bdName, row.bdEmail, row.bdUserId)}
-                                  </span>
-                                </button>
-                              </td>
-                              <td className="border-b border-slate-100 px-3 py-2 text-right text-sm text-slate-700">
-                                {formatCurrency(row.salesAmount)}
-                              </td>
-                              <td className="border-b border-slate-100 px-3 py-2 text-right text-sm text-slate-700">
-                                {formatNumber(row.salesRecordCount)}
-                              </td>
-                              <td className="border-b border-slate-100 px-3 py-2 text-right text-sm text-slate-700">
-                                {formatCurrency(row.categoryAmount)}
-                              </td>
-                              <td className="border-b border-slate-100 px-3 py-2 text-right text-sm text-slate-700">
-                                {formatPercent(row.amountCompletion)}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  {isMobile ? (
+                    <div className="space-y-2">
+                      {salesInsightMatrixRows.map((row) => {
+                        const isSelected = row.bdUserId === selectedInsightBdId
+                        return (
+                          <button
+                            key={row.bdUserId}
+                            type="button"
+                            onClick={() => setSelectedInsightBdId(row.bdUserId)}
+                            className={`w-full rounded-lg border p-3 text-left ${isSelected ? 'border-blue-300 bg-blue-50/60' : 'border-slate-200 bg-white'}`}
+                          >
+                            <div className="mb-2 flex items-center gap-2">
+                              <Tag color={isSelected ? 'geekblue' : 'blue'} bordered={false}>
+                                #{row.rank}
+                              </Tag>
+                              <span className="truncate text-sm font-medium text-slate-700">
+                                {formatDisplayName(row.bdName, row.bdEmail, row.bdUserId)}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                              <div>
+                                <div className="text-slate-400">{t('pages.adminDashboard.analysis.salesAmount', { defaultValue: 'Sales Amount' })}</div>
+                                <div className="font-semibold text-slate-700">{formatCurrency(row.salesAmount)}</div>
+                              </div>
+                              <div>
+                                <div className="text-slate-400">{t('pages.adminDashboard.analysis.salesRecords', { defaultValue: 'Sales Records' })}</div>
+                                <div className="font-semibold text-slate-700">{formatNumber(row.salesRecordCount)}</div>
+                              </div>
+                              <div>
+                                <div className="text-slate-400">{t('pages.adminDashboard.analysis.categoryAmount', { defaultValue: 'Category Amount' })}</div>
+                                <div className="font-semibold text-slate-700">{formatCurrency(row.categoryAmount)}</div>
+                              </div>
+                              <div>
+                                <div className="text-slate-400">{t('pages.adminDashboard.analysis.amountCompletion', { defaultValue: 'Amount Completion' })}</div>
+                                <div className="font-semibold text-slate-700">{formatPercent(row.amountCompletion)}</div>
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="w-full overflow-x-auto">
+                      <table className="w-full min-w-[760px] border-collapse">
+                        <thead>
+                          <tr>
+                            <th className="border-b border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-600">BD</th>
+                            <th className="border-b border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-600">
+                              {t('pages.adminDashboard.analysis.salesAmount', { defaultValue: 'Sales Amount' })}
+                            </th>
+                            <th className="border-b border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-600">
+                              {t('pages.adminDashboard.analysis.salesRecords', { defaultValue: 'Sales Records' })}
+                            </th>
+                            <th className="border-b border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-600">
+                              {t('pages.adminDashboard.analysis.categoryAmount', { defaultValue: 'Category Amount' })}
+                            </th>
+                            <th className="border-b border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-600">
+                              {t('pages.adminDashboard.analysis.amountCompletion', { defaultValue: 'Amount Completion' })}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {salesInsightMatrixRows.map((row) => {
+                            const isSelected = row.bdUserId === selectedInsightBdId
+                            return (
+                              <tr key={row.bdUserId} className={isSelected ? 'bg-blue-50/60' : undefined}>
+                                <td className="border-b border-slate-100 px-3 py-2 align-middle">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedInsightBdId(row.bdUserId)}
+                                    className="flex w-full items-center gap-2 text-left"
+                                  >
+                                    <Tag color={isSelected ? 'geekblue' : 'blue'} bordered={false}>
+                                      #{row.rank}
+                                    </Tag>
+                                    <span className="truncate text-sm font-medium text-slate-700">
+                                      {formatDisplayName(row.bdName, row.bdEmail, row.bdUserId)}
+                                    </span>
+                                  </button>
+                                </td>
+                                <td className="border-b border-slate-100 px-3 py-2 text-right text-sm text-slate-700">
+                                  {formatCurrency(row.salesAmount)}
+                                </td>
+                                <td className="border-b border-slate-100 px-3 py-2 text-right text-sm text-slate-700">
+                                  {formatNumber(row.salesRecordCount)}
+                                </td>
+                                <td className="border-b border-slate-100 px-3 py-2 text-right text-sm text-slate-700">
+                                  {formatCurrency(row.categoryAmount)}
+                                </td>
+                                <td className="border-b border-slate-100 px-3 py-2 text-right text-sm text-slate-700">
+                                  {formatPercent(row.amountCompletion)}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </Card>
 
                 <Card
@@ -968,8 +1020,8 @@ export function AdminDashboardPage() {
                           defaultValue: 'Line shows daily total amount; stacked bars show category composition.',
                         })}
                       </div>
-                      <div className="w-full overflow-x-auto">
-                        <svg viewBox={`0 0 ${trendLineChart.viewWidth} ${trendLineChart.viewHeight}`} className="w-full min-w-[680px]">
+                      <div className={isMobile ? 'w-full overflow-x-hidden' : 'w-full overflow-x-auto'}>
+                        <svg viewBox={`0 0 ${trendLineChart.viewWidth} ${trendLineChart.viewHeight}`} className="w-full">
                           {trendLineChart.gridLines.map((line) => (
                             <g key={line.y}>
                               <line x1={22} y1={line.y} x2={trendLineChart.viewWidth - 22} y2={line.y} stroke="#e2e8f0" strokeWidth={1} />
@@ -1028,7 +1080,7 @@ export function AdminDashboardPage() {
                     <Empty description={t('pages.adminDashboard.analysis.noCategoryData', { defaultValue: 'No category data for selected BD' })} />
                   ) : (
                     <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-start">
-                      <div className="relative h-56 w-56 shrink-0 rounded-full border border-slate-200" style={{ background: selectedBdPieGradient }}>
+                      <div className="relative h-44 w-44 shrink-0 rounded-full border border-slate-200 sm:h-56 sm:w-56" style={{ background: selectedBdPieGradient }}>
                         <div className="absolute left-1/2 top-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full bg-white shadow-sm">
                           <div className="text-xs text-slate-500">{t('pages.adminDashboard.analysis.total', { defaultValue: 'Total' })}</div>
                           <div className="text-sm font-semibold text-slate-700">{formatCurrency(selectedBdCategoryShare.total)}</div>

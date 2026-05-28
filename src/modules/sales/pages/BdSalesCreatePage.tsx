@@ -7,6 +7,7 @@ import {
 } from 'react'
 import dayjs from 'dayjs'
 import {
+  AutoComplete,
   Button,
   Card,
   DatePicker,
@@ -43,8 +44,10 @@ import {
 } from '../../auth/auth-context'
 import {
   createSalesOrderWithAutoLead,
+  listTirePriceCatalog,
   listSalesOrderTemplatesByOwner,
   type SalesOrderRow,
+  type TirePriceCatalogRow,
 } from '../api'
 import {
   listOnboardMerchants,
@@ -111,7 +114,7 @@ function detectCategory(line: string): SalesProductCategory | null {
 }
 
 function detectQuantity(line: string): number {
-  const cleaned = line.replace(/^\s*\d+\s*[\.\)]\s*/, '').trim()
+  const cleaned = line.replace(/^\s*\d+\s*[.)]\s*/, '').trim()
   const explicitMatched =
     cleaned.match(/(?:qty|quantity|jumlah)\s*[:=]?\s*(\d{1,4})/i) ??
     cleaned.match(/(?:x|×)\s*(\d{1,4})\b/i) ??
@@ -183,7 +186,7 @@ function pickFieldValue(line: string, labels: string[]): string | null {
 }
 
 function stripListPrefix(line: string): string {
-  return line.replace(/^\s*(?:[-*]|\d+\s*[\.\)])\s*/, '').trim()
+  return line.replace(/^\s*(?:[-*]|\d+\s*[.)])\s*/, '').trim()
 }
 
 function stripQuantityHint(line: string): string {
@@ -196,7 +199,7 @@ function stripQuantityHint(line: string): string {
 }
 
 function isPlainNumberRow(line: string): boolean {
-  return /^\s*\d+\s*[\.\)]?\s*$/.test(line)
+  return /^\s*\d+\s*[.)]?\s*$/.test(line)
 }
 
 function parseTemplateInput(source: string): ParsedTemplateResult {
@@ -339,6 +342,7 @@ export function BdSalesCreatePage() {
   const [loadingOnboardMerchants, setLoadingOnboardMerchants] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>()
   const [templateText, setTemplateText] = useState('')
+  const [tireCatalogRows, setTireCatalogRows] = useState<TirePriceCatalogRow[]>([])
 
   const categoryOptions = useMemo(() => getSalesProductCategoryOptions(t), [t])
   const templateSkeleton = useMemo(() => buildTemplateSkeleton(t), [t])
@@ -356,6 +360,15 @@ export function BdSalesCreatePage() {
   const onboardMerchantById = useMemo(() => {
     return new Map(onboardMerchants.map((item) => [item.id, item]))
   }, [onboardMerchants])
+
+  const tireModelOptions = useMemo(
+    () =>
+      tireCatalogRows.map((row) => ({
+        value: row.model_label,
+        label: `${row.model_label} · IDR ${new Intl.NumberFormat().format(Number(row.price_incl_vat ?? 0))}`,
+      })),
+    [tireCatalogRows],
+  )
 
   const loadTemplates = useCallback(async () => {
     if (!user) {
@@ -411,6 +424,26 @@ export function BdSalesCreatePage() {
       // ignore storage write failure
     }
   }, [templateText])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadTireCatalog() {
+      try {
+        const rows = await listTirePriceCatalog(undefined, 600)
+        if (!cancelled) {
+          setTireCatalogRows(rows)
+        }
+      } catch {
+        if (!cancelled) {
+          setTireCatalogRows([])
+        }
+      }
+    }
+    void loadTireCatalog()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -737,10 +770,26 @@ export function BdSalesCreatePage() {
                 {
                   title: t('pages.bdSalesCreate.columns.productName', { defaultValue: 'Product / Description' }),
                   render: (_: unknown, row: DraftSalesItem) => (
-                    <Input
-                      value={row.product_name}
-                      onChange={(event) => updateItem(row.key, { product_name: event.target.value })}
-                    />
+                    row.category === 'TIRE' ? (
+                      <AutoComplete
+                        value={row.product_name}
+                        options={tireModelOptions}
+                        filterOption={(inputValue, option) =>
+                          String(option?.value ?? '')
+                            .toLowerCase()
+                            .includes(inputValue.toLowerCase())
+                        }
+                        onChange={(value) => updateItem(row.key, { product_name: value })}
+                        placeholder={t('pages.bdSalesCreate.tireModelHint', {
+                          defaultValue: 'Type tire model keywords; suggestions are optional',
+                        })}
+                      />
+                    ) : (
+                      <Input
+                        value={row.product_name}
+                        onChange={(event) => updateItem(row.key, { product_name: event.target.value })}
+                      />
+                    )
                   ),
                 },
                 {

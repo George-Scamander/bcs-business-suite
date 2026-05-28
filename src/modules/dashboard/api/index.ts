@@ -176,10 +176,24 @@ export async function getAdminDashboardMetrics(period?: AdminDashboardPeriod): P
       { column: 'deleted_at', value: null, op: 'is' },
       { column: 'status', value: 'SIGNED', op: 'neq' },
     ], periodRange ? { column: 'created_at', ...periodRange } : undefined),
-    count('leads', [
-      { column: 'deleted_at', value: null, op: 'is' },
-      { column: 'status', value: 'SIGNED' },
-    ], periodRange ? { column: 'created_at', ...periodRange } : undefined),
+    (async () => {
+      let query = supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .is('deleted_at', null)
+        .eq('status', 'SIGNED')
+        .or('intent_package.eq.PRODUCTS_SALES,intent_package.is.null')
+
+      if (periodRange) {
+        query = query.gte('created_at', periodRange.from).lte('created_at', periodRange.to)
+      }
+
+      const result = await query
+      if (result.error) {
+        throw result.error
+      }
+      return result.count ?? 0
+    })(),
     count('onboarding_cases', [
       { column: 'status', value: 'COMPLETED', op: 'neq' },
       { column: 'status', value: 'REJECTED', op: 'neq' },

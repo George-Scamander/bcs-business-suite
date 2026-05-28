@@ -30,8 +30,8 @@ export function PageTitleBar({ title, description, extra }: PageTitleBarProps) {
         {description ? <div className={`mb-0 text-slate-500 ${isMobile ? 'text-xs' : 'text-sm sm:text-base'}`}>{description}</div> : null}
       </div>
       {extra ? (
-        <div className={`page-title-extra ${isMobile ? 'w-full overflow-x-auto pb-1' : 'w-full md:w-auto'}`}>
-          <Space wrap={!isMobile} className={isMobile ? 'mobile-action-scroll min-w-max' : undefined}>
+        <div className={`page-title-extra ${isMobile ? 'w-full pb-1' : 'w-full md:w-auto'}`}>
+          <Space wrap className={isMobile ? 'w-full' : undefined}>
             {extra}
           </Space>
         </div>
