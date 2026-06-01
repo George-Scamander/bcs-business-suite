@@ -10,6 +10,7 @@ import { ResetPasswordPage } from '../modules/auth/pages/ResetPasswordPage'
 import { AdminDashboardPage } from '../modules/admin/pages/AdminDashboardPage'
 import { AdminAiDataAssistantPage } from '../modules/admin/pages/AdminAiDataAssistantPage'
 import { AdminLeadPoolPage } from '../modules/admin/pages/AdminLeadPoolPage'
+import { AdminLeadRegionDistributionPage } from '../modules/admin/pages/AdminLeadRegionDistributionPage'
 import { UserRoleManagementPage } from '../modules/admin/pages/UserRoleManagementPage'
 import { AdminOnboardingReviewCenterPage } from '../modules/admin/pages/AdminOnboardingReviewCenterPage'
 import { AdminProjectOverviewPage } from '../modules/admin/pages/AdminProjectOverviewPage'
@@ -30,7 +31,6 @@ import { BdDepartmentLeadsPage } from '../modules/leads/pages/BdDepartmentLeadsP
 import { LeadFormPage } from '../modules/leads/pages/LeadFormPage'
 import { LeadDetailPage } from '../modules/leads/pages/LeadDetailPage'
 import { LeadFollowupTimelinePage } from '../modules/leads/pages/LeadFollowupTimelinePage'
-import { LeadStatusChangePage } from '../modules/leads/pages/LeadStatusChangePage'
 import { LeadSignContractPage } from '../modules/leads/pages/LeadSignContractPage'
 import { LeadInitiateOnboardingPage } from '../modules/leads/pages/LeadInitiateOnboardingPage'
 import { BdOnboardingListPage } from '../modules/onboarding/pages/BdOnboardingListPage'
@@ -83,7 +83,7 @@ export default function App() {
             <Route
               path="admin/leads/pool"
               element={
-                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                <RoleGuard allowRoles={['super_admin', 'project_manager']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
                   <AdminLeadPoolPage />
                 </RoleGuard>
               }
@@ -91,7 +91,7 @@ export default function App() {
             <Route
               path="admin/leads/pool/overview"
               element={
-                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                <RoleGuard allowRoles={['super_admin', 'project_manager']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
                   <AdminLeadPoolPage />
                 </RoleGuard>
               }
@@ -99,7 +99,7 @@ export default function App() {
             <Route
               path="admin/leads/pool/today-new"
               element={
-                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                <RoleGuard allowRoles={['super_admin', 'project_manager']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
                   <AdminLeadPoolPage />
                 </RoleGuard>
               }
@@ -107,7 +107,7 @@ export default function App() {
             <Route
               path="admin/leads/pool/bcs"
               element={
-                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                <RoleGuard allowRoles={['super_admin', 'project_manager']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
                   <AdminLeadPoolPage />
                 </RoleGuard>
               }
@@ -115,7 +115,7 @@ export default function App() {
             <Route
               path="admin/leads/pool/non-bcs"
               element={
-                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                <RoleGuard allowRoles={['super_admin', 'project_manager']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
                   <AdminLeadPoolPage />
                 </RoleGuard>
               }
@@ -123,7 +123,7 @@ export default function App() {
             <Route
               path="admin/leads/pool/high-intent"
               element={
-                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                <RoleGuard allowRoles={['super_admin', 'project_manager']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
                   <AdminLeadPoolPage />
                 </RoleGuard>
               }
@@ -131,7 +131,7 @@ export default function App() {
             <Route
               path="admin/leads/pool/signed"
               element={
-                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                <RoleGuard allowRoles={['super_admin', 'project_manager']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
                   <AdminLeadPoolPage />
                 </RoleGuard>
               }
@@ -139,7 +139,7 @@ export default function App() {
             <Route
               path="admin/leads/pool/bcs-signed"
               element={
-                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                <RoleGuard allowRoles={['super_admin', 'project_manager']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
                   <AdminLeadPoolPage />
                 </RoleGuard>
               }
@@ -323,14 +323,7 @@ export default function App() {
             />
             <Route
               path="bd/leads/:leadId/status"
-              element={
-                <RoleGuard
-                  allowRoles={['bd_user', 'project_manager', 'super_admin']}
-                  requiredPermissions={[PERMISSIONS.LEADS_STATUS_CHANGE]}
-                >
-                  <LeadStatusChangePage />
-                </RoleGuard>
-              }
+              element={<Navigate to="../followups" replace />}
             />
             <Route
               path="bd/leads/:leadId/sign"
@@ -548,6 +541,16 @@ export default function App() {
             <Route path="unauthorized" element={<UnauthorizedPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
+          <Route
+            path="/lead-region-distribution"
+            element={
+              <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.LEADS_READ]}>
+                <div className="min-h-dvh app-surface-muted overflow-x-hidden p-3 sm:p-4 md:p-6">
+                  <AdminLeadRegionDistributionPage />
+                </div>
+              </RoleGuard>
+            }
+          />
         </Route>
 
         <Route path="/" element={<Navigate to="/app" replace />} />

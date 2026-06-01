@@ -259,6 +259,12 @@ export function LeadFormPage() {
     setSaving(true)
 
     try {
+      const manuallySelectedNextFollowupAt = toIsoStringOrUndefined(values.next_followup_at)
+      const shouldDefaultNextFollowup =
+        !isEdit &&
+        roles.includes('bd_user') &&
+        !roles.includes('project_manager') &&
+        !roles.includes('super_admin')
       const basePayload = {
         company_name: normalizeText(values.company_name) ?? '',
         intent_package: values.intent_package,
@@ -271,7 +277,9 @@ export function LeadFormPage() {
         address: normalizeText(values.address),
         source: normalizeText(values.source),
         intent_level: values.intent_level,
-        next_followup_at: toIsoStringOrUndefined(values.next_followup_at),
+        next_followup_at:
+          manuallySelectedNextFollowupAt ??
+          (shouldDefaultNextFollowup ? dayjs().add(7, 'day').toISOString() : undefined),
       }
 
       const duplicates = await findDuplicateLeadCompanies(basePayload.company_name, leadId)

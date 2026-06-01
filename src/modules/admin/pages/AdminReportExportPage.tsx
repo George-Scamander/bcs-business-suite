@@ -39,8 +39,14 @@ import {
   listActiveUsers,
   type UserOption,
 } from '../../shared/api/users'
+import {
+  getSalesProductCategoryGroup,
+  getSalesProductSubcategory,
+} from '../../../lib/business-constants'
 import type {
   ReportExport,
+  SalesProductCategory,
+  SalesProductSubcategory,
 } from '../../../types/business'
 
 type ReportModule = 'leads' | 'sales_leads' | 'onboarding' | 'projects'
@@ -55,6 +61,7 @@ interface SalesLeadExportSourceRow {
   bd_owner: { full_name: string | null; email: string | null } | null
   items: Array<{
     category: string
+    subcategory: SalesProductSubcategory | null
     product_name: string | null
     quantity: number
     unit_price: number | null
@@ -166,7 +173,7 @@ export function AdminReportExportPage() {
         let query = supabase
           .from('sales_orders')
           .select(
-            'order_no, company_name, sold_at, created_at, note, bd_user_id, lead:leads(lead_code), bd_owner:profiles!sales_orders_bd_user_id_fkey(full_name, email), items:sales_order_items(category, product_name, quantity, unit_price)',
+            'order_no, company_name, sold_at, created_at, note, bd_user_id, lead:leads(lead_code), bd_owner:profiles!sales_orders_bd_user_id_fkey(full_name, email), items:sales_order_items(category, subcategory, product_name, quantity, unit_price)',
           )
           .is('deleted_at', null)
 
@@ -198,6 +205,10 @@ export function AdminReportExportPage() {
             return sum + quantity * unitPrice
           }, 0)
           const categories = Array.from(new Set(normalizedItems.map((item) => item.category))).join(' | ')
+          const categoryGroups = Array.from(new Set(normalizedItems.map((item) => getSalesProductCategoryGroup(item.category as SalesProductCategory)))).join(' | ')
+          const subcategories = Array.from(new Set(normalizedItems
+            .map((item) => getSalesProductSubcategory(item.category as SalesProductCategory, item.subcategory))
+            .filter(Boolean))).join(' | ')
           const itemSummary = normalizedItems
             .map((item) => `${item.product_name?.trim() || item.category} x${item.quantity}`)
             .join('; ')
@@ -213,6 +224,8 @@ export function AdminReportExportPage() {
             total_quantity: totalQuantity,
             total_amount: totalAmount.toFixed(2),
             categories,
+            category_groups: categoryGroups,
+            subcategories,
             item_summary: itemSummary,
             note: row.note ?? '',
           }

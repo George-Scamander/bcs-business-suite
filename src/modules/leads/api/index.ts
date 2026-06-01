@@ -72,6 +72,11 @@ export interface DepartmentLeadRow {
   updated_at: string
 }
 
+export type LeadRegionDistributionRow = Pick<
+  Lead,
+  'id' | 'lead_code' | 'company_name' | 'industry' | 'region' | 'status' | 'assigned_bd_id' | 'created_at'
+>
+
 export interface CreateLeadInput {
   id?: string
   lead_code?: string
@@ -258,6 +263,31 @@ export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
   }
 
   return (result.data ?? []) as Lead[]
+}
+
+export async function listAllActiveLeadsForRegionDistribution(): Promise<LeadRegionDistributionRow[]> {
+  const pageSize = 1000
+  const rows: LeadRegionDistributionRow[] = []
+
+  for (let from = 0; ; from += pageSize) {
+    const result = await supabase
+      .from('leads')
+      .select('id, lead_code, company_name, industry, region, status, assigned_bd_id, created_at')
+      .is('deleted_at', null)
+      .order('id', { ascending: true })
+      .range(from, from + pageSize - 1)
+
+    if (result.error) {
+      throw result.error
+    }
+
+    const page = (result.data ?? []) as LeadRegionDistributionRow[]
+    rows.push(...page)
+
+    if (page.length < pageSize) {
+      return rows
+    }
+  }
 }
 
 export async function listDepartmentLeads(filters: DepartmentLeadFilters = {}): Promise<DepartmentLeadRow[]> {

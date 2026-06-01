@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   Col,
+  DatePicker,
   Drawer,
   Empty,
   Grid,
@@ -32,6 +33,7 @@ import {
 
 import {
   getSalesProductCategoryOptions,
+  getSalesProductSubcategoryLabel,
 } from '../../../lib/business-constants'
 import {
   MetricCard,
@@ -56,6 +58,7 @@ import type {
 } from '../../../types/business'
 import type {
   AdminSalesInsightOrder,
+  AdminSalesSubcategoryMetrics,
   AdminSalesCategoryMetrics,
   AdminLeadBoardMetrics,
   AdminDashboardMetrics,
@@ -97,6 +100,16 @@ interface SalesTrendSegment {
   color: string
   amount: number
   percent: number
+}
+
+interface SalesCategoryOverviewRow extends AdminSalesCategoryMetrics {
+  categoryLabel: string
+  share: number
+}
+
+interface SalesSubcategoryOverviewRow extends AdminSalesSubcategoryMetrics {
+  label: string
+  share: number
 }
 
 const CATEGORY_COLORS = ['#1677ff', '#52c41a', '#faad14', '#eb2f96', '#13c2c2', '#722ed1', '#f97316', '#06b6d4']
@@ -187,23 +200,23 @@ export function AdminDashboardPage() {
   const [pendingCases, setPendingCases] = useState<PendingCaseRow[]>([])
   const [salesCategoryMetrics, setSalesCategoryMetrics] = useState<AdminSalesCategoryMetrics[]>([])
   const [salesInsightOrders, setSalesInsightOrders] = useState<AdminSalesInsightOrder[]>([])
+  const [salesMonth, setSalesMonth] = useState(() => dayjs().format('YYYY-MM'))
   const [selectedCategory, setSelectedCategory] = useState<SalesProductCategory>('TIRE')
   const [analysisOpen, setAnalysisOpen] = useState(false)
   const [selectedInsightBdId, setSelectedInsightBdId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [salesLoading, setSalesLoading] = useState(true)
 
   const loadData = useCallback(async () => {
     setLoading(true)
 
     try {
-      const [leadBoard, metricDefault, metricYesterday, metricLast7Days, onboardingCases, salesMetrics, salesInsightRaw] = await Promise.all([
+      const [leadBoard, metricDefault, metricYesterday, metricLast7Days, onboardingCases] = await Promise.all([
         getAdminLeadBoardMetrics(),
         getAdminDashboardMetrics(),
         getAdminDashboardMetrics('yesterday'),
         getAdminDashboardMetrics('last7Days'),
         listOnboardingCases(),
-        getAdminSalesCategoryMetrics(),
-        getAdminSalesInsightOrders(),
       ])
 
       setLeadBoardMetrics(leadBoard)
@@ -212,8 +225,6 @@ export function AdminDashboardPage() {
         yesterday: metricYesterday,
         last7Days: metricLast7Days,
       })
-      setSalesCategoryMetrics(salesMetrics)
-      setSalesInsightOrders(salesInsightRaw)
       setPendingCases(
         onboardingCases
           .filter((item) => item.status !== 'COMPLETED' && item.status !== 'REJECTED')
@@ -236,9 +247,34 @@ export function AdminDashboardPage() {
     }
   }, [t])
 
+  const loadSalesData = useCallback(async () => {
+    setSalesLoading(true)
+
+    try {
+      const [salesMetrics, salesInsightRaw] = await Promise.all([
+        getAdminSalesCategoryMetrics(salesMonth),
+        getAdminSalesInsightOrders(salesMonth),
+      ])
+      setSalesCategoryMetrics(salesMetrics)
+      setSalesInsightOrders(salesInsightRaw)
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.adminDashboard.loadFail', { defaultValue: 'Failed to load admin dashboard' })
+      message.error(text)
+    } finally {
+      setSalesLoading(false)
+    }
+  }, [salesMonth, t])
+
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    void loadSalesData()
+  }, [loadSalesData])
 
   const categoryOptions = useMemo(() => getSalesProductCategoryOptions(t), [t])
   const selectedSalesMetrics = useMemo(
@@ -247,6 +283,7 @@ export function AdminDashboardPage() {
         category: selectedCategory,
         totalQuantity: 0,
         totalAmount: 0,
+        subcategories: [],
       },
     [salesCategoryMetrics, selectedCategory],
   )
@@ -254,6 +291,26 @@ export function AdminDashboardPage() {
   const categoryLabelByValue = useMemo(() => {
     return new Map(categoryOptions.map((item) => [item.value, item.label]))
   }, [categoryOptions])
+
+  const salesMonthTotalAmount = useMemo(() => {
+    return salesCategoryMetrics.reduce((sum, item) => sum + safeNumber(item.totalAmount), 0)
+  }, [salesCategoryMetrics])
+
+  const salesMonthTotalQuantity = useMemo(() => {
+    return salesCategoryMetrics.reduce((sum, item) => sum + safeNumber(item.totalQuantity), 0)
+  }, [salesCategoryMetrics])
+
+  const salesMonthActiveCategoryCount = useMemo(() => {
+    return salesCategoryMetrics.filter((item) => safeNumber(item.totalQuantity) > 0 || safeNumber(item.totalAmount) > 0).length
+  }, [salesCategoryMetrics])
+
+  const salesCategoryOverviewRows = useMemo<SalesCategoryOverviewRow[]>(() => {
+    return salesCategoryMetrics.map((item) => ({
+      ...item,
+      categoryLabel: categoryLabelByValue.get(item.category) ?? item.category,
+      share: salesMonthTotalAmount > 0 ? safeNumber(item.totalAmount) / salesMonthTotalAmount : 0,
+    }))
+  }, [categoryLabelByValue, salesCategoryMetrics, salesMonthTotalAmount])
 
   const salesInsightRows = useMemo<SalesInsightBdRow[]>(() => {
     const aggregate = new Map<string, SalesInsightBdRow>()
@@ -585,7 +642,9 @@ export function AdminDashboardPage() {
             <Button onClick={() => setAnalysisOpen(true)}>
               {t('pages.adminDashboard.analysis.entry', { defaultValue: 'View Analysis' })}
             </Button>
-            <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
+            <Button onClick={() => void Promise.all([loadData(), loadSalesData()])}>
+              {t('labels.refresh', { defaultValue: 'Refresh' })}
+            </Button>
           </Space>
         }
       />
@@ -721,41 +780,118 @@ export function AdminDashboardPage() {
       >
         <Row gutter={[16, 16]} align="middle" className="mb-4">
           <Col xs={24} md={8} xl={6}>
-            <Select
+            <DatePicker
               className="w-full"
-              value={selectedCategory}
-              onChange={(value) => setSelectedCategory(value)}
-              options={categoryOptions}
-              placeholder={t('pages.adminDashboard.salesCategorySelect', { defaultValue: 'Select sales category' })}
+              picker="month"
+              allowClear={false}
+              value={dayjs(salesMonth)}
+              onChange={(value) => {
+                if (value) {
+                  setSalesMonth(value.format('YYYY-MM'))
+                }
+              }}
+              placeholder={t('pages.adminDashboard.salesMonthSelect', { defaultValue: 'Select month' })}
             />
           </Col>
         </Row>
         <div className="mb-4 text-xs text-slate-500">
           {t('pages.adminDashboard.salesCategoryNaturalMonthNote', {
             defaultValue: 'Natural month {{month}} (filter by Sold Time).',
-            month: dayjs().format('YYYY-MM'),
+            month: salesMonth,
           })}
         </div>
 
         <Row gutter={[16, 16]}>
-          <Col xs={24} md={12} xl={6}>
-            <Card bordered={false} className="bg-slate-50">
+          <Col xs={24} md={12} xl={8}>
+            <Card bordered={false} className="bg-blue-50">
               <Statistic
-                title={t('pages.adminDashboard.salesCategoryQuantity', { defaultValue: 'Sales Quantity' })}
-                value={selectedSalesMetrics.totalQuantity}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} md={12} xl={6}>
-            <Card bordered={false} className="bg-slate-50">
-              <Statistic
-                title={t('pages.adminDashboard.salesCategoryAmount', { defaultValue: 'Total Sales Amount' })}
-                value={selectedSalesMetrics.totalAmount}
+                title={t('pages.adminDashboard.salesMonthTotalAmount', { defaultValue: 'Selected Month Total Sales Amount' })}
+                value={salesMonthTotalAmount}
                 formatter={(value) => formatCurrency(Number(value ?? 0))}
               />
             </Card>
           </Col>
+          <Col xs={24} md={12} xl={8}>
+            <Card bordered={false} className="bg-slate-50">
+              <Statistic
+                title={t('pages.adminDashboard.salesMonthTotalQuantity', { defaultValue: 'Selected Month Total Sales Quantity' })}
+                value={salesMonthTotalQuantity}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} md={12} xl={8}>
+            <Card bordered={false} className="bg-slate-50">
+              <Statistic
+                title={t('pages.adminDashboard.salesMonthActiveCategories', { defaultValue: 'Categories with Sales' })}
+                value={salesMonthActiveCategoryCount}
+              />
+            </Card>
+          </Col>
         </Row>
+
+        <div className="mb-3 mt-5 text-sm font-semibold text-slate-700">
+          {t('pages.adminDashboard.salesCategoryBreakdownTitle', { defaultValue: 'Sales Breakdown by Category' })}
+        </div>
+        <Table<SalesCategoryOverviewRow>
+          loading={salesLoading}
+          rowKey="category"
+          bordered
+          pagination={false}
+          dataSource={salesCategoryOverviewRows}
+          mobileCardTitleKey="categoryLabel"
+          onRow={(record) => ({
+            onClick: () => setSelectedCategory(record.category),
+            className: record.category === selectedCategory ? 'cursor-pointer bg-blue-50/60' : 'cursor-pointer',
+          })}
+          expandable={{
+            rowExpandable: (record) => record.subcategories.length > 0,
+            expandedRowRender: (record) => {
+              const rows: SalesSubcategoryOverviewRow[] = record.subcategories.map((item) => ({
+                ...item,
+                label: getSalesProductSubcategoryLabel(record.category, item.subcategory, t) ?? item.subcategory,
+                share: record.totalAmount > 0 ? item.totalAmount / record.totalAmount : 0,
+              }))
+              return (
+                <Table<SalesSubcategoryOverviewRow>
+                  rowKey="subcategory"
+                  pagination={false}
+                  dataSource={rows}
+                  mobileCardTitleKey="label"
+                  columns={[
+                    { title: t('pages.adminDashboard.salesSubcategoryColumn', { defaultValue: 'Subcategory' }), dataIndex: 'label' },
+                    { title: t('pages.adminDashboard.salesCategoryQuantity', { defaultValue: 'Sales Quantity' }), dataIndex: 'totalQuantity', align: 'right', render: (value: number) => formatNumber(value) },
+                    { title: t('pages.adminDashboard.salesCategoryAmount', { defaultValue: 'Total Sales Amount' }), dataIndex: 'totalAmount', align: 'right', render: (value: number) => formatCurrency(value) },
+                    { title: t('pages.adminDashboard.salesCategoryShare', { defaultValue: 'Amount Share' }), dataIndex: 'share', align: 'right', render: (value: number) => formatPercent(value) },
+                  ]}
+                />
+              )
+            },
+          }}
+          columns={[
+            {
+              title: t('pages.adminDashboard.salesCategoryColumn', { defaultValue: 'Sales Category' }),
+              dataIndex: 'categoryLabel',
+            },
+            {
+              title: t('pages.adminDashboard.salesCategoryQuantity', { defaultValue: 'Sales Quantity' }),
+              dataIndex: 'totalQuantity',
+              align: 'right',
+              render: (value: number) => formatNumber(value),
+            },
+            {
+              title: t('pages.adminDashboard.salesCategoryAmount', { defaultValue: 'Total Sales Amount' }),
+              dataIndex: 'totalAmount',
+              align: 'right',
+              render: (value: number) => formatCurrency(value),
+            },
+            {
+              title: t('pages.adminDashboard.salesCategoryShare', { defaultValue: 'Amount Share' }),
+              dataIndex: 'share',
+              align: 'right',
+              render: (value: number) => formatPercent(value),
+            },
+          ]}
+        />
       </Card>
 
       <Drawer
@@ -770,7 +906,7 @@ export function AdminDashboardPage() {
             <Tag bordered={false} color="blue">
               {t('pages.adminDashboard.analysis.naturalMonthHint', {
                 defaultValue: 'Natural month {{month}} based on Sold Time',
-                month: dayjs().format('YYYY-MM'),
+                month: salesMonth,
               })}
             </Tag>
             <Tag bordered={false} color="cyan">

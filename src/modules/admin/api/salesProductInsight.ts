@@ -85,7 +85,7 @@ export interface AdminInsightSalesOrderRow {
     lead_id: string | null
     bd_owner_id: string | null
   } | null
-  items: Array<Pick<SalesOrderItem, 'id' | 'sales_order_id' | 'category' | 'product_name' | 'quantity' | 'unit_price' | 'created_at' | 'updated_at'>>
+  items: Array<Pick<SalesOrderItem, 'id' | 'sales_order_id' | 'category' | 'subcategory' | 'product_name' | 'quantity' | 'unit_price' | 'created_at' | 'updated_at'>>
 }
 
 export interface AdminSalesProductInsightDataset {
@@ -121,7 +121,7 @@ export async function listAdminSalesProductInsightDataset(): Promise<AdminSalesP
           'id, order_no, company_name, lead_id, onboard_merchant_id, bd_user_id, sold_at, payment_method, payment_top_term, created_at, updated_at',
           'lead:leads(id, lead_code, company_name, status, intent_package, assigned_bd_id, created_at)',
           'onboard_merchant:onboard_merchants(id, merchant_no, company_name, onboarding_type, lead_id, bd_owner_id)',
-          'items:sales_order_items(id, sales_order_id, category, product_name, quantity, unit_price, created_at, updated_at)',
+          'items:sales_order_items(id, sales_order_id, category, subcategory, product_name, quantity, unit_price, created_at, updated_at)',
         ].join(', '),
       )
       .is('deleted_at', null)

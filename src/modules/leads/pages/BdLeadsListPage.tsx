@@ -8,6 +8,7 @@ import dayjs from 'dayjs'
 import {
   Button,
   DatePicker,
+  Drawer,
   Input,
   Modal,
   Popconfirm,
@@ -25,6 +26,7 @@ import type {
 } from 'antd'
 import {
   PlusOutlined,
+  SettingOutlined,
   UploadOutlined,
 } from '@ant-design/icons'
 import {
@@ -202,6 +204,7 @@ export function BdLeadsListPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [importing, setImporting] = useState(false)
   const [importFileList, setImportFileList] = useState<UploadFile[]>([])
+  const [controlPanelOpen, setControlPanelOpen] = useState(false)
 
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
@@ -209,6 +212,7 @@ export function BdLeadsListPage() {
   const [userOptions, setUserOptions] = useState<UserOption[]>([])
 
   const canAssign = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_ASSIGN)
+  const isProjectManager = roles.includes('project_manager') && !roles.includes('super_admin')
   const canFilterByBd = roles.includes('super_admin') || roles.includes('project_manager')
   const shouldScopeToMyLeads = roles.includes('bd_user') && !roles.includes('super_admin') && !roles.includes('project_manager')
   const canImport = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_IMPORT)
@@ -444,6 +448,137 @@ export function BdLeadsListPage() {
     return map
   }, [user?.email, user?.id, userOptions])
 
+  function handleApplyControlPanel() {
+    void loadRows()
+    setControlPanelOpen(false)
+  }
+
+  function handleResetControlPanel() {
+    setFilters({})
+    setKeyword('')
+  }
+
+  const filterPanel = (
+    <Space direction={isProjectManager ? 'vertical' : 'horizontal'} size={12} wrap={!isProjectManager} className="w-full">
+      <Select
+        allowClear
+        className={isProjectManager ? 'w-full' : undefined}
+        placeholder={t('pages.bdLeads.statusPlaceholder', { defaultValue: 'Status' })}
+        style={isProjectManager ? undefined : { width: 180 }}
+        options={leadStatusOptions}
+        value={filters.status}
+        onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
+      />
+      <Input
+        className={isProjectManager ? 'w-full' : undefined}
+        placeholder={t('pages.bdLeads.regionPlaceholder', { defaultValue: 'Region' })}
+        style={isProjectManager ? undefined : { width: 180 }}
+        value={filters.region}
+        onChange={(event) => setFilters((current) => ({ ...current, region: event.target.value || undefined }))}
+      />
+      <Input
+        className={isProjectManager ? 'w-full' : undefined}
+        placeholder={t('pages.bdLeads.industryPlaceholder', { defaultValue: 'Industry' })}
+        style={isProjectManager ? undefined : { width: 180 }}
+        value={filters.industry}
+        onChange={(event) => setFilters((current) => ({ ...current, industry: event.target.value || undefined }))}
+      />
+      <Select
+        allowClear
+        className={isProjectManager ? 'w-full' : undefined}
+        placeholder={t('pages.bdLeads.intentPackagePlaceholder', { defaultValue: 'BCS Business' })}
+        style={isProjectManager ? undefined : { width: 200 }}
+        options={intentPackageOptions}
+        value={filters.intentPackage}
+        onChange={(value) => setFilters((current) => ({ ...current, intentPackage: value || undefined }))}
+      />
+      {isProjectManager ? (
+        <Select
+          allowClear
+          className="w-full"
+          placeholder={t('pages.bdLeads.intentLevelPlaceholder', { defaultValue: 'Intent Level' })}
+          value={filters.intentLevelMin === filters.intentLevelMax ? filters.intentLevelMin : undefined}
+          options={[
+            { value: 5, label: 'H5' },
+            { value: 4, label: 'H4' },
+            { value: 3, label: 'H3' },
+            { value: 2, label: 'H2' },
+            { value: 1, label: 'H1' },
+            { value: 0, label: 'H0' },
+          ]}
+          onChange={(value) =>
+            setFilters((current) => ({
+              ...current,
+              intentLevelMin: value === undefined ? undefined : Number(value),
+              intentLevelMax: value === undefined ? undefined : Number(value),
+            }))
+          }
+        />
+      ) : null}
+      {canFilterByBd ? (
+        <Select
+          allowClear
+          showSearch
+          className={isProjectManager ? 'w-full' : undefined}
+          optionFilterProp="label"
+          placeholder={t('pages.bdLeads.bdOwnerPlaceholder', { defaultValue: 'BD Owner' })}
+          style={isProjectManager ? undefined : { width: 240 }}
+          options={bdUserOptions}
+          value={filters.assignedBdId}
+          onChange={(value) =>
+            setFilters((current) => ({
+              ...current,
+              assignedBdId: value || undefined,
+            }))
+          }
+        />
+      ) : null}
+      <DatePicker
+        className={isProjectManager ? 'w-full' : undefined}
+        style={isProjectManager ? undefined : { width: 170 }}
+        placeholder={t('pages.bdLeads.createdFrom', { defaultValue: 'Created From' })}
+        value={filters.createdFrom ? dayjs(filters.createdFrom) : undefined}
+        onChange={(value) =>
+          setFilters((current) => ({
+            ...current,
+            createdFrom: value ? value.startOf('day').toISOString() : undefined,
+          }))
+        }
+      />
+      <DatePicker
+        className={isProjectManager ? 'w-full' : undefined}
+        style={isProjectManager ? undefined : { width: 170 }}
+        placeholder={t('pages.bdLeads.createdTo', { defaultValue: 'Created To' })}
+        value={filters.createdTo ? dayjs(filters.createdTo) : undefined}
+        onChange={(value) =>
+          setFilters((current) => ({
+            ...current,
+            createdTo: value ? value.endOf('day').toISOString() : undefined,
+          }))
+        }
+      />
+      <Input.Search
+        allowClear
+        className={isProjectManager ? 'w-full' : undefined}
+        placeholder={t('pages.bdLeads.keywordPlaceholder', { defaultValue: 'Keyword (lead code/company/contact/source)' })}
+        style={isProjectManager ? undefined : { width: 280 }}
+        value={keyword}
+        onChange={(event) => setKeyword(event.target.value)}
+        onSearch={isProjectManager ? handleApplyControlPanel : () => void loadRows()}
+      />
+      <Space wrap>
+        <Button type="primary" onClick={isProjectManager ? handleApplyControlPanel : () => void loadRows()}>
+          {t('labels.apply', { defaultValue: 'Apply' })}
+        </Button>
+        {isProjectManager ? (
+          <Button onClick={handleResetControlPanel}>
+            {t('labels.reset', { defaultValue: 'Reset' })}
+          </Button>
+        ) : null}
+      </Space>
+    </Space>
+  )
+
   return (
     <>
       <PageTitleBar
@@ -493,6 +628,11 @@ export function BdLeadsListPage() {
                 {t('pages.bdLeads.newLead', { defaultValue: 'New Lead' })}
               </Button>
             ) : null}
+            {isProjectManager ? (
+              <Button icon={<SettingOutlined />} onClick={() => setControlPanelOpen(true)}>
+                {t('labels.controlPanel', { defaultValue: 'Control Panel' })}
+              </Button>
+            ) : null}
           </Space>
         }
       />
@@ -522,88 +662,21 @@ export function BdLeadsListPage() {
         </div>
       ) : null}
 
-      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
-        <Space wrap>
-          <Select
-            allowClear
-            placeholder={t('pages.bdLeads.statusPlaceholder', { defaultValue: 'Status' })}
-            style={{ width: 180 }}
-            options={leadStatusOptions}
-            value={filters.status}
-            onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
-          />
-          <Input
-            placeholder={t('pages.bdLeads.regionPlaceholder', { defaultValue: 'Region' })}
-            style={{ width: 180 }}
-            value={filters.region}
-            onChange={(event) => setFilters((current) => ({ ...current, region: event.target.value || undefined }))}
-          />
-          <Input
-            placeholder={t('pages.bdLeads.industryPlaceholder', { defaultValue: 'Industry' })}
-            style={{ width: 180 }}
-            value={filters.industry}
-            onChange={(event) => setFilters((current) => ({ ...current, industry: event.target.value || undefined }))}
-          />
-          <Select
-            allowClear
-            placeholder={t('pages.bdLeads.intentPackagePlaceholder', { defaultValue: 'BCS Business' })}
-            style={{ width: 200 }}
-            options={intentPackageOptions}
-            value={filters.intentPackage}
-            onChange={(value) => setFilters((current) => ({ ...current, intentPackage: value || undefined }))}
-          />
-          {canFilterByBd ? (
-            <Select
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              placeholder={t('pages.bdLeads.bdOwnerPlaceholder', { defaultValue: 'BD Owner' })}
-              style={{ width: 240 }}
-              options={bdUserOptions}
-              value={filters.assignedBdId}
-              onChange={(value) =>
-                setFilters((current) => ({
-                  ...current,
-                  assignedBdId: value || undefined,
-                }))
-              }
-            />
-          ) : null}
-          <DatePicker
-            style={{ width: 170 }}
-            placeholder={t('pages.bdLeads.createdFrom', { defaultValue: 'Created From' })}
-            value={filters.createdFrom ? dayjs(filters.createdFrom) : undefined}
-            onChange={(value) =>
-              setFilters((current) => ({
-                ...current,
-                createdFrom: value ? value.startOf('day').toISOString() : undefined,
-              }))
-            }
-          />
-          <DatePicker
-            style={{ width: 170 }}
-            placeholder={t('pages.bdLeads.createdTo', { defaultValue: 'Created To' })}
-            value={filters.createdTo ? dayjs(filters.createdTo) : undefined}
-            onChange={(value) =>
-              setFilters((current) => ({
-                ...current,
-                createdTo: value ? value.endOf('day').toISOString() : undefined,
-              }))
-            }
-          />
-          <Input.Search
-            allowClear
-            placeholder={t('pages.bdLeads.keywordPlaceholder', { defaultValue: 'Keyword (lead code/company/contact/source)' })}
-            style={{ width: 280 }}
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-            onSearch={() => void loadRows()}
-          />
-          <Button type="primary" onClick={() => void loadRows()}>
-            {t('labels.apply', { defaultValue: 'Apply' })}
-          </Button>
-        </Space>
-      </div>
+      {isProjectManager ? (
+        <Drawer
+          title={t('labels.controlPanel', { defaultValue: 'Control Panel' })}
+          width="min(460px, 100vw)"
+          open={controlPanelOpen}
+          onClose={() => setControlPanelOpen(false)}
+          destroyOnClose={false}
+        >
+          {filterPanel}
+        </Drawer>
+      ) : (
+        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+          {filterPanel}
+        </div>
+      )}
 
       <Table
         className="compact-data-table"
@@ -652,6 +725,14 @@ export function BdLeadsListPage() {
           { title: t('pages.bdLeads.columns.company', { defaultValue: 'Company' }), dataIndex: 'company_name' },
           { title: t('pages.bdLeads.columns.industry', { defaultValue: 'Industry' }), dataIndex: 'industry', width: 160 },
           { title: t('pages.bdLeads.columns.region', { defaultValue: 'Region' }), dataIndex: 'region', width: 140 },
+          ...(isProjectManager
+            ? [{
+                title: t('pages.bdLeads.columns.intentLevel', { defaultValue: 'Intent Level' }),
+                dataIndex: 'intent_level',
+                width: 120,
+                render: (value: number | null) => (value === null ? '-' : `H${value}`),
+              }]
+            : []),
           {
             title: t('pages.bdLeads.columns.status', { defaultValue: 'Status' }),
             dataIndex: 'status',
@@ -698,9 +779,6 @@ export function BdLeadsListPage() {
                 </Button>
                 <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}/followups`)}>
                   {t('pages.bdLeads.actionTimeline', { defaultValue: 'Timeline' })}
-                </Button>
-                <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}/status`)}>
-                  {t('pages.bdLeads.actionStatus', { defaultValue: 'Status' })}
                 </Button>
                 {row.status !== 'SIGNED' ? (
                   <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}/sign`)}>

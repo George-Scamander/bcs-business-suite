@@ -12,6 +12,7 @@ type SalesProductCategory =
   | 'CAR_BEAUTY'
   | 'WINDOW_FILM'
   | 'BOSCH_ACCESSORY'
+  | 'X_OWL'
 type DataQaIntent =
   | 'purchase_summary'
   | 'buyer_count'
@@ -420,6 +421,7 @@ const allowedCategories: SalesProductCategory[] = [
   'CAR_BEAUTY',
   'WINDOW_FILM',
   'BOSCH_ACCESSORY',
+  'X_OWL',
 ]
 const allowedScopes: BusinessScope[] = ['BCS', 'BOTH', 'NON_BCS']
 const allowedDatePresets: DataQaDatePreset[] = ['today', 'yesterday', 'last_7_days', 'last_30_days', 'last_90_days', 'this_month', 'last_month', 'this_year']
@@ -527,7 +529,11 @@ function normalizeKey(value: string): string {
 }
 
 function isAccessoryCategory(category: SalesProductCategory): boolean {
-  return category !== 'TIRE' && category !== 'BATTERY'
+  return ['WIPER', 'THREE_FILTERS', 'BATTERY', 'BRAKE_PAD', 'BOSCH_ACCESSORY'].includes(category)
+}
+
+function getCategoryGroup(category: SalesProductCategory): SalesProductCategory {
+  return isAccessoryCategory(category) ? 'BOSCH_ACCESSORY' : category
 }
 
 function nowDate(): Date {
@@ -883,7 +889,7 @@ function buildTrendRows(facts: PurchaseItemFact[], granularity: TrendGranularity
 function buildBreakdownRows(facts: PurchaseItemFact[], mode: 'category' | 'businessScope'): DataQaBreakdownResult[] {
   const aggregate = new Map<string, DataQaBreakdownResult & { customerKeys: Set<string>; orderIds: Set<string> }>()
   for (const fact of facts) {
-    const key = mode === 'category' ? fact.category : fact.businessScope
+    const key = mode === 'category' ? getCategoryGroup(fact.category) : fact.businessScope
     const row = aggregate.get(key) ?? {
       key,
       label: key,
@@ -1402,7 +1408,7 @@ async function parseQuestionWithAi(question: string, conversation: ConversationM
       {
         role: 'system',
         content:
-          'You convert business-data questions into strict JSON only. The only hard restriction is no database write action: never request create, edit, update, delete, assign, reassign, import, restore, or archive operations. For all read-only questions, be permissive and analytical. Supported intents: purchase_summary, buyer_count, top_customer, top_customers, quantity_total, amount_total, order_count, category_ranking, business_scope_breakdown, trend_analysis, deep_analysis, unsupported. Use trend_analysis for trend/走势/趋势/环比 questions. Use deep_analysis for any broad or ambiguous business question including customer profiles, leads, BD/sales owner, visit/follow-up records, reminders, onboarding, signed records, projects/tasks, user/role ownership, permissions, system configuration/dictionaries, audit/login/operation logs, files, report exports, recently deleted records, and product model/SKU/size/price lookups. Supported categories: ENGINE_OIL, CHEMICAL, TIRE, WIPER, THREE_FILTERS, BATTERY, BRAKE_PAD, CAR_BEAUTY, WINDOW_FILM, BOSCH_ACCESSORY. If the user says accessories/配件/aksesori without a precise category, set categoryGroup to ACCESSORY. Supported businessScope: BCS, BOTH, NON_BCS. Supported datePreset: today, yesterday, last_7_days, last_30_days, last_90_days, this_month, last_month, this_year. Supported trendGranularity: day, week, month. Extract customerKeyword and productKeyword when present, and keywords as an array for company/model/SKU/size/person/lead/project/BD/user/permission/file/report/log/deleted tokens. If the current user question is short/ambiguous follow-up, resolve missing filters and entities from conversation context. When business relevance is plausible, prefer deep_analysis instead of unsupported. Only use unsupported for requests clearly unrelated to business operations/data. Return JSON with keys: intent, category, categoryGroup, businessScope, datePreset, trendGranularity, customerKeyword, productKeyword, keywords, limit.',
+          'You convert business-data questions into strict JSON only. The only hard restriction is no database write action: never request create, edit, update, delete, assign, reassign, import, restore, or archive operations. For all read-only questions, be permissive and analytical. Supported intents: purchase_summary, buyer_count, top_customer, top_customers, quantity_total, amount_total, order_count, category_ranking, business_scope_breakdown, trend_analysis, deep_analysis, unsupported. Use trend_analysis for trend/走势/趋势/环比 questions. Use deep_analysis for any broad or ambiguous business question including customer profiles, leads, BD/sales owner, visit/follow-up records, reminders, onboarding, signed records, projects/tasks, user/role ownership, permissions, system configuration/dictionaries, audit/login/operation logs, files, report exports, recently deleted records, and product model/SKU/size/price lookups. Supported categories: ENGINE_OIL, CHEMICAL, TIRE, WIPER, THREE_FILTERS, BATTERY, BRAKE_PAD, CAR_BEAUTY, WINDOW_FILM, BOSCH_ACCESSORY, X_OWL. If the user says accessories/配件/aksesori without a precise category, set categoryGroup to ACCESSORY. Supported businessScope: BCS, BOTH, NON_BCS. Supported datePreset: today, yesterday, last_7_days, last_30_days, last_90_days, this_month, last_month, this_year. Supported trendGranularity: day, week, month. Extract customerKeyword and productKeyword when present, and keywords as an array for company/model/SKU/size/person/lead/project/BD/user/permission/file/report/log/deleted tokens. If the current user question is short/ambiguous follow-up, resolve missing filters and entities from conversation context. When business relevance is plausible, prefer deep_analysis instead of unsupported. Only use unsupported for requests clearly unrelated to business operations/data. Return JSON with keys: intent, category, categoryGroup, businessScope, datePreset, trendGranularity, customerKeyword, productKeyword, keywords, limit.',
       },
       {
         role: 'user',

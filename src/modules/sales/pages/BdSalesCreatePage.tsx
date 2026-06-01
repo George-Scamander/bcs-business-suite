@@ -33,7 +33,10 @@ import {
   PageTitleBar,
 } from '../../../components/common/PageTitleBar'
 import {
-  getSalesProductCategoryOptions,
+  getSalesProductCategoryGroup,
+  getSalesProductEntryCategoryOptions,
+  getSalesProductSubcategory,
+  getSalesProductSubcategoryOptions,
   SALES_PRODUCT_CATEGORY_OPTIONS,
 } from '../../../lib/business-constants'
 import {
@@ -55,11 +58,13 @@ import {
 import type {
   OnboardMerchant,
   SalesProductCategory,
+  SalesProductSubcategory,
 } from '../../../types/business'
 
 interface DraftSalesItem {
   key: string
   category: SalesProductCategory
+  subcategory: SalesProductSubcategory | null
   product_name: string
   quantity: number
   unit_price?: number
@@ -87,7 +92,9 @@ const CATEGORY_DETECTORS: Array<{ category: SalesProductCategory; keywords: stri
   { category: 'WIPER', keywords: ['wiper', '雨刮', '雨刷'] },
   { category: 'THREE_FILTERS', keywords: ['filter', 'three filter', '三滤', '三濾', 'air filter', 'oil filter', 'ac filter'] },
   { category: 'BATTERY', keywords: ['battery', 'accu', '电池', '電池'] },
+  { category: 'X_OWL', keywords: ['x-owl', 'x owl', 'x_owl'] },
   { category: 'BRAKE_PAD', keywords: ['brake pad', 'brake', '刹车片', '煞車片'] },
+  { category: 'BOSCH_ACCESSORY', keywords: ['spark plug', '火花塞', 'busi'] },
   { category: 'CAR_BEAUTY', keywords: ['detailing', 'car beauty', 'coating', '洗美', '美容', 'cuci', 'polish'] },
   { category: 'WINDOW_FILM', keywords: ['window film', 'film', '窗膜', 'kaca film'] },
   { category: 'BOSCH_ACCESSORY', keywords: ['bosch', 'accessory', '配件', 'aksesoris'] },
@@ -98,6 +105,7 @@ function newDraftItem(): DraftSalesItem {
   return {
     key: generateUuid(),
     category: 'TIRE',
+    subcategory: null,
     product_name: '',
     quantity: 1,
   }
@@ -111,6 +119,25 @@ function detectCategory(line: string): SalesProductCategory | null {
     }
   }
   return null
+}
+
+function detectSubcategory(line: string, category: SalesProductCategory): SalesProductSubcategory | null {
+  const normalized = line.toLowerCase()
+  if (category === 'CHEMICAL') {
+    if (/\bt1\b/i.test(normalized)) {
+      return 'CHEMICAL_T1'
+    }
+    if (/\bt3\b/i.test(normalized)) {
+      return 'CHEMICAL_T3'
+    }
+  }
+  if (category === 'BOSCH_ACCESSORY' && ['spark plug', '火花塞', 'busi'].some((keyword) => normalized.includes(keyword))) {
+    return 'BOSCH_SPARK_PLUG'
+  }
+  if (category === 'X_OWL' && ['brake pad', 'brake', '刹车片', '煞車片', 'kampas rem'].some((keyword) => normalized.includes(keyword))) {
+    return 'X_OWL_BRAKE_PAD'
+  }
+  return getSalesProductSubcategory(category)
 }
 
 function detectQuantity(line: string): number {
@@ -286,7 +313,8 @@ function parseTemplateInput(source: string): ParsedTemplateResult {
     if (category) {
       items.push({
         key: generateUuid(),
-        category,
+        category: getSalesProductCategoryGroup(category),
+        subcategory: detectSubcategory(stripped, category),
         product_name: productName || stripped,
         quantity,
       })
@@ -297,6 +325,7 @@ function parseTemplateInput(source: string): ParsedTemplateResult {
       items.push({
         key: generateUuid(),
         category: 'TIRE',
+        subcategory: null,
         product_name: productName,
         quantity,
       })
@@ -344,7 +373,7 @@ export function BdSalesCreatePage() {
   const [templateText, setTemplateText] = useState('')
   const [tireCatalogRows, setTireCatalogRows] = useState<TirePriceCatalogRow[]>([])
 
-  const categoryOptions = useMemo(() => getSalesProductCategoryOptions(t), [t])
+  const categoryOptions = useMemo(() => getSalesProductEntryCategoryOptions(t), [t])
   const templateSkeleton = useMemo(() => buildTemplateSkeleton(t), [t])
   const onboardMerchantOptions = useMemo(
     () =>
@@ -508,7 +537,8 @@ export function BdSalesCreatePage() {
 
     const mappedItems = (template.items ?? []).map((item) => ({
       key: generateUuid(),
-      category: item.category,
+      category: getSalesProductCategoryGroup(item.category),
+      subcategory: getSalesProductSubcategory(item.category, item.subcategory),
       product_name: item.product_name ?? '',
       quantity: Number(item.quantity ?? 1),
       unit_price: item.unit_price ?? undefined,
@@ -577,6 +607,7 @@ export function BdSalesCreatePage() {
           (allowedCategories.includes(item.category)
             ? item.category
             : detectCategory(item.product_name || '') || 'TIRE') as SalesProductCategory,
+        subcategory: item.subcategory,
         product_name: item.product_name.trim() || undefined,
         quantity: Number(item.quantity ?? 0),
         unit_price: item.unit_price,
@@ -763,9 +794,27 @@ export function BdSalesCreatePage() {
                       style={{ width: '100%', minWidth: 180 }}
                       popupMatchSelectWidth={false}
                       dropdownStyle={{ minWidth: 240 }}
-                      onChange={(value) => updateItem(row.key, { category: value as SalesProductCategory })}
+                      onChange={(value) => {
+                        const category = value as SalesProductCategory
+                        updateItem(row.key, { category, subcategory: getSalesProductSubcategory(category) })
+                      }}
                     />
                   ),
+                },
+                {
+                  title: t('pages.bdSalesCreate.columns.subcategory', { defaultValue: 'Subcategory' }),
+                  width: 220,
+                  render: (_: unknown, row: DraftSalesItem) => {
+                    const options = getSalesProductSubcategoryOptions(row.category, t)
+                    return options.length > 0 ? (
+                      <Select
+                        value={row.subcategory ?? undefined}
+                        options={options}
+                        style={{ width: '100%', minWidth: 160 }}
+                        onChange={(value) => updateItem(row.key, { subcategory: value as SalesProductSubcategory })}
+                      />
+                    ) : '-'
+                  },
                 },
                 {
                   title: t('pages.bdSalesCreate.columns.productName', { defaultValue: 'Product / Description' }),

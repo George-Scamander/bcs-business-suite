@@ -2,6 +2,7 @@ import dayjs from 'dayjs'
 
 import { supabase } from '../../../lib/supabase/client'
 import type { SalesProductCategory } from '../../../types/business'
+import { getSalesProductCategoryGroup } from '../../../lib/business-constants'
 import {
   listAdminSalesProductInsightDataset,
   type AdminInsightBusinessScope,
@@ -123,7 +124,7 @@ function normalizeKey(value: string): string {
 }
 
 function isAccessoryCategory(category: SalesProductCategory): boolean {
-  return category !== 'TIRE' && category !== 'BATTERY'
+  return getSalesProductCategoryGroup(category) === 'BOSCH_ACCESSORY'
 }
 
 function detectCategory(question: string): Pick<DataQaFilters, 'category' | 'categoryGroup'> {
@@ -136,6 +137,7 @@ function detectCategory(question: string): Pick<DataQaFilters, 'category' | 'cat
     { category: 'CHEMICAL', words: ['化学品', '化學品', 'chemical', 'chemicals', 'cairan'] },
     { category: 'WIPER', words: ['雨刮', '雨刷', 'wiper'] },
     { category: 'THREE_FILTERS', words: ['三滤', '三濾', 'three filters', 'filter'] },
+    { category: 'X_OWL', words: ['x-owl', 'x owl', 'x_owl'] },
     { category: 'BRAKE_PAD', words: ['刹车片', '煞車片', 'brake pad', 'brake pads', 'kampas rem'] },
     { category: 'CAR_BEAUTY', words: ['美容', 'car beauty', 'detailing'] },
     { category: 'WINDOW_FILM', words: ['窗膜', 'window film', 'kaca film'] },
@@ -334,7 +336,7 @@ function buildBreakdownRows(facts: PurchaseItemFact[], mode: 'category' | 'busin
   const aggregate = new Map<string, DataQaBreakdownResult & { customerKeys: Set<string>; orderIds: Set<string> }>()
 
   for (const fact of facts) {
-    const key = mode === 'category' ? fact.category : fact.businessScope
+    const key = mode === 'category' ? getSalesProductCategoryGroup(fact.category) : fact.businessScope
     const row =
       aggregate.get(key) ??
       {

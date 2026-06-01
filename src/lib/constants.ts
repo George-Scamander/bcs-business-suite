@@ -1,7 +1,7 @@
 import type { LocaleCode, RoleCode } from '../types/rbac'
 
 export const APP_NAME = 'BCS Business Suite'
-export const APP_VERSION = 'V1.3.0'
+export const APP_VERSION = 'V1.3.1'
 export const PRIVATE_BUCKET = 'private-documents'
 
 export const SUPPORTED_LOCALES: Array<{ code: LocaleCode; label: string }> = [
@@ -52,7 +52,7 @@ export const NAV_ITEMS_BY_ROLE: Record<RoleCode, Array<{ key: string; label: str
   ],
   project_manager: [
     { key: 'pm-dashboard', label: 'Project Dashboard', path: '/app/pm/dashboard' },
-    { key: 'pm-lead-pool', label: 'Lead Pool', path: '/app/bd/leads' },
+    { key: 'pm-lead-pool', label: 'Lead Pool', path: '/app/admin/leads/pool' },
     { key: 'pm-projects', label: 'Projects', path: '/app/pm/projects' },
     { key: 'pm-onboard-merchants', label: 'Onboard Merchants', path: '/app/pm/onboarding/merchants' },
     { key: 'sales-supervision', label: 'Sales Management', path: '/app/pm/sales/supervision' },

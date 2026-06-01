@@ -17,7 +17,7 @@ import {
   Tag,
   message,
 } from 'antd'
-import { SettingOutlined } from '@ant-design/icons'
+import { EnvironmentOutlined, ExportOutlined, SettingOutlined } from '@ant-design/icons'
 import {
   AdaptiveTable as Table,
 } from '../../../components/common/AdaptiveTable'
@@ -336,6 +336,13 @@ export function AdminLeadPoolPage() {
                 {t('pages.adminLeadPool.deleteAllFiltered', { defaultValue: 'Delete All Filtered' })}
               </Button>
             </Popconfirm>
+            <Button
+              icon={<EnvironmentOutlined />}
+              onClick={() => window.open('/lead-region-distribution', '_blank', 'noopener,noreferrer')}
+            >
+              {t('pages.adminLeadPool.regionDistribution', { defaultValue: 'Region Distribution' })}
+              <ExportOutlined className="ml-1 text-xs" />
+            </Button>
             <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
             <Button icon={<SettingOutlined />} onClick={() => setControlPanelOpen(true)}>
               {t('labels.controlPanel', { defaultValue: 'Control Panel' })}
@@ -531,6 +538,18 @@ export function AdminLeadPoolPage() {
             dataIndex: 'status',
             width: 140,
             render: (value: string) => <StatusTag value={value} />,
+          },
+          {
+            title: t('pages.adminLeadPool.columns.lastFollowupAt', { defaultValue: 'Latest Follow-up' }),
+            dataIndex: 'last_followup_at',
+            width: 190,
+            render: (value: string | null) => (value ? new Date(value).toLocaleString() : '-'),
+          },
+          {
+            title: t('pages.adminLeadPool.columns.nextFollowupAt', { defaultValue: 'Next Follow-up' }),
+            dataIndex: 'next_followup_at',
+            width: 190,
+            render: (value: string | null) => (value ? new Date(value).toLocaleString() : '-'),
           },
           {
             title: t('pages.adminLeadPool.columns.actions', { defaultValue: 'Actions' }),

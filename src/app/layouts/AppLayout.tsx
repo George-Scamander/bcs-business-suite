@@ -14,7 +14,9 @@ import {
   HomeOutlined,
   LineChartOutlined,
   LogoutOutlined,
+  MenuFoldOutlined,
   MenuOutlined,
+  MenuUnfoldOutlined,
   RobotOutlined,
   ReconciliationOutlined,
   SettingFilled,
@@ -94,6 +96,7 @@ export function AppLayout() {
   const { t } = useTranslation()
   const { user, profile, roles, signOut, updateLocale } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [desktopSiderCollapsed, setDesktopSiderCollapsed] = useState(false)
   const [locale, setLocale] = useState(profile?.locale ?? 'en')
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false)
   const screens = Grid.useBreakpoint()
@@ -206,6 +209,7 @@ export function AppLayout() {
   const sideMenu = (
     <Menu
       mode="inline"
+      inlineCollapsed={!isMobile && desktopSiderCollapsed}
       selectedKeys={selectedKey ? [selectedKey] : []}
       items={menuItems}
       className="h-full border-0"
@@ -215,21 +219,42 @@ export function AppLayout() {
   return (
     <Layout className="min-h-dvh">
       {screens.md ? (
-        <Sider width={248} className="app-surface border-r app-border">
-          <div className="px-5 py-5 border-b app-border">
-            <Typography.Title level={4} className="mb-1">
-              <button type="button" onClick={handleAppTitleClick} className="border-0 bg-transparent p-0 text-left text-inherit">
-                {t('common.appName', { defaultValue: APP_NAME })}
-              </button>
-            </Typography.Title>
-            <Space size={8} align="center">
-              <Tag color="red" className="m-0">
-                {t(`role.${primaryRole}`, { defaultValue: ROLE_LABELS[primaryRole] })}
-              </Tag>
-              <Typography.Text type="secondary" className="text-xs">
-                {APP_VERSION}
-              </Typography.Text>
-            </Space>
+        <Sider
+          width={248}
+          collapsedWidth={80}
+          collapsed={desktopSiderCollapsed}
+          className="app-surface border-r app-border"
+          trigger={null}
+        >
+          <div className={`border-b app-border ${desktopSiderCollapsed ? 'px-3 py-5' : 'px-5 py-5'}`}>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              {desktopSiderCollapsed ? (
+                <Typography.Text className="text-base font-bold app-text">BCS</Typography.Text>
+              ) : (
+                <Typography.Title level={4} className="mb-0">
+                  <button type="button" onClick={handleAppTitleClick} className="border-0 bg-transparent p-0 text-left text-inherit">
+                    {t('common.appName', { defaultValue: APP_NAME })}
+                  </button>
+                </Typography.Title>
+              )}
+              <Button
+                type="text"
+                className="!h-8 !w-8"
+                icon={desktopSiderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                onClick={() => setDesktopSiderCollapsed((value) => !value)}
+                aria-label={desktopSiderCollapsed ? 'Expand side menu' : 'Collapse side menu'}
+              />
+            </div>
+            {desktopSiderCollapsed ? null : (
+              <Space size={8} align="center">
+                <Tag color="red" className="m-0">
+                  {t(`role.${primaryRole}`, { defaultValue: ROLE_LABELS[primaryRole] })}
+                </Tag>
+                <Typography.Text type="secondary" className="text-xs">
+                  {APP_VERSION}
+                </Typography.Text>
+              </Space>
+            )}
           </div>
           {sideMenu}
         </Sider>

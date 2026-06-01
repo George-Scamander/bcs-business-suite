@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase/client'
-import { SALES_PRODUCT_CATEGORY_OPTIONS } from '../../../lib/business-constants'
-import type { SalesProductCategory } from '../../../types/business'
+import { SALES_PRODUCT_ENTRY_CATEGORY_OPTIONS, getSalesProductCategoryGroup, getSalesProductSubcategory } from '../../../lib/business-constants'
+import type { SalesProductCategory, SalesProductSubcategory } from '../../../types/business'
 
 export interface AdminDashboardMetrics {
   totalLeads: number
@@ -37,6 +37,13 @@ export interface PmDashboardMetrics {
 
 export interface AdminSalesCategoryMetrics {
   category: SalesProductCategory
+  totalQuantity: number
+  totalAmount: number
+  subcategories: AdminSalesSubcategoryMetrics[]
+}
+
+export interface AdminSalesSubcategoryMetrics {
+  subcategory: SalesProductSubcategory
   totalQuantity: number
   totalAmount: number
 }
@@ -88,14 +95,37 @@ interface AdminSalesInsightRawOrderRow {
   }> | null
 }
 
-function getCurrentNaturalMonthDateRange(): { from: string; to: string } {
+interface AdminSalesCategoryRawRow {
+  category: string | null
+  subcategory?: string | null
+  quantity: number | null
+  unit_price: number | null
+}
+
+function isMissingSubcategoryColumnError(error: unknown): boolean {
+  const payload = (typeof error === 'object' && error !== null ? error : {}) as { code?: string; message?: string; details?: string | null; hint?: string | null }
+  const code = String(payload.code ?? '').trim().toUpperCase()
+  const text = `${payload.message ?? ''} ${payload.details ?? ''} ${payload.hint ?? ''}`.toLowerCase()
+  return text.includes('subcategory') && (
+    ['PGRST200', 'PGRST204', '42703'].includes(code)
+    || text.includes('does not exist')
+    || text.includes('schema cache')
+  )
+}
+
+function getNaturalMonthDateRange(month?: string): { from: string; toExclusive: string } {
   const now = new Date()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+  const monthMatch = month?.match(/^(\d{4})-(\d{2})$/)
+  const requestedMonthIndex = monthMatch ? Number(monthMatch[2]) - 1 : -1
+  const hasValidRequestedMonth = Boolean(monthMatch) && requestedMonthIndex >= 0 && requestedMonthIndex <= 11
+  const year = hasValidRequestedMonth && monthMatch ? Number(monthMatch[1]) : now.getFullYear()
+  const monthIndex = hasValidRequestedMonth ? requestedMonthIndex : now.getMonth()
+  const startOfMonth = new Date(year, monthIndex, 1, 0, 0, 0, 0)
+  const startOfNextMonth = new Date(year, monthIndex + 1, 1, 0, 0, 0, 0)
 
   return {
     from: startOfMonth.toISOString(),
-    to: endOfMonth.toISOString(),
+    toExclusive: startOfNextMonth.toISOString(),
   }
 }
 
@@ -371,20 +401,35 @@ export async function getPmDashboardMetrics(userId: string): Promise<PmDashboard
   }
 }
 
-export async function getAdminSalesCategoryMetrics(): Promise<AdminSalesCategoryMetrics[]> {
-  const naturalMonthRange = getCurrentNaturalMonthDateRange()
+export async function getAdminSalesCategoryMetrics(month?: string): Promise<AdminSalesCategoryMetrics[]> {
+  const naturalMonthRange = getNaturalMonthDateRange(month)
   const result = await supabase
     .from('sales_order_items')
-    .select('category, quantity, unit_price, sales_order:sales_orders!inner(id, deleted_at, sold_at)')
+    .select('category, subcategory, quantity, unit_price, sales_order:sales_orders!inner(id, deleted_at, sold_at)')
     .is('sales_order.deleted_at', null)
     .gte('sales_order.sold_at', naturalMonthRange.from)
-    .lte('sales_order.sold_at', naturalMonthRange.to)
+    .lt('sales_order.sold_at', naturalMonthRange.toExclusive)
 
-  if (result.error) {
-    throw result.error
+  let rows: AdminSalesCategoryRawRow[]
+  if (result.error && isMissingSubcategoryColumnError(result.error)) {
+    const fallbackResult = await supabase
+      .from('sales_order_items')
+      .select('category, quantity, unit_price, sales_order:sales_orders!inner(id, deleted_at, sold_at)')
+      .is('sales_order.deleted_at', null)
+      .gte('sales_order.sold_at', naturalMonthRange.from)
+      .lt('sales_order.sold_at', naturalMonthRange.toExclusive)
+    if (fallbackResult.error) {
+      throw fallbackResult.error
+    }
+    rows = fallbackResult.data ?? []
+  } else {
+    if (result.error) {
+      throw result.error
+    }
+    rows = result.data ?? []
   }
 
-  const categories: SalesProductCategory[] = SALES_PRODUCT_CATEGORY_OPTIONS.map((item) => item.value)
+  const categories: SalesProductCategory[] = SALES_PRODUCT_ENTRY_CATEGORY_OPTIONS.map((item) => item.value)
   const aggregate = new Map<SalesProductCategory, AdminSalesCategoryMetrics>(
     categories.map((category) => [
       category,
@@ -392,12 +437,13 @@ export async function getAdminSalesCategoryMetrics(): Promise<AdminSalesCategory
         category,
         totalQuantity: 0,
         totalAmount: 0,
+        subcategories: [],
       },
     ]),
   )
 
-  for (const row of result.data ?? []) {
-    const category = row.category as SalesProductCategory
+  for (const row of rows) {
+    const category = getSalesProductCategoryGroup(row.category as SalesProductCategory)
     const current = aggregate.get(category)
     if (!current) {
       continue
@@ -407,13 +453,23 @@ export async function getAdminSalesCategoryMetrics(): Promise<AdminSalesCategory
     const unitPrice = Math.max(0, Number(row.unit_price ?? 0))
     current.totalQuantity += quantity
     current.totalAmount += quantity * unitPrice
+    const subcategory = getSalesProductSubcategory(row.category as SalesProductCategory, row.subcategory as SalesProductSubcategory | null)
+    if (subcategory) {
+      const currentSubcategory = current.subcategories.find((item) => item.subcategory === subcategory)
+      if (currentSubcategory) {
+        currentSubcategory.totalQuantity += quantity
+        currentSubcategory.totalAmount += quantity * unitPrice
+      } else {
+        current.subcategories.push({ subcategory, totalQuantity: quantity, totalAmount: quantity * unitPrice })
+      }
+    }
   }
 
   return categories.map((category) => aggregate.get(category) as AdminSalesCategoryMetrics)
 }
 
-export async function getAdminSalesInsightOrders(): Promise<AdminSalesInsightOrder[]> {
-  const naturalMonthRange = getCurrentNaturalMonthDateRange()
+export async function getAdminSalesInsightOrders(month?: string): Promise<AdminSalesInsightOrder[]> {
+  const naturalMonthRange = getNaturalMonthDateRange(month)
   const result = await supabase
     .from('sales_orders')
     .select(
@@ -421,7 +477,7 @@ export async function getAdminSalesInsightOrders(): Promise<AdminSalesInsightOrd
     )
     .is('deleted_at', null)
     .gte('sold_at', naturalMonthRange.from)
-    .lte('sold_at', naturalMonthRange.to)
+    .lt('sold_at', naturalMonthRange.toExclusive)
 
   if (result.error) {
     throw result.error
@@ -435,7 +491,7 @@ export async function getAdminSalesInsightOrders(): Promise<AdminSalesInsightOrd
         const quantity = Math.max(0, Number(item.quantity ?? 0))
         const unitPrice = Math.max(0, Number(item.unit_price ?? 0))
         return {
-          category: (item.category as SalesProductCategory | string | null) ?? 'UNKNOWN',
+          category: item.category ? getSalesProductCategoryGroup(item.category as SalesProductCategory) : 'UNKNOWN',
           quantity,
           amount: quantity * unitPrice,
         }

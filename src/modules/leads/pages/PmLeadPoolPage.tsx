@@ -158,6 +158,11 @@ export function PmLeadPoolPage() {
     setControlPanelOpen(false)
   }
 
+  function handleResetControlPanel() {
+    setFilters({})
+    setKeyword('')
+  }
+
   const bdUserOptions = useMemo(() => {
     return bdUsers.map((item) => ({
       value: item.id,
@@ -193,7 +198,7 @@ export function PmLeadPoolPage() {
 
       <Drawer
         title={t('labels.controlPanel', { defaultValue: 'Control Panel' })}
-        width={460}
+        width="min(460px, 100vw)"
         open={controlPanelOpen}
         onClose={() => setControlPanelOpen(false)}
         destroyOnClose={false}
@@ -231,6 +236,27 @@ export function PmLeadPoolPage() {
             value={filters.intentPackage}
             onChange={(value) => setFilters((current) => ({ ...current, intentPackage: value || undefined }))}
           />
+          <Select
+            allowClear
+            className="w-full"
+            placeholder={t('pages.pmLeadPool.intentLevelPlaceholder', { defaultValue: 'Intent Level' })}
+            value={filters.intentLevelMin === filters.intentLevelMax ? filters.intentLevelMin : undefined}
+            options={[
+              { value: 5, label: 'H5' },
+              { value: 4, label: 'H4' },
+              { value: 3, label: 'H3' },
+              { value: 2, label: 'H2' },
+              { value: 1, label: 'H1' },
+              { value: 0, label: 'H0' },
+            ]}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                intentLevelMin: value === undefined ? undefined : Number(value),
+                intentLevelMax: value === undefined ? undefined : Number(value),
+              }))
+            }
+          />
           <DatePicker
             className="w-full"
             placeholder={t('pages.pmLeadPool.createdFrom', { defaultValue: 'Created From' })}
@@ -267,6 +293,9 @@ export function PmLeadPoolPage() {
             <Button type="primary" onClick={() => void handleApplyControlPanel()}>
               {t('labels.apply', { defaultValue: 'Apply' })}
             </Button>
+            <Button onClick={handleResetControlPanel}>
+              {t('labels.reset', { defaultValue: 'Reset' })}
+            </Button>
             <Button onClick={() => setControlPanelOpen(false)}>
               {t('common.cancel', { defaultValue: 'Cancel' })}
             </Button>
@@ -291,6 +320,12 @@ export function PmLeadPoolPage() {
             render: (value: string | null) => (value ? userNameById.get(value) ?? value : '-'),
           },
           { title: t('pages.pmLeadPool.columns.region', { defaultValue: 'Region' }), dataIndex: 'region', width: 140 },
+          {
+            title: t('pages.pmLeadPool.columns.intentLevel', { defaultValue: 'Intent Level' }),
+            dataIndex: 'intent_level',
+            width: 120,
+            render: (value: number | null) => (value === null ? '-' : `H${value}`),
+          },
           {
             title: t('pages.pmLeadPool.columns.industry', { defaultValue: 'Industry' }),
             dataIndex: 'industry',

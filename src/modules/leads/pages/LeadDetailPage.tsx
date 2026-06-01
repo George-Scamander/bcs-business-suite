@@ -37,6 +37,8 @@ import {
 } from '../../../components/common/StatusTag'
 import {
   getSalesProductCategoryOptions,
+  getSalesProductCategoryGroup,
+  getSalesProductSubcategoryLabel,
   getFollowupTypeOptions,
 } from '../../../lib/business-constants'
 import {
@@ -49,6 +51,7 @@ import type {
   OnboardingCase,
   Project,
   SalesProductCategory,
+  SalesProductSubcategory,
   SignedRecord,
 } from '../../../types/business'
 import {
@@ -376,8 +379,8 @@ export function LeadDetailPage() {
           title={t('pages.leadDetail.statusChangeLogs', { defaultValue: 'Status Change Logs' })}
           extra={
             lead ? (
-              <Button type="link" onClick={() => navigate(`/app/bd/leads/${lead.id}/status`)}>
-                {t('pages.leadDetail.updateStatus', { defaultValue: 'Update Status' })}
+              <Button type="link" onClick={() => navigate(`/app/bd/leads/${lead.id}/followups`)}>
+                {t('pages.leadDetail.manage', { defaultValue: 'Manage' })}
               </Button>
             ) : null
           }
@@ -433,7 +436,14 @@ export function LeadDetailPage() {
                     title: t('pages.leadDetail.salesCategory', { defaultValue: 'Category' }),
                     dataIndex: 'category',
                     width: 180,
-                    render: (value: string) => categoryLabelByValue.get(value as SalesProductCategory) ?? value,
+                    render: (value: SalesProductCategory) => categoryLabelByValue.get(getSalesProductCategoryGroup(value)) ?? value,
+                  },
+                  {
+                    title: t('pages.leadDetail.salesSubcategory', { defaultValue: 'Subcategory' }),
+                    dataIndex: 'subcategory',
+                    width: 160,
+                    render: (value: SalesProductSubcategory | null, row) =>
+                      getSalesProductSubcategoryLabel(row.category, value, t) ?? '-',
                   },
                   {
                     title: t('pages.leadDetail.salesProduct', { defaultValue: 'Product / Description' }),

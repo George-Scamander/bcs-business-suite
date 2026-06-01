@@ -28,6 +28,19 @@ export type SalesProductCategory =
   | 'CAR_BEAUTY'
   | 'WINDOW_FILM'
   | 'BOSCH_ACCESSORY'
+  | 'X_OWL'
+export type SalesProductSubcategory =
+  | 'BOSCH_THREE_FILTERS'
+  | 'BOSCH_WIPER'
+  | 'BOSCH_BATTERY'
+  | 'BOSCH_BRAKE_PAD'
+  | 'BOSCH_SPARK_PLUG'
+  | 'BOSCH_OTHER'
+  | 'CHEMICAL_T1'
+  | 'CHEMICAL_T3'
+  | 'CHEMICAL_OTHER'
+  | 'X_OWL_BRAKE_PAD'
+  | 'X_OWL_OTHER'
 export type SalesPaymentMethod = 'TOP' | 'CASH'
 export type SalesTopTerm = '30_DAYS' | '60_DAYS'
 export type OnboardMerchantType = 'BCS_FRANCHISE' | 'NON_BCS_PARTNER'
@@ -339,6 +352,7 @@ export interface SalesOrderItem {
   id: string
   sales_order_id: string
   category: SalesProductCategory
+  subcategory: SalesProductSubcategory | null
   product_name: string | null
   quantity: number
   unit_price: number | null

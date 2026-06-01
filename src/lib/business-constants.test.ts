@@ -6,6 +6,8 @@ import {
   LOST_REASON_OPTIONS,
   ONBOARDING_STATUS_OPTIONS,
   PROJECT_STATUS_OPTIONS,
+  getSalesProductCategoryGroup,
+  getSalesProductSubcategory,
   TASK_PRIORITY_OPTIONS,
   TASK_STATUS_OPTIONS,
 } from './business-constants'
@@ -54,5 +56,15 @@ describe('business constants', () => {
     expect(LOST_REASON_OPTIONS.length).toBeGreaterThan(0)
     expect(TASK_STATUS_OPTIONS.length).toBeGreaterThan(0)
     expect(TASK_PRIORITY_OPTIONS.length).toBeGreaterThan(0)
+  })
+
+  it('groups legacy Bosch accessory categories without rewriting historical values', () => {
+    expect(getSalesProductCategoryGroup('WIPER')).toBe('BOSCH_ACCESSORY')
+    expect(getSalesProductCategoryGroup('BRAKE_PAD')).toBe('BOSCH_ACCESSORY')
+    expect(getSalesProductCategoryGroup('WINDOW_FILM')).toBe('WINDOW_FILM')
+    expect(getSalesProductSubcategory('THREE_FILTERS')).toBe('BOSCH_THREE_FILTERS')
+    expect(getSalesProductSubcategory('CHEMICAL')).toBe('CHEMICAL_OTHER')
+    expect(getSalesProductCategoryGroup('X_OWL')).toBe('X_OWL')
+    expect(getSalesProductSubcategory('X_OWL')).toBe('X_OWL_OTHER')
   })
 })

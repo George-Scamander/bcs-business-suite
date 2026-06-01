@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 
 import type { LocaleCode, Permission, Profile, Role, RoleCode } from '../../types/rbac'
+import i18n from '../../lib/i18n'
 import { recordLogin, recordOperationLog } from '../../lib/supabase/logs'
 import { supabase } from '../../lib/supabase/client'
 import {
@@ -30,6 +31,17 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+const APP_LOCALE_STORAGE_KEY = 'app-locale'
+const SUPPORTED_LOCALES: LocaleCode[] = ['en', 'zh-CN', 'zh-HK', 'id-ID']
+
+function isLocaleCode(value: string | null): value is LocaleCode {
+  return Boolean(value && SUPPORTED_LOCALES.includes(value as LocaleCode))
+}
+
+function syncAppLocale(locale: LocaleCode): void {
+  localStorage.setItem(APP_LOCALE_STORAGE_KEY, locale)
+  void i18n.changeLanguage(locale)
+}
 
 async function clearReleaseAnnouncementNotifications(userId: string): Promise<void> {
   const result = await supabase
@@ -150,8 +162,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       return
     }
 
-    const profileRow = await ensureProfile(targetUser)
-    const roleRows = await fetchRoles(targetUser.id)
+    const [profileRow, roleRows] = await Promise.all([
+      ensureProfile(targetUser),
+      fetchRoles(targetUser.id),
+    ])
     const permissionRows = await fetchPermissions(roleRows)
 
     setProfile(profileRow)
@@ -218,16 +232,33 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [loadUserData])
 
+  useEffect(() => {
+    if (profile?.locale) {
+      syncAppLocale(profile.locale)
+    }
+  }, [profile?.locale])
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === APP_LOCALE_STORAGE_KEY && isLocaleCode(event.newValue)) {
+        void i18n.changeLanguage(event.newValue)
+      }
+    }
+
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
+
   const signIn = useCallback(async (email: string, password: string) => {
     const signInResult = await supabase.auth.signInWithPassword({ email, password })
 
     if (signInResult.error) {
-      await recordLogin('failed', email)
+      void recordLogin('failed', email).catch(() => {})
       throw signInResult.error
     }
 
-    await recordLogin('success', email)
-    await recordOperationLog({
+    void recordLogin('success', email).catch(() => {})
+    void recordOperationLog({
       module: 'auth',
       entityType: 'session',
       entityId: signInResult.data.user?.id,
@@ -235,11 +266,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       meta: {
         email,
       },
-    })
+    }).catch(() => {})
 
     const signedInUserId = signInResult.data.user?.id
     if (signedInUserId) {
-      await clearReleaseAnnouncementNotifications(signedInUserId)
+      void clearReleaseAnnouncementNotifications(signedInUserId).catch(() => {})
     }
   }, [])
 
@@ -294,6 +325,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         throw updateResult.error
       }
 
+      syncAppLocale(locale)
       setProfile((current) => (current ? { ...current, locale } : current))
     },
     [user],

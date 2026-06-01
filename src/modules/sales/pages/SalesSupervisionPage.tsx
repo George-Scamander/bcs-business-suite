@@ -39,6 +39,11 @@ import {
 } from '../../../components/common/PageTitleBar'
 import {
   getSalesProductCategoryOptions,
+  getSalesProductCategoryGroup,
+  getSalesProductEntryCategoryOptions,
+  getSalesProductSubcategory,
+  getSalesProductSubcategoryLabel,
+  getSalesProductSubcategoryOptions,
 } from '../../../lib/business-constants'
 import {
   supabase,
@@ -71,6 +76,7 @@ import type {
   SalesOrderItem,
   SalesPaymentMethod,
   SalesProductCategory,
+  SalesProductSubcategory,
   SalesTopTerm,
 } from '../../../types/business'
 
@@ -86,6 +92,7 @@ interface SupervisionFilters {
 interface DraftSalesItem {
   key: string
   category: SalesProductCategory
+  subcategory: SalesProductSubcategory | null
   product_name: string
   quantity: number
   unit_price?: number
@@ -146,6 +153,7 @@ function newDraftItem(): DraftSalesItem {
   return {
     key: generateUuid(),
     category: 'TIRE',
+    subcategory: null,
     product_name: '',
     quantity: 1,
   }
@@ -154,7 +162,8 @@ function newDraftItem(): DraftSalesItem {
 function mapItemsForDraft(items: SalesOrderItem[] | undefined): DraftSalesItem[] {
   const mapped = (items ?? []).map((item) => ({
     key: generateUuid(),
-    category: item.category,
+    category: getSalesProductCategoryGroup(item.category),
+    subcategory: getSalesProductSubcategory(item.category, item.subcategory),
     product_name: item.product_name ?? '',
     quantity: Number(item.quantity ?? 1),
     unit_price: item.unit_price ?? undefined,
@@ -243,6 +252,7 @@ export function SalesSupervisionPage() {
     return new Map(getSalesProductCategoryOptions(t).map((item) => [item.value, item.label]))
   }, [t])
   const categoryOptions = useMemo(() => getSalesProductCategoryOptions(t), [t])
+  const entryCategoryOptions = useMemo(() => getSalesProductEntryCategoryOptions(t), [t])
   const tireModelOptions = useMemo(
     () =>
       tireCatalogRows.map((row) => ({
@@ -436,6 +446,7 @@ export function SalesSupervisionPage() {
     const normalizedItems = editItems
       .map((item) => ({
         category: item.category,
+        subcategory: item.subcategory,
         product_name: item.product_name.trim() || undefined,
         quantity: Math.max(1, Number(item.quantity || 1)),
         unit_price: item.unit_price,
@@ -492,6 +503,7 @@ export function SalesSupervisionPage() {
     const normalizedItems = createItems
       .map((item) => ({
         category: item.category,
+        subcategory: item.subcategory,
         product_name: item.product_name.trim() || undefined,
         quantity: Math.max(1, Number(item.quantity || 1)),
         unit_price: item.unit_price,
@@ -884,11 +896,29 @@ export function SalesSupervisionPage() {
                 render: (_: unknown, row: DraftSalesItem) => (
                   <Select
                     value={row.category}
-                    options={categoryOptions}
+                    options={entryCategoryOptions}
                     style={{ width: '100%' }}
-                    onChange={(value) => updateCreateItem(row.key, { category: value as SalesProductCategory })}
+                    onChange={(value) => {
+                      const category = value as SalesProductCategory
+                      updateCreateItem(row.key, { category, subcategory: getSalesProductSubcategory(category) })
+                    }}
                   />
                 ),
+              },
+              {
+                title: t('pages.salesSupervision.columns.subcategory', { defaultValue: 'Subcategory' }),
+                width: 200,
+                render: (_: unknown, row: DraftSalesItem) => {
+                  const options = getSalesProductSubcategoryOptions(row.category, t)
+                  return options.length > 0 ? (
+                    <Select
+                      value={row.subcategory ?? undefined}
+                      options={options}
+                      style={{ width: '100%' }}
+                      onChange={(value) => updateCreateItem(row.key, { subcategory: value as SalesProductSubcategory })}
+                    />
+                  ) : '-'
+                },
               },
               {
                 title: t('pages.salesSupervision.columns.productName', { defaultValue: 'Product / Description' }),
@@ -1010,7 +1040,14 @@ export function SalesSupervisionPage() {
                   title: t('pages.salesSupervision.columns.category', { defaultValue: 'Category' }),
                   dataIndex: 'category',
                   width: 220,
-                  render: (value: string) => categoryLabelByValue.get(value as SalesProductCategory) ?? value,
+                  render: (value: SalesProductCategory) => categoryLabelByValue.get(getSalesProductCategoryGroup(value)) ?? value,
+                },
+                {
+                  title: t('pages.salesSupervision.columns.subcategory', { defaultValue: 'Subcategory' }),
+                  dataIndex: 'subcategory',
+                  width: 180,
+                  render: (value: SalesProductSubcategory | null, row: SalesOrderItem) =>
+                    getSalesProductSubcategoryLabel(row.category, value, t) ?? '-',
                 },
                 {
                   title: t('pages.salesSupervision.columns.productName', { defaultValue: 'Product / Description' }),
@@ -1116,11 +1153,29 @@ export function SalesSupervisionPage() {
                 render: (_: unknown, row: DraftSalesItem) => (
                   <Select
                     value={row.category}
-                    options={categoryOptions}
+                    options={entryCategoryOptions}
                     style={{ width: '100%' }}
-                    onChange={(value) => updateEditItem(row.key, { category: value as SalesProductCategory })}
+                    onChange={(value) => {
+                      const category = value as SalesProductCategory
+                      updateEditItem(row.key, { category, subcategory: getSalesProductSubcategory(category) })
+                    }}
                   />
                 ),
+              },
+              {
+                title: t('pages.salesSupervision.columns.subcategory', { defaultValue: 'Subcategory' }),
+                width: 200,
+                render: (_: unknown, row: DraftSalesItem) => {
+                  const options = getSalesProductSubcategoryOptions(row.category, t)
+                  return options.length > 0 ? (
+                    <Select
+                      value={row.subcategory ?? undefined}
+                      options={options}
+                      style={{ width: '100%' }}
+                      onChange={(value) => updateEditItem(row.key, { subcategory: value as SalesProductSubcategory })}
+                    />
+                  ) : '-'
+                },
               },
               {
                 title: t('pages.salesSupervision.columns.productName', { defaultValue: 'Product / Description' }),

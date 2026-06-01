@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase/client'
+import { getSalesProductCategoryGroup } from '../../../lib/business-constants'
 import type { SalesProductCategory } from '../../../types/business'
 
 export interface BdKpiFilters {
@@ -371,7 +372,7 @@ export async function queryBdKpiSalesOrderDetails(
       const quantity = Math.max(0, Number(item.quantity ?? 0))
       const unitPrice = Math.max(0, Number(item.unit_price ?? 0))
       return {
-        category: (item.category as SalesProductCategory | string | null) ?? 'UNKNOWN',
+        category: item.category ? getSalesProductCategoryGroup(item.category as SalesProductCategory) : 'UNKNOWN',
         quantity,
         amount: quantity > 0 && unitPrice > 0 ? quantity * unitPrice : 0,
       }

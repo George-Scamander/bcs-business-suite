@@ -3,6 +3,7 @@ import type {
   SalesOrderItem,
   SalesPaymentMethod,
   SalesProductCategory,
+  SalesProductSubcategory,
   SalesTopTerm,
 } from '../../../types/business'
 import { supabase } from '../../../lib/supabase/client'
@@ -11,6 +12,7 @@ import { generateUuid } from '../../../lib/uuid'
 
 export interface CreateSalesOrderItemInput {
   category: SalesProductCategory
+  subcategory?: SalesProductSubcategory | null
   product_name?: string
   quantity: number
   unit_price?: number
@@ -111,6 +113,23 @@ function isMissingSalesPaymentColumnsError(error: unknown): boolean {
   }
 
   return false
+}
+
+function isMissingSalesSubcategoryColumnError(error: unknown): boolean {
+  const payload = (typeof error === 'object' && error !== null ? error : {}) as DatabaseErrorPayload
+  const code = String(payload.code ?? '').trim().toUpperCase()
+  const text = `${payload.message ?? ''} ${payload.details ?? ''} ${payload.hint ?? ''}`.toLowerCase()
+  return text.includes('subcategory') && (
+    ['PGRST200', 'PGRST204', '42703'].includes(code)
+    || text.includes('does not exist')
+    || text.includes('schema cache')
+  )
+}
+
+function withoutSalesSubcategory<T extends { subcategory?: SalesProductSubcategory | null }>(item: T): Omit<T, 'subcategory'> {
+  const compatibleItem = { ...item }
+  delete compatibleItem.subcategory
+  return compatibleItem
 }
 
 function extractDatabaseError(error: unknown, fallback: string): Error {
@@ -416,12 +435,18 @@ async function createSalesOrderWithAutoLeadFallback(input: CreateSalesOrderInput
   const itemRows = input.items.map((item) => ({
     sales_order_id: orderId,
     category: item.category,
+    subcategory: item.subcategory ?? null,
     product_name: item.product_name ?? null,
     quantity: Number(item.quantity || 1),
     unit_price: item.unit_price ?? null,
   }))
 
-  const itemInsertResult = await supabase.from('sales_order_items').insert(itemRows)
+  let itemInsertResult = await supabase.from('sales_order_items').insert(itemRows)
+  if (itemInsertResult.error && isMissingSalesSubcategoryColumnError(itemInsertResult.error)) {
+    itemInsertResult = await supabase.from('sales_order_items').insert(
+      itemRows.map(withoutSalesSubcategory),
+    )
+  }
   if (itemInsertResult.error) {
     throw extractDatabaseError(itemInsertResult.error, 'Failed to create sales order items')
   }
@@ -459,6 +484,10 @@ async function createSalesOrderWithAutoLeadFallback(input: CreateSalesOrderInput
 }
 
 export async function createSalesOrderWithAutoLead(input: CreateSalesOrderInput): Promise<CreateSalesOrderResult> {
+  if (input.items.some((item) => item.subcategory)) {
+    return createSalesOrderWithAutoLeadFallback(input)
+  }
+
   const result = await supabase.rpc('create_sales_order_with_auto_lead', {
     p_company_name: input.company_name,
     p_sold_at: input.sold_at ?? null,
@@ -740,6 +769,7 @@ export async function updateSalesOrder(input: UpdateSalesOrderInput): Promise<vo
   const normalizedItems = input.items.map((item) => ({
     sales_order_id: input.orderId,
     category: item.category,
+    subcategory: item.subcategory ?? null,
     product_name: item.product_name?.trim() || null,
     quantity: Math.max(1, Number(item.quantity || 1)),
     unit_price: item.unit_price ?? null,
@@ -780,7 +810,12 @@ export async function updateSalesOrder(input: UpdateSalesOrderInput): Promise<vo
     throw extractDatabaseError(deleteItemsResult.error, 'Failed to reset sales order items')
   }
 
-  const insertItemsResult = await supabase.from('sales_order_items').insert(normalizedItems)
+  let insertItemsResult = await supabase.from('sales_order_items').insert(normalizedItems)
+  if (insertItemsResult.error && isMissingSalesSubcategoryColumnError(insertItemsResult.error)) {
+    insertItemsResult = await supabase.from('sales_order_items').insert(
+      normalizedItems.map(withoutSalesSubcategory),
+    )
+  }
   if (insertItemsResult.error) {
     throw extractDatabaseError(insertItemsResult.error, 'Failed to update sales order items')
   }
