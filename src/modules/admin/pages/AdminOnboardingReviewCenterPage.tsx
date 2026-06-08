@@ -27,6 +27,7 @@ import {
   useTranslation,
 } from 'react-i18next'
 import {
+  useLocation,
   useNavigate,
   useSearchParams,
 } from 'react-router-dom'
@@ -46,6 +47,7 @@ import {
 import {
   listOnboardingCases,
   listOnboardingDocuments,
+  reviewOnboardingCase,
   reviewOnboardingDocument,
   changeOnboardingStatus,
   type OnboardingFilters,
@@ -145,9 +147,18 @@ function canTransitionTo(currentStatus: OnboardingStatus, targetStatus: Onboardi
   return false
 }
 
+function canCompleteCaseReview(currentStatus: OnboardingStatus): boolean {
+  return currentStatus === 'NOT_STARTED' ||
+    currentStatus === 'INFO_PENDING' ||
+    currentStatus === 'DOCUMENT_PENDING' ||
+    currentStatus === 'UNDER_REVIEW' ||
+    currentStatus === 'REVISION_REQUIRED'
+}
+
 export function AdminOnboardingReviewCenterPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [leadReviewLoading, setLeadReviewLoading] = useState(false)
@@ -209,6 +220,15 @@ export function AdminOnboardingReviewCenterPage() {
       return status
     }
 
+    if (status === 'NOT_STARTED' && canTransitionTo(status, 'INFO_PENDING')) {
+      await changeOnboardingStatus({
+        caseId,
+        toStatus: 'INFO_PENDING',
+        reason: 'Auto-progressed by admin review center to start case review',
+      })
+      status = 'INFO_PENDING'
+    }
+
     if (status === 'INFO_PENDING' && canTransitionTo(status, 'DOCUMENT_PENDING')) {
       await changeOnboardingStatus({
         caseId,
@@ -237,6 +257,98 @@ export function AdminOnboardingReviewCenterPage() {
     }
 
     return status
+  }
+
+  async function handleCaseReview(decision: 'APPROVED' | 'REJECTED') {
+    if (!selectedCase) {
+      return
+    }
+
+    setReviewLoading(true)
+
+    try {
+      let currentStatus = selectedCase.status
+      const pendingDocs = selectedDocs.filter((item) => item.review_status === 'PENDING')
+      const comment = decision === 'APPROVED'
+        ? 'Admin case-level review completed'
+        : 'Admin case-level review rejected'
+
+      if (decision === 'APPROVED') {
+        currentStatus = await ensureCaseUnderReview(selectedCase.id, currentStatus)
+
+        if (pendingDocs.length > 0) {
+          await Promise.all(
+            pendingDocs.map((doc) =>
+              reviewOnboardingDocument({
+                caseId: selectedCase.id,
+                documentId: doc.id,
+                decision: 'APPROVED',
+                comment,
+              }),
+            ),
+          )
+        } else {
+          await reviewOnboardingCase({
+            caseId: selectedCase.id,
+            decision,
+            comment,
+          })
+        }
+
+        if (canTransitionTo(currentStatus, 'CONTRACT_CONFIRMED')) {
+          await changeOnboardingStatus({
+            caseId: selectedCase.id,
+            toStatus: 'CONTRACT_CONFIRMED',
+            reason: 'Case review completed by admin review center',
+          })
+        }
+      } else {
+        if (pendingDocs.length > 0) {
+          await Promise.all(
+            pendingDocs.map((doc) =>
+              reviewOnboardingDocument({
+                caseId: selectedCase.id,
+                documentId: doc.id,
+                decision: 'REJECTED',
+                comment,
+              }),
+            ),
+          )
+        } else {
+          await reviewOnboardingCase({
+            caseId: selectedCase.id,
+            decision,
+            comment,
+          })
+        }
+
+        if (canTransitionTo(currentStatus, 'REJECTED')) {
+          await changeOnboardingStatus({
+            caseId: selectedCase.id,
+            toStatus: 'REJECTED',
+            reason: 'Case review rejected by admin review center',
+          })
+        }
+      }
+
+      message.success(
+        decision === 'APPROVED'
+          ? t('pages.adminOnboardingReview.caseReviewCompleted', { defaultValue: 'Case review completed' })
+          : t('pages.adminOnboardingReview.caseReviewRejected', { defaultValue: 'Case review rejected' }),
+      )
+      setRows((current) => current.filter((item) => item.id !== selectedCase.id))
+      setDrawerOpen(false)
+      setSelectedCase(null)
+      await loadData()
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.adminOnboardingReview.caseReviewFail', { defaultValue: 'Failed to submit case review' })
+      message.error(text)
+    } finally {
+      setReviewLoading(false)
+    }
   }
 
   async function handlePreviewDocument(row: OnboardingDocument) {
@@ -321,6 +433,7 @@ export function AdminOnboardingReviewCenterPage() {
     try {
       await downgradeLeadIntentLevelByReview(row.id, 3)
       message.success(t('pages.adminOnboardingReview.leadIntentDowngradeSuccess', { defaultValue: 'Lead intent level downgraded' }))
+      setLeadReviewRows((current) => current.filter((item) => item.id !== row.id))
       await loadData()
     } catch (error) {
       const text =
@@ -493,7 +606,13 @@ export function AdminOnboardingReviewCenterPage() {
               width: 220,
               render: (_: unknown, row: LeadIntentDowngradeCandidate) => (
                 <Space>
-                  <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}`)}>
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      const backPath = `${location.pathname}${location.search}`
+                      navigate(`/app/bd/leads/${row.id}?back=${encodeURIComponent(backPath)}`)
+                    }}
+                  >
                     {t('pages.adminOnboardingReview.openLead', { defaultValue: 'Open Lead' })}
                   </Button>
                   <Button size="small" onClick={() => void handleDowngradeLeadIntent(row)}>
@@ -529,12 +648,47 @@ export function AdminOnboardingReviewCenterPage() {
           </Typography.Text>
         </div>
 
+        <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
+          <Typography.Text className="block text-sm text-slate-600">
+            {selectedDocs.length === 0
+              ? t('pages.adminOnboardingReview.noDocumentsCaseReviewHint', {
+                  defaultValue: 'No documents are attached. You can still complete or reject this case review directly.',
+                })
+              : t('pages.adminOnboardingReview.caseReviewHint', {
+                  defaultValue: 'Complete or reject the whole case. Pending documents will be updated with the same decision.',
+                })}
+          </Typography.Text>
+          <Space className="mt-3" wrap>
+            <Button
+              type="primary"
+              loading={reviewLoading}
+              disabled={!selectedCase || !canCompleteCaseReview(selectedCase.status)}
+              onClick={() => void handleCaseReview('APPROVED')}
+            >
+              {t('pages.adminOnboardingReview.completeCaseReview', { defaultValue: 'Complete Review' })}
+            </Button>
+            <Button
+              danger
+              loading={reviewLoading}
+              disabled={!selectedCase || !canTransitionTo(selectedCase.status, 'REJECTED')}
+              onClick={() => void handleCaseReview('REJECTED')}
+            >
+              {t('pages.adminOnboardingReview.rejectCaseReview', { defaultValue: 'Reject Review' })}
+            </Button>
+          </Space>
+        </div>
+
         <Table
           rowKey="id"
           loading={reviewLoading}
           bordered
           dataSource={selectedDocs}
           pagination={{ pageSize: 8 }}
+          locale={{
+            emptyText: t('pages.adminOnboardingReview.noDocuments', {
+              defaultValue: 'No documents attached. Use the case-level review actions above.',
+            }),
+          }}
           columns={[
             { title: t('pages.adminOnboardingReview.columns.documentType', { defaultValue: 'Document Type' }), dataIndex: 'doc_type' },
             {

@@ -24,6 +24,7 @@ import {
 import {
   useNavigate,
   useParams,
+  useSearchParams,
 } from 'react-router-dom'
 import {
   useTranslation,
@@ -85,11 +86,29 @@ function isSalesOrderFollowup(followupType: string, summary: string): boolean {
   return summary.trim().toLowerCase().startsWith('sales order ')
 }
 
+function resolveLeadDetailBackPath(rawBackPath: string | null, fallbackPath: string): string {
+  if (!rawBackPath) {
+    return fallbackPath
+  }
+
+  const isSafeAdminPath =
+    rawBackPath === '/app/admin/onboarding/review-center' ||
+    rawBackPath.startsWith('/app/admin/onboarding/review-center?') ||
+    rawBackPath === '/app/admin/leads/pool' ||
+    rawBackPath.startsWith('/app/admin/leads/pool/') ||
+    rawBackPath.startsWith('/app/admin/leads/pool?')
+
+  return isSafeAdminPath ? rawBackPath : fallbackPath
+}
+
 export function LeadDetailPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { leadId } = useParams<{ leadId: string }>()
+  const [searchParams] = useSearchParams()
   const { roles } = useAuth()
+  const fallbackBackPath = roles.includes('super_admin') || roles.includes('project_manager') ? '/app/admin/leads/pool' : '/app/bd/leads'
+  const backPath = resolveLeadDetailBackPath(searchParams.get('back'), fallbackBackPath)
 
   const [loading, setLoading] = useState(true)
   const [lead, setLead] = useState<Lead | null>(null)
@@ -250,7 +269,7 @@ export function LeadDetailPage() {
     try {
       await softDeleteLead(lead.id)
       message.success(t('pages.leadDetail.deleteSuccess', { defaultValue: 'Lead moved to Recently Deleted' }))
-      navigate('/app/bd/leads')
+      navigate(backPath)
     } catch (error) {
       const text = error instanceof Error ? error.message : t('pages.leadDetail.deleteFail', { defaultValue: 'Failed to delete lead' })
       message.error(text)
@@ -270,7 +289,7 @@ export function LeadDetailPage() {
         })}
         extra={
           <Space>
-            <Button onClick={() => navigate('/app/bd/leads')}>{t('pages.leadDetail.backToList', { defaultValue: 'Back to List' })}</Button>
+            <Button onClick={() => navigate(backPath)}>{t('pages.leadDetail.backToList', { defaultValue: 'Back to List' })}</Button>
             <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
             {lead ? (
               <Button type="primary" onClick={() => navigate(`/app/bd/leads/${lead.id}/edit`)}>

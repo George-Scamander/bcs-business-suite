@@ -253,11 +253,18 @@ export function LoginPage() {
             >
               <Input
                 prefix={<MailOutlined />}
-                addonAfter={!emailInput.includes('@') ? `@${LOGIN_DOMAIN}` : undefined}
                 placeholder={t('auth.login.emailPlaceholder', { defaultValue: 'yourname' })}
               />
             </AutoComplete>
           </Form.Item>
+          {!emailInput.includes('@') ? (
+            <div className="-mt-5 mb-4 text-xs text-slate-500">
+              {t('auth.login.emailDomainHint', {
+                defaultValue: 'Domain suffix will be added automatically: @{{domain}}',
+                domain: LOGIN_DOMAIN,
+              })}
+            </div>
+          ) : null}
 
           {recentEmails.length > 0 ? (
             <div className="mb-3">

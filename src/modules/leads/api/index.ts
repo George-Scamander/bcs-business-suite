@@ -1,4 +1,13 @@
-import type { IntentPackage, Lead, LeadFollowup, LeadStatus, LeadStatusLog, SignedRecord } from '../../../types/business'
+import type {
+  IntentPackage,
+  Lead,
+  LeadFollowup,
+  LeadStatus,
+  LeadStatusLog,
+  SalesProductCategory,
+  SalesProductSubcategory,
+  SignedRecord,
+} from '../../../types/business'
 import { supabase } from '../../../lib/supabase/client'
 import { recordOperationLog } from '../../../lib/supabase/logs'
 import { generateUuid } from '../../../lib/uuid'
@@ -34,6 +43,42 @@ export interface LeadFilters {
   createdFrom?: string
   createdTo?: string
   keyword?: string
+  hasSalesOrder?: boolean
+  merchantHealthTier?: LeadMerchantHealthTier
+}
+
+export type LeadMerchantHealthTier = 'STAR' | 'NORMAL' | 'RISK'
+
+export interface LeadMerchantHealth {
+  lead_id: string
+  health_score: number
+  health_tier: LeadMerchantHealthTier
+  spend_score: number
+  frequency_score: number
+  category_score: number
+  trend_score: number
+  spend_30: number
+  spend_prev_30: number
+  orders_30: number
+  orders_prev_30: number
+  tire_spend_30: number
+  tire_share_30: number
+  last_purchase_at: string
+  risk_reasons: string[]
+}
+
+interface LeadMerchantHealthSalesItem {
+  category: SalesProductCategory
+  subcategory?: SalesProductSubcategory | null
+  quantity: number
+  unit_price: number | null
+}
+
+interface LeadMerchantHealthSalesOrder {
+  id: string
+  lead_id: string
+  sold_at: string
+  items: LeadMerchantHealthSalesItem[]
 }
 
 export interface DepartmentLeadFilters {
@@ -263,6 +308,228 @@ export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
   }
 
   return (result.data ?? []) as Lead[]
+}
+
+export async function listLeadMerchantHealth(): Promise<LeadMerchantHealth[]> {
+  const result = await supabase.rpc('list_lead_merchant_health')
+
+  if (result.error) {
+    const code = String(result.error.code ?? '').trim().toUpperCase()
+    const message = String(result.error.message ?? '').toLowerCase()
+    if (
+      code === '42883'
+      || code === 'PGRST202'
+      || message.includes('could not find the function')
+    ) {
+      return listLeadMerchantHealthFallback()
+    }
+    throw result.error
+  }
+
+  return (result.data ?? []) as LeadMerchantHealth[]
+}
+
+async function listLeadMerchantHealthFallback(): Promise<LeadMerchantHealth[]> {
+  const pageSize = 1000
+  const orders: LeadMerchantHealthSalesOrder[] = []
+  let includeSubcategory = true
+
+  for (let from = 0; ; from += pageSize) {
+    const selectColumns = includeSubcategory
+      ? 'id, lead_id, sold_at, items:sales_order_items(category, subcategory, quantity, unit_price)'
+      : 'id, lead_id, sold_at, items:sales_order_items(category, quantity, unit_price)'
+    const result = await supabase
+      .from('sales_orders')
+      .select(selectColumns)
+      .not('lead_id', 'is', null)
+      .is('deleted_at', null)
+      .order('sold_at', { ascending: false })
+      .range(from, from + pageSize - 1)
+
+    if (result.error && includeSubcategory && String(result.error.message ?? '').toLowerCase().includes('subcategory')) {
+      includeSubcategory = false
+      orders.length = 0
+      from = -pageSize
+      continue
+    }
+
+    if (result.error) {
+      throw result.error
+    }
+
+    const page = (result.data ?? []) as unknown as LeadMerchantHealthSalesOrder[]
+    orders.push(...page)
+    if (page.length < pageSize) {
+      break
+    }
+  }
+
+  return calculateLeadMerchantHealth(orders)
+}
+
+export function calculateLeadMerchantHealth(orders: LeadMerchantHealthSalesOrder[]): LeadMerchantHealth[] {
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  const currentStart = startOfToday.getTime() - 30 * 24 * 60 * 60 * 1000
+  const previousStart = startOfToday.getTime() - 60 * 24 * 60 * 60 * 1000
+  const metricsByLeadId = new Map<string, {
+    spend30: number
+    spendPrev30: number
+    orders30: number
+    ordersPrev30: number
+    tireSpend30: number
+    lastPurchaseAt: string
+    categoryLastPurchaseAt: Partial<Record<'ENGINE_OIL' | 'THREE_FILTERS' | 'CHEMICAL' | 'CAR_BEAUTY' | 'TIRE', string>>
+  }>()
+
+  for (const order of orders) {
+    if (!order.lead_id || !order.sold_at) {
+      continue
+    }
+
+    const soldAt = new Date(order.sold_at).getTime()
+    if (!Number.isFinite(soldAt)) {
+      continue
+    }
+
+    const current = metricsByLeadId.get(order.lead_id) ?? {
+      spend30: 0,
+      spendPrev30: 0,
+      orders30: 0,
+      ordersPrev30: 0,
+      tireSpend30: 0,
+      lastPurchaseAt: order.sold_at,
+      categoryLastPurchaseAt: {},
+    }
+    const itemAmount = (item: LeadMerchantHealthSalesItem) => Math.max(0, Number(item.quantity ?? 0)) * Math.max(0, Number(item.unit_price ?? 0))
+    const amount = (order.items ?? []).reduce((sum, item) => sum + itemAmount(item), 0)
+    const tireAmount = (order.items ?? [])
+      .filter((item) => item.category === 'TIRE')
+      .reduce((sum, item) => sum + itemAmount(item), 0)
+
+    if (soldAt >= currentStart) {
+      current.spend30 += amount
+      current.orders30 += 1
+      current.tireSpend30 += tireAmount
+    } else if (soldAt >= previousStart) {
+      current.spendPrev30 += amount
+      current.ordersPrev30 += 1
+    }
+
+    if (soldAt > new Date(current.lastPurchaseAt).getTime()) {
+      current.lastPurchaseAt = order.sold_at
+    }
+
+    for (const item of order.items ?? []) {
+      const category = item.category === 'THREE_FILTERS' || item.subcategory === 'BOSCH_THREE_FILTERS'
+        ? 'THREE_FILTERS'
+        : item.category
+      if (!['ENGINE_OIL', 'THREE_FILTERS', 'CHEMICAL', 'CAR_BEAUTY', 'TIRE'].includes(category)) {
+        continue
+      }
+
+      const healthCategory = category as keyof typeof current.categoryLastPurchaseAt
+      const previous = current.categoryLastPurchaseAt[healthCategory]
+      if (!previous || soldAt > new Date(previous).getTime()) {
+        current.categoryLastPurchaseAt[healthCategory] = order.sold_at
+      }
+    }
+
+    metricsByLeadId.set(order.lead_id, current)
+  }
+
+  const metrics = Array.from(metricsByLeadId.entries())
+  const sortedSpends = metrics.map(([, item]) => item.spend30).sort((a, b) => a - b)
+  return metrics.map(([leadId, item]) => {
+    const spendScore = sortedSpends.length === 1
+      ? 30
+      : roundToOneDecimal((sortedSpends.indexOf(item.spend30) / (sortedSpends.length - 1)) * 30)
+    const frequencyScore = scoreMerchantFrequency(item.orders30, item.ordersPrev30)
+    const categoryScore = scoreMerchantCategories(item.categoryLastPurchaseAt, startOfToday.getTime())
+    const trendScore = scoreMerchantTrend(item.spend30, item.spendPrev30)
+    const healthScore = Math.round(spendScore + frequencyScore + categoryScore + trendScore)
+    const healthTier: LeadMerchantHealthTier = healthScore >= 80 ? 'STAR' : healthScore >= 60 ? 'NORMAL' : 'RISK'
+    const riskReasons = [
+      item.spend30 === 0 ? 'NO_PURCHASE_LAST_30_DAYS' : null,
+      item.spendPrev30 > 0 && item.spend30 < item.spendPrev30 * 0.7 ? 'SPEND_DECLINED' : null,
+      item.orders30 === 0 ? 'LOW_ORDER_FREQUENCY' : null,
+      categoryScore < 15 ? 'HIGH_FREQUENCY_CATEGORY_GAP' : null,
+    ].filter((value): value is string => Boolean(value))
+
+    return {
+      lead_id: leadId,
+      health_score: healthScore,
+      health_tier: healthTier,
+      spend_score: spendScore,
+      frequency_score: frequencyScore,
+      category_score: categoryScore,
+      trend_score: trendScore,
+      spend_30: item.spend30,
+      spend_prev_30: item.spendPrev30,
+      orders_30: item.orders30,
+      orders_prev_30: item.ordersPrev30,
+      tire_spend_30: item.tireSpend30,
+      tire_share_30: item.spend30 > 0 ? roundToOneDecimal((item.tireSpend30 / item.spend30) * 100) : 0,
+      last_purchase_at: item.lastPurchaseAt,
+      risk_reasons: riskReasons,
+    }
+  }).sort((a, b) => b.health_score - a.health_score)
+}
+
+function scoreMerchantFrequency(orders30: number, ordersPrev30: number): number {
+  if (orders30 === 0) {
+    return 0
+  }
+  if (ordersPrev30 === 0 || orders30 / ordersPrev30 >= 1) {
+    return 25
+  }
+  if (orders30 / ordersPrev30 >= 0.7) {
+    return 18
+  }
+  if (orders30 / ordersPrev30 >= 0.4) {
+    return 10
+  }
+  return 3
+}
+
+function scoreMerchantCategories(
+  categoryLastPurchaseAt: Partial<Record<'ENGINE_OIL' | 'THREE_FILTERS' | 'CHEMICAL' | 'CAR_BEAUTY' | 'TIRE', string>>,
+  today: number,
+): number {
+  const scoreCategory = (category: keyof typeof categoryLastPurchaseAt, lightDays: number, severeDays: number) => {
+    const purchasedAt = categoryLastPurchaseAt[category]
+    if (!purchasedAt) {
+      return 0
+    }
+    const days = Math.floor((today - new Date(purchasedAt).getTime()) / (24 * 60 * 60 * 1000))
+    return days <= lightDays ? 5 : days <= severeDays ? 2.5 : 0
+  }
+
+  return scoreCategory('ENGINE_OIL', 12, 20)
+    + scoreCategory('THREE_FILTERS', 12, 20)
+    + scoreCategory('CHEMICAL', 12, 20)
+    + scoreCategory('CAR_BEAUTY', 12, 20)
+    + scoreCategory('TIRE', 20, 35)
+}
+
+function scoreMerchantTrend(spend30: number, spendPrev30: number): number {
+  if (spend30 === 0) {
+    return 0
+  }
+  if (spendPrev30 === 0 || (spend30 - spendPrev30) / spendPrev30 >= 0.1) {
+    return 20
+  }
+  if ((spend30 - spendPrev30) / spendPrev30 >= -0.1) {
+    return 15
+  }
+  if ((spend30 - spendPrev30) / spendPrev30 >= -0.3) {
+    return 8
+  }
+  return 0
+}
+
+function roundToOneDecimal(value: number): number {
+  return Math.round(value * 10) / 10
 }
 
 export async function listAllActiveLeadsForRegionDistribution(): Promise<LeadRegionDistributionRow[]> {

@@ -219,6 +219,23 @@ export async function reviewOnboardingDocument(input: {
   }
 }
 
+export async function reviewOnboardingCase(input: {
+  caseId: string
+  decision: 'APPROVED' | 'REJECTED' | 'REVISION_REQUIRED'
+  comment?: string
+}): Promise<void> {
+  const reviewResult = await supabase.from('onboarding_reviews').insert({
+    onboarding_case_id: input.caseId,
+    document_id: null,
+    decision: input.decision,
+    comment: input.comment ?? null,
+  })
+
+  if (reviewResult.error) {
+    throw reviewResult.error
+  }
+}
+
 export async function listOnboardingReviews(caseId: string): Promise<OnboardingReview[]> {
   const result = await supabase
     .from('onboarding_reviews')

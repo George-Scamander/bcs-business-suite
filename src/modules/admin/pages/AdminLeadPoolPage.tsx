@@ -15,6 +15,7 @@ import {
   Select,
   Space,
   Tag,
+  Tooltip,
   message,
 } from 'antd'
 import { EnvironmentOutlined, ExportOutlined, SettingOutlined } from '@ant-design/icons'
@@ -22,6 +23,7 @@ import {
   AdaptiveTable as Table,
 } from '../../../components/common/AdaptiveTable'
 import {
+  useLocation,
   useNavigate,
   useSearchParams,
 } from 'react-router-dom'
@@ -48,8 +50,11 @@ import {
 } from '../../../components/common/StatusTag'
 import {
   assignLead,
+  listLeadMerchantHealth,
   listLeads,
   softDeleteLeads,
+  type LeadMerchantHealth,
+  type LeadMerchantHealthTier,
   type LeadFilters,
 } from '../../leads/api'
 import {
@@ -83,6 +88,7 @@ const LEAD_STATUS_VALUES: LeadStatus[] = ['NEW', 'TO_FOLLOW', 'FOLLOWING', 'NEGO
 const INTENT_PACKAGE_VALUES: IntentPackage[] = ['BCS', 'PRODUCTS_SALES', 'BOTH']
 const INTENT_PACKAGE_GROUP_VALUES = ['BCS_RELATED', 'NON_BCS'] as const
 const SIGNED_CONTRACT_PACKAGE_GROUP_VALUES = ['BCS_RELATED', 'NON_BCS'] as const
+const MERCHANT_HEALTH_TIER_VALUES: LeadMerchantHealthTier[] = ['STAR', 'NORMAL', 'RISK']
 
 function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: LeadFilters; keyword: string } {
   const statusParam = searchParams.get('status')
@@ -91,6 +97,8 @@ function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: L
   const signedContractPackageGroupParam = searchParams.get('signedContractPackageGroup')
   const intentLevelMinParam = searchParams.get('intentLevelMin')
   const intentLevelMaxParam = searchParams.get('intentLevelMax')
+  const hasSalesOrderParam = searchParams.get('hasSalesOrder')
+  const merchantHealthTierParam = searchParams.get('merchantHealthTier')
 
   const status = statusParam && LEAD_STATUS_VALUES.includes(statusParam as LeadStatus) ? (statusParam as LeadStatus) : undefined
   const intentPackage =
@@ -110,6 +118,11 @@ function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: L
   const parsedIntentLevelMax = intentLevelMaxParam ? Number(intentLevelMaxParam) : NaN
   const intentLevelMin = Number.isFinite(parsedIntentLevelMin) ? Math.max(0, Math.min(5, parsedIntentLevelMin)) : undefined
   const intentLevelMax = Number.isFinite(parsedIntentLevelMax) ? Math.max(0, Math.min(5, parsedIntentLevelMax)) : undefined
+  const hasSalesOrder = hasSalesOrderParam === '1' ? true : hasSalesOrderParam === '0' ? false : undefined
+  const merchantHealthTier =
+    merchantHealthTierParam && MERCHANT_HEALTH_TIER_VALUES.includes(merchantHealthTierParam as LeadMerchantHealthTier)
+      ? (merchantHealthTierParam as LeadMerchantHealthTier)
+      : undefined
 
   const region = searchParams.get('region') ?? undefined
   const assignedBdId = searchParams.get('assignedBdId') ?? undefined
@@ -131,6 +144,8 @@ function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: L
       assignedBdId: assignedBdId || undefined,
       createdFrom: createdFrom || undefined,
       createdTo: createdTo || undefined,
+      hasSalesOrder,
+      merchantHealthTier,
     },
     keyword,
   }
@@ -139,12 +154,14 @@ function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: L
 export function AdminLeadPoolPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
 
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<Lead[]>([])
   const [bdMatchedLeadIdSet, setBdMatchedLeadIdSet] = useState<Set<string>>(new Set())
   const [todayFollowupLeadIdSet, setTodayFollowupLeadIdSet] = useState<Set<string>>(new Set())
+  const [merchantHealthByLeadId, setMerchantHealthByLeadId] = useState<Map<string, LeadMerchantHealth>>(new Map())
   const [users, setUsers] = useState<UserOption[]>([])
   const [bdUsers, setBdUsers] = useState<UserOption[]>([])
   const [filters, setFilters] = useState<LeadFilters>(() => parseLeadFiltersFromSearch(searchParams).filters)
@@ -161,8 +178,10 @@ export function AdminLeadPoolPage() {
     defaultValue: 'Moved to Recently Deleted and auto-permanently deleted after 30 days.',
   })
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (options: { silent?: boolean } = {}) => {
+    if (!options.silent) {
+      setLoading(true)
+    }
 
     try {
       const keywordValue = keyword.trim() || undefined
@@ -174,7 +193,7 @@ export function AdminLeadPoolPage() {
         keyword: keywordValue,
       }
 
-      const [leadRows, todayFollowupRows, userRows, roleMappingsResult] = await Promise.all([
+      const [leadRows, todayFollowupRows, merchantHealthRows, userRows, roleMappingsResult] = await Promise.all([
         listLeads(leadFilters),
         shouldMergeTodayFollowup
           ? listLeads({
@@ -184,6 +203,7 @@ export function AdminLeadPoolPage() {
               followupTo: endOfTodayIso,
             })
           : Promise.resolve([] as Lead[]),
+        listLeadMerchantHealth(),
         listActiveUsers(),
         supabase
           .from('user_role_relations')
@@ -201,9 +221,22 @@ export function AdminLeadPoolPage() {
           })
         : leadRows
 
-      setRows(mergedRows)
+      const healthByLeadId = new Map(merchantHealthRows.map((item) => [item.lead_id, item]))
+      const filteredRows = mergedRows.filter((item) => {
+        const health = healthByLeadId.get(item.id)
+        if (filters.hasSalesOrder !== undefined && Boolean(health) !== filters.hasSalesOrder) {
+          return false
+        }
+        if (filters.merchantHealthTier && health?.health_tier !== filters.merchantHealthTier) {
+          return false
+        }
+        return true
+      })
+
+      setRows(filteredRows)
       setBdMatchedLeadIdSet(bdMatchedIds)
       setTodayFollowupLeadIdSet(todayFollowupIds)
+      setMerchantHealthByLeadId(healthByLeadId)
       setUsers(userRows)
       if (roleMappingsResult.error) {
         setBdUsers(userRows)
@@ -221,12 +254,40 @@ export function AdminLeadPoolPage() {
       const text = error instanceof Error ? error.message : t('pages.adminLeadPool.loadFail', { defaultValue: 'Failed to load lead pool' })
       message.error(text)
     } finally {
-      setLoading(false)
+      if (!options.silent) {
+        setLoading(false)
+      }
     }
   }, [filters, keyword, t])
 
   useEffect(() => {
     void loadData()
+  }, [loadData])
+
+  useEffect(() => {
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined
+    const scheduleHealthRefresh = () => {
+      if (refreshTimer) {
+        clearTimeout(refreshTimer)
+      }
+
+      refreshTimer = setTimeout(() => {
+        void loadData({ silent: true })
+      }, 300)
+    }
+
+    const channel = supabase
+      .channel('admin-lead-pool-merchant-health')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_orders' }, scheduleHealthRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sales_order_items' }, scheduleHealthRefresh)
+      .subscribe()
+
+    return () => {
+      if (refreshTimer) {
+        clearTimeout(refreshTimer)
+      }
+      void supabase.removeChannel(channel)
+    }
   }, [loadData])
 
   useEffect(() => {
@@ -293,12 +354,46 @@ export function AdminLeadPoolPage() {
   }, [users])
 
   function openLeadDetail(leadId: string) {
-    navigate(`/app/bd/leads/${leadId}`)
+    const backPath = `${location.pathname}${location.search}`
+    navigate(`/app/bd/leads/${leadId}?back=${encodeURIComponent(backPath)}`)
   }
 
   async function handleApplyControlPanel() {
     await loadData()
     setControlPanelOpen(false)
+  }
+
+  function renderMerchantHealthTag(row: Lead) {
+    const merchantHealth = merchantHealthByLeadId.get(row.id)
+    if (!merchantHealth) {
+      return null
+    }
+
+    const healthLabel = merchantHealth.health_tier === 'STAR'
+      ? t('pages.adminLeadPool.merchantHealthTierStar', { defaultValue: 'Star Merchant' })
+      : merchantHealth.health_tier === 'NORMAL'
+        ? t('pages.adminLeadPool.merchantHealthTierNormal', { defaultValue: 'Normal Merchant' })
+        : t('pages.adminLeadPool.merchantHealthTierRisk', { defaultValue: 'Risk Merchant' })
+    const healthColor = merchantHealth.health_tier === 'STAR' ? 'green' : merchantHealth.health_tier === 'NORMAL' ? 'blue' : 'red'
+
+    return (
+      <Tooltip
+        title={
+          <div className="space-y-1 text-xs">
+            <div className="font-semibold">{t('pages.adminLeadPool.merchantHealthRuleTitle', { defaultValue: 'Health Scoring Rules (100 pts)' })}</div>
+            <div>{t('pages.adminLeadPool.merchantHealthRuleTierStar', { defaultValue: 'Star Merchant: health score >= 80' })}</div>
+            <div>{t('pages.adminLeadPool.merchantHealthRuleTierNormal', { defaultValue: 'Normal Merchant: health score 60-79' })}</div>
+            <div>{t('pages.adminLeadPool.merchantHealthRuleTierRisk', { defaultValue: 'Risk Merchant: health score < 60' })}</div>
+            <div>{t('pages.adminLeadPool.merchantHealthRuleSpend', { defaultValue: 'Purchase amount: 30 pts, based on last 30 days sales rank across merchants.' })}</div>
+            <div>{t('pages.adminLeadPool.merchantHealthRuleFrequency', { defaultValue: 'Purchase frequency: 25 pts, compares last 30 days order count with the merchant baseline.' })}</div>
+            <div>{t('pages.adminLeadPool.merchantHealthRuleCategory', { defaultValue: 'High-frequency category rhythm: 25 pts, checks engine oil, filters, chemicals, beauty, and tires.' })}</div>
+            <div>{t('pages.adminLeadPool.merchantHealthRuleTrend', { defaultValue: 'Trend: 20 pts, compares last 30 days sales with the previous 30 days.' })}</div>
+          </div>
+        }
+      >
+        <Tag color={healthColor}>{healthLabel}</Tag>
+      </Tooltip>
+    )
   }
 
   return (
@@ -417,6 +512,34 @@ export function AdminLeadPoolPage() {
             ]}
             onChange={(value) => setFilters((current) => ({ ...current, intentLevelMin: value === undefined ? undefined : Number(value) }))}
           />
+          <Select
+            allowClear
+            className="w-full"
+            placeholder={t('pages.adminLeadPool.hasSalesOrderPlaceholder', { defaultValue: 'Sales Order Status' })}
+            value={filters.hasSalesOrder === undefined ? undefined : filters.hasSalesOrder ? 'YES' : 'NO'}
+            options={[
+              { value: 'YES', label: t('pages.adminLeadPool.hasSalesOrderYes', { defaultValue: 'Has Sales Order' }) },
+              { value: 'NO', label: t('pages.adminLeadPool.hasSalesOrderNo', { defaultValue: 'No Sales Order' }) },
+            ]}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                hasSalesOrder: value === undefined ? undefined : value === 'YES',
+              }))
+            }
+          />
+          <Select
+            allowClear
+            className="w-full"
+            placeholder={t('pages.adminLeadPool.merchantHealthTierPlaceholder', { defaultValue: 'Merchant Health Tier' })}
+            value={filters.merchantHealthTier}
+            options={[
+              { value: 'STAR', label: t('pages.adminLeadPool.merchantHealthTierStar', { defaultValue: 'Star Merchant' }) },
+              { value: 'NORMAL', label: t('pages.adminLeadPool.merchantHealthTierNormal', { defaultValue: 'Normal Merchant' }) },
+              { value: 'RISK', label: t('pages.adminLeadPool.merchantHealthTierRisk', { defaultValue: 'Risk Merchant' }) },
+            ]}
+            onChange={(value) => setFilters((current) => ({ ...current, merchantHealthTier: value }))}
+          />
           <DatePicker
             className="w-full"
             placeholder={t('pages.adminLeadPool.createdFrom', { defaultValue: 'Created From' })}
@@ -519,7 +642,16 @@ export function AdminLeadPoolPage() {
               </div>
             ),
           },
-          { title: t('pages.adminLeadPool.columns.company', { defaultValue: 'Company' }), dataIndex: 'company_name' },
+          {
+            title: t('pages.adminLeadPool.columns.company', { defaultValue: 'Company' }),
+            dataIndex: 'company_name',
+            render: (value: string, row: Lead) => (
+              <Space size={6} wrap>
+                <span>{value}</span>
+                {renderMerchantHealthTag(row)}
+              </Space>
+            ),
+          },
           {
             title: t('pages.adminLeadPool.columns.assignedBd', { defaultValue: 'Assigned BD' }),
             dataIndex: 'assigned_bd_id',
