@@ -580,7 +580,7 @@ export function AdminLeadPoolPage() {
               {t('common.cancel', { defaultValue: 'Cancel' })}
             </Button>
           </Space>
-          <div className="text-sm text-slate-500">
+          <div className="text-sm app-text-soft">
             {t('pages.adminLeadPool.filteredTotal', { defaultValue: 'Filtered total: {{count}}', count: rows.length })}
           </div>
         </Space>
@@ -714,7 +714,7 @@ export function AdminLeadPoolPage() {
         okText={t('pages.adminLeadPool.assign', { defaultValue: 'Assign' })}
       >
         <Space direction="vertical" className="w-full">
-          <p className="mb-0 text-sm text-slate-600">{t('pages.adminLeadPool.assignLeadLabel', { defaultValue: 'Lead' })}: {selectedLead?.lead_code}</p>
+          <p className="mb-0 text-sm app-text-soft">{t('pages.adminLeadPool.assignLeadLabel', { defaultValue: 'Lead' })}: {selectedLead?.lead_code}</p>
           <Select
             showSearch
             optionFilterProp="label"

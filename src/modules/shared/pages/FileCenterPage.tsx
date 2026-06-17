@@ -151,7 +151,7 @@ export function FileCenterPage() {
         }
       />
 
-      <div className="mb-5 rounded-xl border border-dashed border-slate-300 bg-white p-4">
+      <div className="mb-5 rounded-xl border border-dashed app-border app-surface p-4">
         <Upload.Dragger
           multiple
           fileList={stagedFiles}
