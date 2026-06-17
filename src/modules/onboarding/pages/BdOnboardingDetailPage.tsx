@@ -520,7 +520,7 @@ export function BdOnboardingDetailPage() {
         confirmLoading={reviewSaving}
       >
         <Space direction="vertical" className="w-full">
-          <p className="mb-0 text-sm text-slate-600">
+          <p className="mb-0 text-sm app-text-soft">
             {t('page.onboarding.documentLabel', { defaultValue: 'Document:' })} {reviewTarget?.doc_type ?? '-'}
           </p>
           <Select

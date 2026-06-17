@@ -197,12 +197,12 @@ export function BdProjectDetailPage() {
             children: (
               <div>
                 <p className="mb-1 font-medium">{item.summary}</p>
-                <p className="mb-0 text-xs text-slate-500">{new Date(item.created_at).toLocaleString()}</p>
+                <p className="mb-0 text-xs app-text-soft">{new Date(item.created_at).toLocaleString()}</p>
               </div>
             ),
           }))}
         />
-        {updates.length === 0 ? <p className="mb-0 text-sm text-slate-500">{t('pages.bdProjectDetail.noUpdates', { defaultValue: 'No updates shared yet' })}</p> : null}
+        {updates.length === 0 ? <p className="mb-0 text-sm app-text-soft">{t('pages.bdProjectDetail.noUpdates', { defaultValue: 'No updates shared yet' })}</p> : null}
       </Card>
     </>
   )

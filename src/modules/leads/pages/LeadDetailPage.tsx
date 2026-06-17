@@ -360,7 +360,7 @@ export function LeadDetailPage() {
               </div>
             </>
           ) : (
-            <p className="mb-0 text-slate-700 whitespace-pre-wrap">{teamAttentionNote || '-'}</p>
+            <p className="mb-0 app-text whitespace-pre-wrap">{teamAttentionNote || '-'}</p>
           )}
         </Card>
       ) : null}
@@ -385,8 +385,8 @@ export function LeadDetailPage() {
                 children: (
                   <div>
                     <p className="mb-1 font-medium">{renderFollowupType(item.followup_type, item.summary)}</p>
-                    <p className="mb-1 text-slate-600">{item.summary}</p>
-                    <p className="mb-0 text-xs text-slate-500">{new Date(item.followup_at).toLocaleString()}</p>
+                    <p className="mb-1 app-text-soft">{item.summary}</p>
+                    <p className="mb-0 text-xs app-text-soft">{new Date(item.followup_at).toLocaleString()}</p>
                   </div>
                 ),
               }))}

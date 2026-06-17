@@ -137,7 +137,7 @@ export function LeadStatusChangePage() {
 
       <Card className="mb-5" loading={loading}>
         {lead ? (
-          <div className="mb-3 text-sm text-slate-600">
+          <div className="mb-3 text-sm app-text-soft">
             {t('page.leads.currentStatus', { defaultValue: 'Current status:' })} <StatusTag value={lead.status} />
           </div>
         ) : null}

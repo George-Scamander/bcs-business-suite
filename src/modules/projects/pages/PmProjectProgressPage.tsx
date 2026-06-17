@@ -149,7 +149,7 @@ export function PmProjectProgressPage() {
           <div>
             <div className="mb-3 flex items-center gap-4">
               <StatusTag value={project.status} />
-              <span className="text-sm text-slate-600">
+              <span className="text-sm app-text-soft">
                 {t('page.projectOverview.completion', { defaultValue: 'Completion' })}: {Number(project.completion_rate).toFixed(1)}%
               </span>
             </div>

@@ -130,7 +130,7 @@ export function ProfileSettingsPage() {
           </Space>
         </Form>
 
-        <Typography.Paragraph className="mt-4 mb-0 text-slate-500 text-sm">
+        <Typography.Paragraph className="mt-4 mb-0 app-text-soft text-sm">
           {t('pages.profileSettings.tip', {
             defaultValue:
               'Tip: For operation timeline consistency, we store all timestamps in UTC and display in your selected timezone.',

@@ -10,7 +10,7 @@ export function AppEntryPage() {
   // Prevent premature routing before role data is ready.
   if (isLoading || roles.length === 0) {
     return (
-      <div className="grid min-h-[240px] place-items-center text-slate-500">
+      <div className="grid min-h-[240px] place-items-center app-text-soft">
         <p>{t('common.loadingPermissions', { defaultValue: 'Loading permissions...' })}</p>
       </div>
     )

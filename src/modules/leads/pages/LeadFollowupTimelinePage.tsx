@@ -217,7 +217,7 @@ export function LeadFollowupTimelinePage() {
 
       <Card className="mb-5">
         {lead ? (
-          <div className="mb-3 text-sm text-slate-600">
+          <div className="mb-3 text-sm app-text-soft">
             {t('page.leads.currentStatus', { defaultValue: 'Current status:' })} <StatusTag value={lead.status} />
           </div>
         ) : null}
@@ -287,7 +287,7 @@ export function LeadFollowupTimelinePage() {
             </Form.Item>
           </div>
 
-          <div className="mb-2 mt-2 rounded-lg border border-slate-200 p-3">
+          <div className="mb-2 mt-2 rounded-lg border app-border p-3">
             <Form.Item
               name="status_change_action"
               label={t('page.leads.statusChangePrompt', { defaultValue: 'Does this follow-up include a status change?' })}

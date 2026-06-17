@@ -361,7 +361,7 @@ export function PmLeadPoolPage() {
         okText={t('pages.bdLeads.actionAssign', { defaultValue: 'Assign' })}
       >
         <Space direction="vertical" className="w-full">
-          <p className="mb-0 text-sm text-slate-600">
+          <p className="mb-0 text-sm app-text-soft">
             {t('pages.pmLeadPool.assignLeadLabel', { defaultValue: 'Lead' })}: {selectedLead?.lead_code}
           </p>
           <Select
