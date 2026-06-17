@@ -247,7 +247,7 @@ export function AppLayout() {
             </div>
             {desktopSiderCollapsed ? null : (
               <Space size={8} align="center">
-                <Tag color="red" className="m-0">
+                <Tag color="error" className="m-0">
                   {t(`role.${primaryRole}`, { defaultValue: ROLE_LABELS[primaryRole] })}
                 </Tag>
                 <Typography.Text type="secondary" className="text-xs">
@@ -270,7 +270,7 @@ export function AppLayout() {
           width="72vw"
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          bodyStyle={{ padding: 0 }}
+          styles={{ body: { padding: 0 } }}
         >
           <div className="px-4 pb-3">
             <Typography.Text className="block text-sm font-medium app-text">
@@ -278,7 +278,7 @@ export function AppLayout() {
             </Typography.Text>
             <Typography.Text className="block text-xs app-text-soft">{profile?.email}</Typography.Text>
             <div className="mt-2">
-              <Tag color="red" className="m-0">
+              <Tag color="error" className="m-0">
                 {t(`role.${primaryRole}`, { defaultValue: ROLE_LABELS[primaryRole] })}
               </Tag>
             </div>
@@ -343,11 +343,11 @@ export function AppLayout() {
                   <Select
                     size="small"
                     value={locale}
-                    style={{ width: 128 }}
+                    className="w-[128px]"
                     options={SUPPORTED_LOCALES.map((item) => ({ value: item.code, label: item.label }))}
                     onChange={(value: LocaleCode) => void handleLocaleChange(value)}
                   />
-                  <Tag color="red" className="m-0 shrink-0">
+                  <Tag color="error" className="m-0 shrink-0">
                     {t(`role.${primaryRole}`, { defaultValue: ROLE_LABELS[primaryRole] })}
                   </Tag>
                   <Typography.Text className="truncate text-xs app-text-soft">
@@ -380,7 +380,7 @@ export function AppLayout() {
                 <Select
                   size="small"
                   value={locale}
-                  style={{ width: 150 }}
+                  className="w-[150px]"
                   options={SUPPORTED_LOCALES.map((item) => ({ value: item.code, label: item.label }))}
                   onChange={(value: LocaleCode) => void handleLocaleChange(value)}
                 />
