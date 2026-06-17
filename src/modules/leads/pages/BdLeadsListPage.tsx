@@ -638,7 +638,7 @@ export function BdLeadsListPage() {
       />
 
       {canImport ? (
-        <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="mb-5 rounded-xl border app-border app-surface p-4">
           <Space direction="vertical" size={8} className="w-full">
             <Upload
               maxCount={1}
@@ -652,7 +652,7 @@ export function BdLeadsListPage() {
             >
               <Button icon={<UploadOutlined />}>{t('pages.bdLeads.selectCsv', { defaultValue: 'Select CSV' })}</Button>
             </Upload>
-            <p className="mb-0 text-xs text-slate-500">
+            <p className="mb-0 text-xs app-text-soft">
               {t('pages.bdLeads.csvHeaderHint', {
                 defaultValue:
                   'CSV header example: company_name,contact_person,contact_phone,contact_email,industry,region,city,source,intent_level,estimated_value',
@@ -673,7 +673,7 @@ export function BdLeadsListPage() {
           {filterPanel}
         </Drawer>
       ) : (
-        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="mb-4 rounded-xl border app-border app-surface p-4">
           {filterPanel}
         </div>
       )}
@@ -706,7 +706,7 @@ export function BdLeadsListPage() {
                 t('pages.bdLeads.bdOwnerUnknown', { defaultValue: 'Unassigned' })
               return (
                 <div>
-                  <div className="font-medium text-slate-900">{value}</div>
+                  <div className="font-medium app-text">{value}</div>
                   <Space size={6} wrap className="mt-1">
                     {bdMatchedLeadIdSet.has(row.id) ? (
                       <Tag color="blue">{t('pages.bdLeads.leadCodeBdMatchedTag', { defaultValue: 'BD Match' })}</Tag>
@@ -715,7 +715,7 @@ export function BdLeadsListPage() {
                       <Tag color="gold">{t('pages.bdLeads.leadCodeTodayFollowupTag', { defaultValue: 'Follow-up Today' })}</Tag>
                     ) : null}
                   </Space>
-                  <div className="mt-0.5 text-xs text-slate-500">
+                  <div className="mt-0.5 text-xs app-text-soft">
                     {t('pages.bdLeads.bdOwnerLabel', { defaultValue: 'BD Owner' })}: {bdOwnerName}
                   </div>
                 </div>
@@ -825,7 +825,7 @@ export function BdLeadsListPage() {
         okText={t('pages.bdLeads.actionAssign', { defaultValue: 'Assign' })}
       >
         <Space direction="vertical" className="w-full">
-          <p className="mb-0 text-sm text-slate-600">
+          <p className="mb-0 text-sm app-text-soft">
             {t('pages.bdLeads.assignLeadLabel', { defaultValue: 'Lead' })}: {selectedLead?.lead_code}
           </p>
           <Select
