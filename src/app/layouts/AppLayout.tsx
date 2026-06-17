@@ -223,7 +223,7 @@ export function AppLayout() {
           width={248}
           collapsedWidth={80}
           collapsed={desktopSiderCollapsed}
-          className="app-surface border-r app-border"
+          className="app-sidebar border-r app-border"
           trigger={null}
         >
           <div className={`border-b app-border ${desktopSiderCollapsed ? 'px-3 py-5' : 'px-5 py-5'}`}>
