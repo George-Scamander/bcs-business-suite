@@ -310,6 +310,24 @@ pre {
   padding: 10px 12px;
 }
 
+/* ─── Apple desktop refinements ──────────────────────────────────────────── */
+
+/* Step 2: Table header — near-invisible tint instead of Ant Design gray */
+.ant-table-thead > tr > th,
+.ant-table-thead > tr > td {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+:root[data-theme='dark'] .ant-table-thead > tr > th,
+:root[data-theme='dark'] .ant-table-thead > tr > td {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Step 3: Sidebar active item — softer Apple-style highlight (desktop only) */
+.ant-layout-sider .ant-menu-item-selected {
+  background-color: rgba(193, 14, 14, 0.07) !important;
+}
+
 @media (min-width: 768px) {
   .onboard-merchant-table-wrap .ant-table-container {
     overflow-x: auto !important;
@@ -317,6 +335,29 @@ pre {
 
   .kpi-table-scroll-wrap .ant-table-container {
     overflow-x: auto !important;
+  }
+
+  /* Step 1: Header — frosted glass, matches Apple macOS title bar */
+  .ant-layout-header {
+    background: rgba(249, 249, 251, 0.88) !important;
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+  }
+
+  :root[data-theme='dark'] .ant-layout-header {
+    background: rgba(11, 18, 32, 0.92) !important;
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+  }
+
+  /* Step 4: Cards — hairline border + Apple-style shadow, borderless in light mode */
+  .ant-card {
+    border-color: rgba(0, 0, 0, 0.06) !important;
+    box-shadow: var(--app-card-shadow) !important;
+  }
+
+  :root[data-theme='dark'] .ant-card {
+    border-color: var(--app-border) !important;
   }
 }
 
