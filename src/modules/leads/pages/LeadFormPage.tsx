@@ -519,7 +519,7 @@ export function LeadFormPage() {
           ) : null}
 
           {canUploadAttachments ? (
-            <div className="mb-4 rounded-lg border border-slate-200 p-4">
+            <div className="mb-4 rounded-lg border app-border p-4">
               <p className="mb-2 font-medium">{t('pages.leadForm.attachments', { defaultValue: 'Attachments' })}</p>
               <Upload
                 multiple
@@ -532,7 +532,7 @@ export function LeadFormPage() {
               >
                 <Button>{t('pages.leadForm.selectFiles', { defaultValue: 'Select Files' })}</Button>
               </Upload>
-              <p className="mb-0 mt-2 text-xs text-slate-500">
+              <p className="mb-0 mt-2 text-xs app-text-soft">
                 {t('pages.leadForm.attachmentsHint', {
                   defaultValue: 'Files will be uploaded after lead save and linked to this lead record.',
                 })}
