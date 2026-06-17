@@ -350,10 +350,10 @@ pre {
     -webkit-backdrop-filter: blur(20px) saturate(150%);
   }
 
-  /* Step 4: Cards — hairline border + Apple-style shadow, borderless in light mode */
+  /* Step 4: Cards — hairline border only; shadow handled by Ant Design boxShadow token
+     so hover state (boxShadowSecondary) is preserved naturally */
   .ant-card {
     border-color: rgba(0, 0, 0, 0.06) !important;
-    box-shadow: var(--app-card-shadow) !important;
   }
 
   :root[data-theme='dark'] .ant-card {
