@@ -398,7 +398,7 @@ export function AdaptiveTable<RecordType extends object>(props: AdaptiveTablePro
                         {cardTitle}
                       </Typography.Title>
                     ) : (
-                      <Typography.Text className="text-sm font-semibold text-slate-900">Record #{index + 1}</Typography.Text>
+                      <Typography.Text className="text-sm font-semibold app-text">Record #{index + 1}</Typography.Text>
                     )}
                   </div>
 
@@ -423,11 +423,11 @@ export function AdaptiveTable<RecordType extends object>(props: AdaptiveTablePro
 
                 <Space direction="vertical" size={10} className="w-full">
                   {collapsedFields.map((entry) => (
-                    <div key={entry.key} className="rounded-lg bg-slate-50 px-3 py-2">
-                      <Typography.Text className="mb-1 block text-[11px] uppercase tracking-wide text-slate-500">
+                    <div key={entry.key} className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--app-surface-muted)' }}>
+                      <Typography.Text className="mb-1 block text-[11px] uppercase tracking-wide app-text-soft">
                         {entry.label}
                       </Typography.Text>
-                      <div className="text-sm text-slate-800">{entry.value}</div>
+                      <div className="text-sm app-text">{entry.value}</div>
                     </div>
                   ))}
                 </Space>
