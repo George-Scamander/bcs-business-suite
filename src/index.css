@@ -476,31 +476,31 @@ pre {
 
   :root {
     --mobile-glass-bg:
-      radial-gradient(120% 95% at 0% -8%, rgba(148, 163, 184, 0.2), transparent 56%),
-      radial-gradient(100% 90% at 100% -12%, rgba(59, 130, 246, 0.16), transparent 55%),
-      linear-gradient(180deg, #dce6f5 0%, #d5e1f2 46%, #e4edf9 100%);
-    --mobile-glass-surface: rgba(255, 255, 255, 0.34);
-    --mobile-glass-surface-strong: rgba(255, 255, 255, 0.46);
-    --mobile-glass-border: rgba(255, 255, 255, 0.66);
+      radial-gradient(ellipse 90% 55% at 8% -5%, rgba(193, 14, 14, 0.07), transparent 52%),
+      radial-gradient(ellipse 65% 80% at 95% 105%, rgba(120, 130, 155, 0.12), transparent 55%),
+      linear-gradient(175deg, #f2f2f7 0%, #ebebf0 50%, #f0f0f5 100%);
+    --mobile-glass-surface: rgba(255, 255, 255, 0.58);
+    --mobile-glass-surface-strong: rgba(255, 255, 255, 0.75);
+    --mobile-glass-border: rgba(255, 255, 255, 0.92);
     --mobile-glass-shadow:
-      0 16px 40px rgba(15, 23, 42, 0.22),
-      inset 0 1px 0 rgba(255, 255, 255, 0.82),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.28);
+      0 8px 32px rgba(15, 23, 42, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.22);
     /* bottom nav base height: 1px border + 8px pad-top + 54px item + 8px base pad-bottom */
     --mobile-nav-height: 71px;
   }
 
   :root[data-theme='dark'] {
     --mobile-glass-bg:
-      radial-gradient(140% 120% at 0% -10%, rgba(37, 99, 235, 0.22), transparent 56%),
-      radial-gradient(120% 120% at 100% -20%, rgba(15, 23, 42, 0.22), transparent 55%),
-      linear-gradient(180deg, #05070d 0%, #080b12 42%, #0b1220 100%);
-    --mobile-glass-surface: rgba(15, 23, 42, 0.52);
-    --mobile-glass-surface-strong: rgba(15, 23, 42, 0.68);
-    --mobile-glass-border: rgba(148, 163, 184, 0.26);
+      radial-gradient(ellipse 90% 55% at 8% -5%, rgba(193, 14, 14, 0.14), transparent 52%),
+      radial-gradient(ellipse 65% 80% at 95% 105%, rgba(10, 10, 20, 0.5), transparent 55%),
+      linear-gradient(175deg, #08080d 0%, #0a0a10 50%, #09090e 100%);
+    --mobile-glass-surface: rgba(22, 22, 38, 0.65);
+    --mobile-glass-surface-strong: rgba(32, 32, 52, 0.80);
+    --mobile-glass-border: rgba(255, 255, 255, 0.10);
     --mobile-glass-shadow:
-      0 10px 36px rgba(0, 0, 0, 0.45),
-      inset 0 1px 0 rgba(148, 163, 184, 0.22);
+      0 8px 32px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
   }
 
   body {
@@ -526,18 +526,19 @@ pre {
   }
 
   .ant-layout-header {
-    background: var(--mobile-glass-surface) !important;
-    border-color: rgba(255, 255, 255, 0.5) !important;
-    backdrop-filter: blur(30px) saturate(180%);
-    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    background: rgba(255, 255, 255, 0.14) !important;
+    border-color: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(52px) saturate(220%) brightness(112%);
+    -webkit-backdrop-filter: blur(52px) saturate(220%) brightness(112%);
     box-shadow:
-      0 10px 28px rgba(15, 23, 42, 0.12),
-      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      0 8px 30px rgba(15, 23, 42, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
   }
 
   :root[data-theme='dark'] .ant-layout-header {
-    border-color: rgba(148, 163, 184, 0.2) !important;
-    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45);
+    background: rgba(15, 15, 25, 0.68) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
   }
 
   .ant-layout-content {
@@ -549,19 +550,19 @@ pre {
   }
 
   .mobile-bottom-nav {
-    border-top-color: var(--mobile-glass-border);
-    background: var(--mobile-glass-surface);
-    backdrop-filter: blur(32px) saturate(185%);
-    -webkit-backdrop-filter: blur(32px) saturate(185%);
+    border-top-color: rgba(255, 255, 255, 0.88);
+    background: rgba(255, 255, 255, 0.11);
+    backdrop-filter: blur(52px) saturate(220%) brightness(112%);
+    -webkit-backdrop-filter: blur(52px) saturate(220%) brightness(112%);
     box-shadow:
-      0 -10px 26px rgba(15, 23, 42, 0.14),
-      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+      0 -12px 32px rgba(15, 23, 42, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92);
   }
 
   :root[data-theme='dark'] .mobile-bottom-nav {
-    border-top-color: var(--mobile-glass-border);
-    background: var(--mobile-glass-surface);
-    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.48);
+    border-top-color: rgba(255, 255, 255, 0.08);
+    background: rgba(15, 15, 25, 0.45);
+    box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.55);
   }
 
   .mobile-bottom-nav-item {
@@ -570,19 +571,32 @@ pre {
   }
 
   .mobile-bottom-nav-item.active {
-    border-color: rgba(255, 255, 255, 0.62);
-    background: rgba(255, 255, 255, 0.46);
+    border-color: rgba(255, 255, 255, 0.88);
+    background: linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.62) 0%,
+      rgba(255, 255, 255, 0.36) 100%
+    );
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.85),
-      0 4px 14px rgba(15, 23, 42, 0.09);
+      inset 0 1px 0 rgba(255, 255, 255, 0.96),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.28),
+      0 4px 16px rgba(15, 23, 42, 0.12);
   }
 
   :root[data-theme='dark'] .mobile-bottom-nav-item.active {
-    border-color: rgba(148, 163, 184, 0.34);
-    background: rgba(30, 41, 59, 0.72);
+    border-color: rgba(255, 255, 255, 0.12);
+    background: linear-gradient(
+      165deg,
+      rgba(50, 50, 80, 0.75) 0%,
+      rgba(30, 30, 55, 0.55) 100%
+    );
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
     box-shadow:
-      inset 0 1px 0 rgba(148, 163, 184, 0.28),
-      0 5px 15px rgba(0, 0, 0, 0.35);
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      0 5px 15px rgba(0, 0, 0, 0.40);
   }
 
   .ant-card,
@@ -591,64 +605,64 @@ pre {
   .ant-table-wrapper .ant-table-container {
     background: var(--mobile-glass-surface) !important;
     border-color: var(--mobile-glass-border) !important;
-    backdrop-filter: blur(24px) saturate(172%);
-    -webkit-backdrop-filter: blur(24px) saturate(172%);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
     box-shadow: var(--mobile-glass-shadow);
   }
 
   .ant-table-thead > tr > th {
-    background: rgba(255, 255, 255, 0.5) !important;
+    background: rgba(255, 255, 255, 0.72) !important;
   }
 
   .ant-table-tbody > tr > td {
-    background: rgba(255, 255, 255, 0.28) !important;
+    background: rgba(255, 255, 255, 0.42) !important;
   }
 
   :root[data-theme='dark'] .ant-table-thead > tr > th {
-    background: rgba(30, 41, 59, 0.72) !important;
-    border-color: rgba(148, 163, 184, 0.2) !important;
+    background: rgba(35, 35, 55, 0.80) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
   }
 
   :root[data-theme='dark'] .ant-table-tbody > tr > td {
-    background: rgba(15, 23, 42, 0.4) !important;
-    border-color: rgba(148, 163, 184, 0.16) !important;
+    background: rgba(20, 20, 35, 0.55) !important;
+    border-color: rgba(255, 255, 255, 0.06) !important;
   }
 
   .ant-btn {
-    border-color: rgba(255, 255, 255, 0.58) !important;
-    color: #0f172a !important;
-    background: rgba(230, 238, 250, 0.88) !important;
-    backdrop-filter: blur(18px) saturate(168%);
-    -webkit-backdrop-filter: blur(18px) saturate(168%);
+    border-color: rgba(255, 255, 255, 0.82) !important;
+    color: #1d1d1f !important;
+    background: rgba(255, 255, 255, 0.55) !important;
+    backdrop-filter: blur(20px) saturate(190%);
+    -webkit-backdrop-filter: blur(20px) saturate(190%);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.75),
-      0 6px 16px rgba(15, 23, 42, 0.16);
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      0 4px 14px rgba(15, 23, 42, 0.10);
   }
 
   .ant-btn-primary {
     color: #0b1220 !important;
-    border-color: rgba(147, 197, 253, 0.5) !important;
+    border-color: rgba(147, 197, 253, 0.6) !important;
     background:
-      linear-gradient(180deg, rgba(219, 234, 254, 0.95), rgba(147, 197, 253, 0.9)) !important;
+      linear-gradient(180deg, rgba(219, 234, 254, 0.95), rgba(147, 197, 253, 0.85)) !important;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.7),
-      0 8px 18px rgba(59, 130, 246, 0.22) !important;
+      inset 0 1px 0 rgba(255, 255, 255, 0.82),
+      0 6px 18px rgba(59, 130, 246, 0.18) !important;
   }
 
   :root[data-theme='dark'] .ant-btn {
-    border-color: rgba(148, 163, 184, 0.32) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
     color: #e2e8f0 !important;
-    background: rgba(30, 41, 59, 0.68) !important;
+    background: rgba(35, 35, 55, 0.72) !important;
     box-shadow:
-      inset 0 1px 0 rgba(148, 163, 184, 0.2),
-      0 4px 14px rgba(0, 0, 0, 0.38);
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 4px 14px rgba(0, 0, 0, 0.45);
   }
 
   :root[data-theme='dark'] .ant-btn-primary {
     color: #e2e8f0 !important;
-    border-color: rgba(148, 163, 184, 0.4) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
     background:
-      linear-gradient(180deg, rgba(51, 65, 85, 0.84), rgba(30, 41, 59, 0.84)) !important;
+      linear-gradient(180deg, rgba(55, 55, 85, 0.84), rgba(30, 30, 55, 0.84)) !important;
   }
 
   .ant-input,
@@ -657,33 +671,33 @@ pre {
   .ant-picker,
   .ant-select-selector,
   textarea.ant-input {
-    background: rgba(245, 249, 255, 0.7) !important;
-    border-color: rgba(255, 255, 255, 0.62) !important;
+    background: rgba(252, 254, 255, 0.78) !important;
+    border-color: rgba(255, 255, 255, 0.88) !important;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.82),
-      0 4px 12px rgba(15, 23, 42, 0.08);
-    backdrop-filter: blur(14px) saturate(165%);
-    -webkit-backdrop-filter: blur(14px) saturate(165%);
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      0 2px 8px rgba(15, 23, 42, 0.06);
+    backdrop-filter: blur(20px) saturate(185%);
+    -webkit-backdrop-filter: blur(20px) saturate(185%);
   }
 
   .ant-drawer-content,
   .ant-modal .ant-modal-content,
   .ant-popover .ant-popover-inner,
   .ant-dropdown .ant-dropdown-menu {
-    background: rgba(246, 251, 255, 0.72) !important;
-    border: 1px solid rgba(255, 255, 255, 0.76) !important;
+    background: rgba(250, 252, 255, 0.65) !important;
+    border: 1px solid rgba(255, 255, 255, 0.90) !important;
     box-shadow:
-      0 14px 36px rgba(15, 23, 42, 0.16),
-      inset 0 1px 0 rgba(255, 255, 255, 0.82);
-    backdrop-filter: blur(32px) saturate(185%);
-    -webkit-backdrop-filter: blur(32px) saturate(185%);
+      0 20px 48px rgba(15, 23, 42, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(52px) saturate(220%);
+    -webkit-backdrop-filter: blur(52px) saturate(220%);
   }
 
   .ant-drawer .ant-drawer-header,
   .ant-drawer .ant-drawer-body,
   .ant-drawer .ant-drawer-footer {
     background: transparent !important;
-    border-color: rgba(255, 255, 255, 0.4) !important;
+    border-color: rgba(255, 255, 255, 0.55) !important;
   }
 
   .ant-drawer .ant-menu {
@@ -697,11 +711,11 @@ pre {
   }
 
   .ant-drawer .ant-menu-item-selected {
-    background: rgba(255, 255, 255, 0.38) !important;
-    border-color: rgba(255, 255, 255, 0.58) !important;
+    background: rgba(255, 255, 255, 0.52) !important;
+    border-color: rgba(255, 255, 255, 0.88) !important;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.7),
-      0 4px 12px rgba(15, 23, 42, 0.1);
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      0 4px 12px rgba(15, 23, 42, 0.10);
   }
 
   :root[data-theme='dark'] .ant-input,
@@ -722,24 +736,24 @@ pre {
   :root[data-theme='dark'] .ant-modal .ant-modal-content,
   :root[data-theme='dark'] .ant-popover .ant-popover-inner,
   :root[data-theme='dark'] .ant-dropdown .ant-dropdown-menu {
-    background: rgba(8, 15, 28, 0.8) !important;
-    border: 1px solid rgba(148, 163, 184, 0.28) !important;
+    background: rgba(12, 12, 22, 0.82) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
     box-shadow:
-      0 14px 36px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(148, 163, 184, 0.22);
+      0 20px 48px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.10);
   }
 
   :root[data-theme='dark'] .ant-drawer .ant-drawer-header,
   :root[data-theme='dark'] .ant-drawer .ant-drawer-body,
   :root[data-theme='dark'] .ant-drawer .ant-drawer-footer {
-    border-color: rgba(148, 163, 184, 0.24) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
   }
 
   :root[data-theme='dark'] .ant-drawer .ant-menu-item-selected {
-    background: rgba(30, 41, 59, 0.66) !important;
-    border-color: rgba(148, 163, 184, 0.34) !important;
+    background: rgba(45, 45, 70, 0.72) !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
     box-shadow:
-      inset 0 1px 0 rgba(148, 163, 184, 0.24),
-      0 4px 12px rgba(0, 0, 0, 0.36);
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 4px 12px rgba(0, 0, 0, 0.40);
   }
 }
