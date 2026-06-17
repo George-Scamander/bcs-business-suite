@@ -469,7 +469,7 @@ export function AdminOnboardingReviewCenterPage() {
         extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
-      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="mb-4 rounded-xl border app-border app-surface p-4">
         <Space wrap>
           <Select
             allowClear
@@ -638,18 +638,18 @@ export function AdminOnboardingReviewCenterPage() {
           setSelectedCase(null)
         }}
       >
-        <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <Typography.Text className="block text-sm text-slate-600">
+        <div className="mb-4 rounded-lg border app-border p-3" style={{ backgroundColor: 'var(--app-surface-muted)' }}>
+          <Typography.Text className="block text-sm app-text-soft">
             {t('pages.adminOnboardingReview.currentStatus', { defaultValue: 'Current Status' })}:{' '}
             <strong>{selectedCase?.status ?? '-'}</strong>
           </Typography.Text>
-          <Typography.Text className="mt-1 block text-sm text-slate-600">
+          <Typography.Text className="mt-1 block text-sm app-text-soft">
             {t('pages.adminOnboardingReview.pendingDocsCount', { defaultValue: 'Pending Documents' })}: {selectedPendingDocsCount}
           </Typography.Text>
         </div>
 
         <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
-          <Typography.Text className="block text-sm text-slate-600">
+          <Typography.Text className="block text-sm app-text-soft">
             {selectedDocs.length === 0
               ? t('pages.adminOnboardingReview.noDocumentsCaseReviewHint', {
                   defaultValue: 'No documents are attached. You can still complete or reject this case review directly.',

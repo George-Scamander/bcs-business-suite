@@ -259,8 +259,8 @@ export function BdKpiDashboardPage() {
         width: 240,
         render: (_value: string, row: BdKpiRow) => (
           <div>
-            <div className="font-medium text-slate-900">{formatDisplayName(row.bdName, row.bdEmail, row.bdUserId)}</div>
-            <div className="text-xs text-slate-500">{formatEmailAccount(row.bdEmail)}</div>
+            <div className="font-medium app-text">{formatDisplayName(row.bdName, row.bdEmail, row.bdUserId)}</div>
+            <div className="text-xs app-text-soft">{formatEmailAccount(row.bdEmail)}</div>
           </div>
         ),
       },
@@ -283,7 +283,7 @@ export function BdKpiDashboardPage() {
         render: (value: number) => (
           <Space direction="vertical" size={2} className="w-full">
             <Progress percent={toProgressPercent(value)} size="small" showInfo={false} />
-            <span className="text-xs text-slate-500">{formatPercent(value)}</span>
+            <span className="text-xs app-text-soft">{formatPercent(value)}</span>
           </Space>
         ),
       },
@@ -306,7 +306,7 @@ export function BdKpiDashboardPage() {
         render: (value: number) => (
           <Space direction="vertical" size={2} className="w-full">
             <Progress percent={toProgressPercent(value)} size="small" showInfo={false} />
-            <span className="text-xs text-slate-500">{formatPercent(value)}</span>
+            <span className="text-xs app-text-soft">{formatPercent(value)}</span>
           </Space>
         ),
       },
@@ -329,7 +329,7 @@ export function BdKpiDashboardPage() {
         render: (value: number, row: BdKpiRow & { isBcsTargetExempt: boolean }) => (
           <Space direction="vertical" size={2} className="w-full">
             <Progress percent={toProgressPercent(value)} size="small" showInfo={false} />
-            <span className="text-xs text-slate-500">
+            <span className="text-xs app-text-soft">
               {row.isBcsTargetExempt
                 ? t('pages.bdKpi.bcsExempted', { defaultValue: 'Exempted this month (sales > IDR 5,000,000)' })
                 : formatPercent(value)}
@@ -344,7 +344,7 @@ export function BdKpiDashboardPage() {
         render: (value: number) => (
           <Space direction="vertical" size={2} className="w-full">
             <Progress percent={toProgressPercent(value)} size="small" strokeColor="#16a34a" showInfo={false} />
-            <span className="text-xs text-slate-500">{formatPercent(value)}</span>
+            <span className="text-xs app-text-soft">{formatPercent(value)}</span>
           </Space>
         ),
       },
@@ -415,7 +415,7 @@ export function BdKpiDashboardPage() {
       >
         <Space direction="vertical" size={16} className="w-full">
           <div>
-            <div className="mb-1 text-sm text-slate-500">{t('pages.bdKpi.periodLabel', { defaultValue: 'KPI Record Period:' })}</div>
+            <div className="mb-1 text-sm app-text-soft">{t('pages.bdKpi.periodLabel', { defaultValue: 'KPI Record Period:' })}</div>
             <RangePicker className="w-full" value={dateRangeInput} onChange={(values) => setDateRangeInput(values)} />
           </div>
           <Input
@@ -425,7 +425,7 @@ export function BdKpiDashboardPage() {
             placeholder={t('pages.bdKpi.keyword', { defaultValue: 'Search BD name or email' })}
           />
           <div>
-            <div className="mb-1 text-sm text-slate-500">{t('pages.bdKpi.teamTireTarget', { defaultValue: 'Team Tire Target' })}</div>
+            <div className="mb-1 text-sm app-text-soft">{t('pages.bdKpi.teamTireTarget', { defaultValue: 'Team Tire Target' })}</div>
             <InputNumber
               min={0}
               precision={0}
@@ -435,7 +435,7 @@ export function BdKpiDashboardPage() {
             />
           </div>
           <div>
-            <div className="mb-1 text-sm text-slate-500">{t('pages.bdKpi.teamAccessoryTarget', { defaultValue: 'Team Accessory Target' })}</div>
+            <div className="mb-1 text-sm app-text-soft">{t('pages.bdKpi.teamAccessoryTarget', { defaultValue: 'Team Accessory Target' })}</div>
             <InputNumber
               min={0}
               precision={2}
@@ -445,7 +445,7 @@ export function BdKpiDashboardPage() {
             />
           </div>
           <div>
-            <div className="mb-1 text-sm text-slate-500">{t('pages.bdKpi.teamBcsTarget', { defaultValue: 'Team BCS Target' })}</div>
+            <div className="mb-1 text-sm app-text-soft">{t('pages.bdKpi.teamBcsTarget', { defaultValue: 'Team BCS Target' })}</div>
             <InputNumber
               min={0}
               precision={0}
@@ -455,7 +455,7 @@ export function BdKpiDashboardPage() {
             />
           </div>
           <div>
-            <div className="mb-1 text-sm text-slate-500">
+            <div className="mb-1 text-sm app-text-soft">
               {t('pages.bdKpi.defaultPersonalTireTarget', { defaultValue: 'Default Tire / Person' })}
             </div>
             <InputNumber
@@ -467,7 +467,7 @@ export function BdKpiDashboardPage() {
             />
           </div>
           <div>
-            <div className="mb-1 text-sm text-slate-500">
+            <div className="mb-1 text-sm app-text-soft">
               {t('pages.bdKpi.defaultPersonalAccessoryTarget', { defaultValue: 'Default Accessory / Person' })}
             </div>
             <InputNumber
@@ -479,7 +479,7 @@ export function BdKpiDashboardPage() {
             />
           </div>
           <div>
-            <div className="mb-1 text-sm text-slate-500">
+            <div className="mb-1 text-sm app-text-soft">
               {t('pages.bdKpi.defaultPersonalBcsTarget', { defaultValue: 'Default BCS / Person' })}
             </div>
             <InputNumber
@@ -548,53 +548,53 @@ export function BdKpiDashboardPage() {
       >
         <div className="grid gap-2 text-xs md:grid-cols-3 xl:grid-cols-6">
           <div>
-            <div className="text-slate-500">{t('pages.bdKpi.team.tireTarget', { defaultValue: 'Team Tire Target' })}</div>
+            <div className="app-text-soft">{t('pages.bdKpi.team.tireTarget', { defaultValue: 'Team Tire Target' })}</div>
             <div className="font-semibold">{formatNumber(safeNumber(teamTireTarget))}</div>
           </div>
           <div>
-            <div className="text-slate-500">{t('pages.bdKpi.team.tireCompletion', { defaultValue: 'Team Tire Completion' })}</div>
+            <div className="app-text-soft">{t('pages.bdKpi.team.tireCompletion', { defaultValue: 'Team Tire Completion' })}</div>
             <div className="font-semibold">{formatPercent(teamTireCompletionRate)}</div>
           </div>
           <div>
-            <div className="text-slate-500">{t('pages.bdKpi.team.accessoryTarget', { defaultValue: 'Team Accessory Target' })}</div>
+            <div className="app-text-soft">{t('pages.bdKpi.team.accessoryTarget', { defaultValue: 'Team Accessory Target' })}</div>
             <div className="font-semibold">{formatCurrency(safeNumber(teamAccessoryTarget))}</div>
           </div>
           <div>
-            <div className="text-slate-500">{t('pages.bdKpi.team.accessoryCompletion', { defaultValue: 'Team Accessory Completion' })}</div>
+            <div className="app-text-soft">{t('pages.bdKpi.team.accessoryCompletion', { defaultValue: 'Team Accessory Completion' })}</div>
             <div className="font-semibold">{formatPercent(teamAccessoryCompletionRate)}</div>
           </div>
           <div>
-            <div className="text-slate-500">{t('pages.bdKpi.team.bcsTarget', { defaultValue: 'Team BCS Target' })}</div>
+            <div className="app-text-soft">{t('pages.bdKpi.team.bcsTarget', { defaultValue: 'Team BCS Target' })}</div>
             <div className="font-semibold">{formatNumber(safeNumber(teamBcsTarget))}</div>
           </div>
           <div>
-            <div className="text-slate-500">{t('pages.bdKpi.team.bcsCompletion', { defaultValue: 'Team BCS Completion' })}</div>
+            <div className="app-text-soft">{t('pages.bdKpi.team.bcsCompletion', { defaultValue: 'Team BCS Completion' })}</div>
             <div className="font-semibold">{formatPercent(teamBcsCompletionRate)}</div>
           </div>
           <div>
-            <div className="text-slate-500">{t('pages.bdKpi.team.overall', { defaultValue: 'Team Overall Completion' })}</div>
+            <div className="app-text-soft">{t('pages.bdKpi.team.overall', { defaultValue: 'Team Overall Completion' })}</div>
             <div className="font-semibold">{formatPercent(teamOverallCompletionRate)}</div>
           </div>
           <div>
-            <div className="text-slate-500">{t('pages.bdKpi.team.bdCount', { defaultValue: 'BD Staff Count' })}</div>
+            <div className="app-text-soft">{t('pages.bdKpi.team.bdCount', { defaultValue: 'BD Staff Count' })}</div>
             <div className="font-semibold">{formatNumber(team.bdCount)}</div>
           </div>
           <div>
-            <div className="text-slate-500">{t('pages.bdKpi.team.personalTireTargetSum', { defaultValue: 'Personal Tire Target Sum' })}</div>
+            <div className="app-text-soft">{t('pages.bdKpi.team.personalTireTargetSum', { defaultValue: 'Personal Tire Target Sum' })}</div>
             <div className="font-semibold">{formatNumber(totalPersonalTireTarget)}</div>
           </div>
           <div>
-            <div className="text-slate-500">
+            <div className="app-text-soft">
               {t('pages.bdKpi.team.personalAccessoryTargetSum', { defaultValue: 'Personal Accessory Target Sum' })}
             </div>
             <div className="font-semibold">{formatCurrency(totalPersonalAccessoryTarget)}</div>
           </div>
           <div>
-            <div className="text-slate-500">{t('pages.bdKpi.team.personalBcsTargetSum', { defaultValue: 'Personal BCS Target Sum' })}</div>
+            <div className="app-text-soft">{t('pages.bdKpi.team.personalBcsTargetSum', { defaultValue: 'Personal BCS Target Sum' })}</div>
             <div className="font-semibold">{formatNumber(totalPersonalBcsTarget)}</div>
           </div>
           <div>
-            <div className="flex items-center gap-1 text-slate-500">
+            <div className="flex items-center gap-1 app-text-soft">
               {t('pages.bdKpi.team.exemptBdCount', { defaultValue: 'BCS Exempted BD Count' })}
               <Tooltip title={t('pages.bdKpi.exemptRuleHint', { defaultValue: 'If BD total sales amount in the selected period is above IDR 5,000,000, BCS signed target is exempted for that period.' })}>
                 <InfoCircleOutlined />

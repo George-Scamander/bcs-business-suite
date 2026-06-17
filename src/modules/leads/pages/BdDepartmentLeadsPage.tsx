@@ -97,7 +97,7 @@ export function BdDepartmentLeadsPage() {
         }
       />
 
-      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="mb-4 rounded-xl border app-border app-surface p-4">
         <Space wrap>
           <Select
             allowClear
@@ -187,7 +187,7 @@ export function BdDepartmentLeadsPage() {
             title: t('pages.bdDepartmentLeads.columns.leadCode', { defaultValue: 'Lead Code' }),
             dataIndex: 'lead_code',
             width: 220,
-            render: (value: string) => <span className="font-medium text-slate-900">{value}</span>,
+            render: (value: string) => <span className="font-medium app-text">{value}</span>,
           },
           { title: t('pages.bdDepartmentLeads.columns.company', { defaultValue: 'Company' }), dataIndex: 'company_name' },
           {

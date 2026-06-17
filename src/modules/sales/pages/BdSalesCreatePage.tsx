@@ -693,11 +693,11 @@ export function BdSalesCreatePage() {
           <div className="text-sm font-medium">
             {t('pages.bdSalesCreate.templateTextLabel', { defaultValue: 'Template Text Quick Fill' })}
           </div>
-          <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3">
-            <div className="mb-2 text-xs font-medium text-slate-600">
+          <div className="rounded-md border border-dashed app-border p-3" style={{ backgroundColor: 'var(--app-surface-muted)' }}>
+            <div className="mb-2 text-xs font-medium app-text-soft">
               {t('pages.bdSalesCreate.templateFormatTitle', { defaultValue: 'Recommended Template Format' })}
             </div>
-            <pre className="m-0 whitespace-pre-wrap text-xs leading-5 text-slate-700">{templateSkeleton}</pre>
+            <pre className="m-0 whitespace-pre-wrap text-xs leading-5 app-text-soft">{templateSkeleton}</pre>
           </div>
           <Input.TextArea
             rows={4}

@@ -586,7 +586,7 @@ export function SalesSupervisionPage() {
         }
       />
 
-      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="mb-4 rounded-xl border app-border app-surface p-4">
         <Space wrap>
           {canFilterByBd ? (
             <Select
@@ -881,7 +881,7 @@ export function SalesSupervisionPage() {
           </Form.Item>
 
           <div className="mb-3 flex items-center justify-between">
-            <div className="text-sm font-medium text-slate-700">
+            <div className="text-sm font-medium app-text-soft">
               {t('pages.salesSupervision.itemsTitle', { defaultValue: 'Sales Items' })}
             </div>
             <Button icon={<PlusOutlined />} onClick={addCreateItem}>
@@ -1144,7 +1144,7 @@ export function SalesSupervisionPage() {
           </Form.Item>
 
           <div className="mb-3 flex items-center justify-between">
-            <div className="text-sm font-medium text-slate-700">
+            <div className="text-sm font-medium app-text-soft">
               {t('pages.salesSupervision.itemsTitle', { defaultValue: 'Sales Items' })}
             </div>
             <Button icon={<PlusOutlined />} onClick={addEditItem}>

@@ -1499,7 +1499,7 @@ export function PmLeadImportPage() {
           </Button>
         </Space>
 
-        <p className="mb-0 mt-3 text-xs text-slate-500">
+        <p className="mb-0 mt-3 text-xs app-text-soft">
           {t('pages.pmLeadImport.requiredHeaderHint', {
             defaultValue:
               'Template headers recommendation: company_name, region, city, source. For BD ownership analysis, provide assigned_bd / sales team columns. Other fields can be blank and still imported.',
@@ -1520,15 +1520,15 @@ export function PmLeadImportPage() {
               })}
             />
             {duplicateGroups.map((group) => (
-              <div key={group.companyKey} className="flex flex-wrap items-center gap-3 rounded border border-slate-200 p-3">
+              <div key={group.companyKey} className="flex flex-wrap items-center gap-3 rounded border app-border p-3">
                 <div className="min-w-[240px] font-medium">{group.displayName}</div>
-                <div className="text-slate-500">
+                <div className="app-text-soft">
                   {t('pages.pmLeadImport.duplicateRowsCount', { defaultValue: '{{count}} row(s)', count: group.rows.length })}
                 </div>
-                <div className="text-slate-500">
+                <div className="app-text-soft">
                   {group.sources.length > 0 ? group.sources.join(', ') : t('pages.pmLeadImport.noSource', { defaultValue: 'No source' })}
                 </div>
-                <div className="text-slate-600">
+                <div className="app-text-soft">
                   {group.handlingMode === 'keep_earliest'
                     ? t('pages.pmLeadImport.keepEarliestWhenBdMismatch', {
                         defaultValue: 'BD owner mismatch: keep earliest row only',
