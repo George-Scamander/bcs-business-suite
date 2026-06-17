@@ -1055,3 +1055,31 @@ export async function hardDeleteSalesOrders(orderIds: string[]): Promise<void> {
     afterData: { order_ids: orderIds },
   })
 }
+
+export async function fetchProductNameSuggestions(): Promise<Map<SalesProductCategory, string[]>> {
+  const result = await supabase
+    .from('sales_order_items')
+    .select('category, product_name')
+    .not('product_name', 'is', null)
+    .neq('product_name', '')
+    .limit(600)
+
+  if (result.error) {
+    throw extractDatabaseError(result.error, 'Failed to load product name suggestions')
+  }
+
+  const seen = new Map<SalesProductCategory, Set<string>>()
+  for (const row of result.data ?? []) {
+    const cat = row.category as SalesProductCategory
+    const name = String(row.product_name ?? '').trim()
+    if (!name) continue
+    if (!seen.has(cat)) seen.set(cat, new Set())
+    seen.get(cat)!.add(name)
+  }
+
+  const map = new Map<SalesProductCategory, string[]>()
+  for (const [cat, names] of seen.entries()) {
+    map.set(cat, [...names].sort((a, b) => a.localeCompare(b)))
+  }
+  return map
+}

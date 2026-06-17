@@ -47,6 +47,7 @@ import {
 } from '../../auth/auth-context'
 import {
   createSalesOrderWithAutoLead,
+  fetchProductNameSuggestions,
   listTirePriceCatalog,
   listSalesOrderTemplatesByOwner,
   type SalesOrderRow,
@@ -372,6 +373,7 @@ export function BdSalesCreatePage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>()
   const [templateText, setTemplateText] = useState('')
   const [tireCatalogRows, setTireCatalogRows] = useState<TirePriceCatalogRow[]>([])
+  const [productSuggestions, setProductSuggestions] = useState<Map<SalesProductCategory, string[]>>(new Map())
 
   const categoryOptions = useMemo(() => getSalesProductEntryCategoryOptions(t), [t])
   const templateSkeleton = useMemo(() => buildTemplateSkeleton(t), [t])
@@ -428,6 +430,9 @@ export function BdSalesCreatePage() {
   useEffect(() => {
     form.setFieldsValue({ sold_at: dayjs() })
     void loadTemplates()
+    fetchProductNameSuggestions()
+      .then(setProductSuggestions)
+      .catch(() => {})
   }, [form, loadTemplates])
 
   useEffect(() => {
@@ -834,9 +839,15 @@ export function BdSalesCreatePage() {
                         })}
                       />
                     ) : (
-                      <Input
+                      <AutoComplete
                         value={row.product_name}
-                        onChange={(event) => updateItem(row.key, { product_name: event.target.value })}
+                        options={(productSuggestions.get(row.category) ?? [])
+                          .filter((name) =>
+                            !row.product_name || name.toLowerCase().includes(row.product_name.toLowerCase()),
+                          )
+                          .map((name) => ({ value: name, label: name }))}
+                        onChange={(value) => updateItem(row.key, { product_name: value })}
+                        className="w-full"
                       />
                     )
                   ),

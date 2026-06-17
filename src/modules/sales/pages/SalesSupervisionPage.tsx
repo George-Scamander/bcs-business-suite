@@ -64,6 +64,7 @@ import {
 } from '../../shared/api/users'
 import {
   createSalesOrderWithAutoLeadAndAssignBd,
+  fetchProductNameSuggestions,
   generateSalesPaymentDueNotifications,
   listTirePriceCatalog,
   listSalesOrders,
@@ -241,6 +242,7 @@ export function SalesSupervisionPage() {
   const [editSaving, setEditSaving] = useState(false)
   const [editItems, setEditItems] = useState<DraftSalesItem[]>([newDraftItem()])
   const [tireCatalogRows, setTireCatalogRows] = useState<TirePriceCatalogRow[]>([])
+  const [productSuggestions, setProductSuggestions] = useState<Map<SalesProductCategory, string[]>>(new Map())
   const [editOpenedFromDetail, setEditOpenedFromDetail] = useState(false)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [detailRow, setDetailRow] = useState<SalesOrderRow | null>(null)
@@ -344,6 +346,9 @@ export function SalesSupervisionPage() {
 
   useEffect(() => {
     void loadData()
+    fetchProductNameSuggestions()
+      .then(setProductSuggestions)
+      .catch(() => {})
   }, [loadData])
 
   useEffect(() => {
@@ -938,9 +943,15 @@ export function SalesSupervisionPage() {
                       })}
                     />
                   ) : (
-                    <Input
+                    <AutoComplete
                       value={row.product_name}
-                      onChange={(event) => updateCreateItem(row.key, { product_name: event.target.value })}
+                      options={(productSuggestions.get(row.category) ?? [])
+                        .filter((name) =>
+                          !row.product_name || name.toLowerCase().includes(row.product_name.toLowerCase()),
+                        )
+                        .map((name) => ({ value: name, label: name }))}
+                      onChange={(value) => updateCreateItem(row.key, { product_name: value })}
+                      className="w-full"
                     />
                   )
                 ),
@@ -1195,9 +1206,15 @@ export function SalesSupervisionPage() {
                       })}
                     />
                   ) : (
-                    <Input
+                    <AutoComplete
                       value={row.product_name}
-                      onChange={(event) => updateEditItem(row.key, { product_name: event.target.value })}
+                      options={(productSuggestions.get(row.category) ?? [])
+                        .filter((name) =>
+                          !row.product_name || name.toLowerCase().includes(row.product_name.toLowerCase()),
+                        )
+                        .map((name) => ({ value: name, label: name }))}
+                      onChange={(value) => updateEditItem(row.key, { product_name: value })}
+                      className="w-full"
                     />
                   )
                 ),
