@@ -403,7 +403,10 @@ export function AppLayout() {
           )}
         </Header>
 
-        <Content className={isMobile ? 'app-surface-muted p-3 pb-28 overflow-x-hidden' : 'app-surface-muted p-3 sm:p-4 md:p-6 overflow-x-hidden'}>
+        <Content
+          className={isMobile ? 'app-surface-muted p-3 overflow-x-hidden' : 'app-surface-muted p-3 sm:p-4 md:p-6 overflow-x-hidden'}
+          style={isMobile ? { paddingBottom: 'calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 12px)' } : undefined}
+        >
           <Outlet />
         </Content>
 

@@ -440,6 +440,8 @@ pre {
       0 16px 40px rgba(15, 23, 42, 0.22),
       inset 0 1px 0 rgba(255, 255, 255, 0.82),
       inset 0 -1px 0 rgba(255, 255, 255, 0.28);
+    /* bottom nav base height: 1px border + 8px pad-top + 54px item + 8px base pad-bottom */
+    --mobile-nav-height: 71px;
   }
 
   :root[data-theme='dark'] {
