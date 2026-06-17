@@ -212,7 +212,7 @@ export function UserRoleManagementPage() {
         extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
-      <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="mb-4 rounded-xl border app-border app-surface p-4">
         <Space wrap>
           <DatePicker
             style={{ width: 170 }}
