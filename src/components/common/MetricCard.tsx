@@ -25,7 +25,7 @@ export function MetricCard({ title, value, suffix, prefix, onClick }: MetricCard
 
   return (
     <Card
-      className={`h-full ${isClickable ? 'cursor-pointer transition-shadow hover:shadow-md' : ''}`}
+      className={`h-full ${isClickable ? 'cursor-pointer' : ''}`}
       hoverable={isClickable}
       onClick={onClick}
       onKeyDown={handleKeyDown}
