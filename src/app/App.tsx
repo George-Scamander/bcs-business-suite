@@ -49,6 +49,7 @@ import { PmProjectClosurePage } from '../modules/projects/pages/PmProjectClosure
 import { PmLeadImportPage } from '../modules/leads/pages/PmLeadImportPage'
 import { BdSalesCreatePage } from '../modules/sales/pages/BdSalesCreatePage'
 import { SalesSupervisionPage } from '../modules/sales/pages/SalesSupervisionPage'
+import { AdminSalesDashboardPage } from '../modules/admin/pages/AdminSalesDashboardPage'
 import { BdKpiDashboardPage } from '../modules/reports/pages/BdKpiDashboardPage'
 import { BdKpiInsightsPage } from '../modules/reports/pages/BdKpiInsightsPage'
 
@@ -192,7 +193,7 @@ export default function App() {
               path="admin/sales/supervision"
               element={
                 <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
-                  <SalesSupervisionPage />
+                  <AdminSalesDashboardPage />
                 </RoleGuard>
               }
             />

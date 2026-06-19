@@ -154,7 +154,7 @@ function renderLiteMarkdown(text: string): string {
         inList = false
       }
       const level = Math.min(4, heading[1].length)
-      html.push(`<h${level} class="m-0 mt-2 font-semibold text-slate-950 dark:text-slate-100">${escapeHtml(heading[2])}</h${level}>`)
+      html.push(`<h${level} class="m-0 mt-2 font-semibold app-text">${escapeHtml(heading[2])}</h${level}>`)
       continue
     }
 
@@ -632,7 +632,7 @@ export function AdminAiDataAssistantPage() {
         })}
       />
 
-      <div className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="mb-4 overflow-hidden rounded-2xl border app-border app-surface shadow-sm">
         <div className="border-b border-slate-100 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 p-3 text-white md:p-4 dark:border-slate-700">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
@@ -665,16 +665,16 @@ export function AdminAiDataAssistantPage() {
           </div>
         </div>
 
-        <div className="border-b border-slate-100 bg-white px-3 py-3 md:px-4 dark:border-slate-700 dark:bg-slate-900">
+        <div className="border-b app-border app-surface px-3 py-3 md:px-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="text-xs text-slate-600 md:text-sm dark:text-slate-300">
-              <span className="font-semibold text-slate-900 dark:text-slate-100">{t('pages.adminAiDataAssistant.currentSession', { defaultValue: 'Current session' })}:</span>{' '}
+            <div className="text-xs app-text md:text-sm">
+              <span className="font-semibold app-text">{t('pages.adminAiDataAssistant.currentSession', { defaultValue: 'Current session' })}:</span>{' '}
               <span>{activeSession?.title ?? defaultSessionTitle}</span>
-              <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+              <span className="mx-2 app-text-soft">|</span>
               <span>
                 {t('pages.adminAiDataAssistant.turnCount', { defaultValue: 'Turns' })}: {chatTurns.length}
               </span>
-              <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+              <span className="mx-2 app-text-soft">|</span>
               <span>
                 {t('pages.adminAiDataAssistant.memoryStatus', { defaultValue: 'Memory' })}:{' '}
                 {chatTurns.length > 0
@@ -696,16 +696,16 @@ export function AdminAiDataAssistantPage() {
           </div>
         </div>
 
-        <div className="max-h-[62vh] min-h-[52vh] overflow-y-auto bg-slate-100/70 px-3 py-4 md:max-h-[520px] md:min-h-[340px] md:p-4 dark:bg-slate-950/60">
+        <div className="max-h-[62vh] min-h-[52vh] overflow-y-auto bg-black/[0.03] px-3 py-4 md:max-h-[520px] md:min-h-[340px] md:p-4 dark:bg-black/40">
           {chatTurns.length === 0 ? (
             <div className="flex min-h-[44vh] flex-col items-center justify-center text-center md:min-h-[300px]">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-2xl text-white">
                 <RobotOutlined />
               </div>
-              <div className="text-lg font-semibold text-slate-950 dark:text-slate-100">
+              <div className="text-lg font-semibold app-text">
                 {t('pages.adminAiDataAssistant.emptyChatTitle', { defaultValue: 'Ask a business data question' })}
               </div>
-              <div className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+              <div className="mt-2 max-w-2xl text-sm leading-6 app-text-soft">
                 {t('pages.adminAiDataAssistant.emptyChatDesc', {
                   defaultValue:
                     'Examples: sales trend analysis, top purchasing customers, category contribution, BCS vs non-BCS distribution, and monthly purchase quantity.',
@@ -739,7 +739,7 @@ export function AdminAiDataAssistantPage() {
                       <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white md:h-8 md:w-8">
                         <RobotOutlined />
                       </div>
-                      <div className="w-full rounded-2xl rounded-tl-md border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                      <div className="w-full rounded-2xl rounded-tl-md border app-border app-surface px-4 py-3 text-sm leading-7 app-text shadow-sm">
                         <div className="mb-3 flex flex-wrap items-center gap-2">
                           <Tag color={turn.answer.aiEnabled ? 'green' : 'default'}>
                             {turn.answer.aiEnabled
@@ -758,8 +758,8 @@ export function AdminAiDataAssistantPage() {
           )}
         </div>
 
-        <div className="border-t border-slate-100 bg-white p-3 md:p-4 dark:border-slate-700 dark:bg-slate-900">
-          <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-100 dark:border-slate-700 dark:bg-slate-900">
+        <div className="border-t app-border app-surface p-3 md:p-4">
+          <div className="rounded-2xl border app-border app-surface p-2 shadow-sm focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-100 dark:focus-within:ring-blue-900/20">
             <TextArea
               autoSize={{ minRows: 1, maxRows: 5 }}
               bordered={false}
@@ -776,7 +776,7 @@ export function AdminAiDataAssistantPage() {
               }}
             />
             <div className="mt-2 flex items-center justify-between gap-3">
-              <span className="text-xs text-slate-400 dark:text-slate-500">
+              <span className="text-xs app-text-soft">
                 {isMobile
                   ? t('pages.adminAiDataAssistant.enterHint', { defaultValue: 'Enter to send, Shift + Enter for a new line' })
                   : t('pages.adminAiDataAssistant.enterHint', { defaultValue: 'Enter to send, Shift + Enter for a new line' })}
@@ -791,13 +791,13 @@ export function AdminAiDataAssistantPage() {
 
       {answer ? (
         <>
-          <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <div className="mb-4 rounded-xl border app-border app-surface p-4">
             <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                <div className="text-xs uppercase tracking-[0.18em] app-text-soft">
                   {t('pages.adminAiDataAssistant.dataSectionEyebrow', { defaultValue: 'Data Result' })}
                 </div>
-                <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-slate-100">
+                <div className="mt-1 text-lg font-semibold app-text">
                   {t('pages.adminAiDataAssistant.dataSectionTitle', { defaultValue: '具体数据与统计口径' })}
                 </div>
               </div>
@@ -805,41 +805,41 @@ export function AdminAiDataAssistantPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                <div className="text-xs text-slate-500 dark:text-slate-400">{t('pages.adminAiDataAssistant.metrics.buyerCount', { defaultValue: 'Buyer Count' })}</div>
-                <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{formatNumber(answer.buyerCount)}</div>
+              <div className="rounded-lg border app-border p-3">
+                <div className="text-xs app-text-soft">{t('pages.adminAiDataAssistant.metrics.buyerCount', { defaultValue: 'Buyer Count' })}</div>
+                <div className="mt-1 text-2xl font-semibold app-text">{formatNumber(answer.buyerCount)}</div>
               </div>
-              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                <div className="text-xs text-slate-500 dark:text-slate-400">{t('pages.adminAiDataAssistant.metrics.totalQuantity', { defaultValue: 'Total Quantity' })}</div>
-                <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{formatNumber(answer.totalQuantity)}</div>
+              <div className="rounded-lg border app-border p-3">
+                <div className="text-xs app-text-soft">{t('pages.adminAiDataAssistant.metrics.totalQuantity', { defaultValue: 'Total Quantity' })}</div>
+                <div className="mt-1 text-2xl font-semibold app-text">{formatNumber(answer.totalQuantity)}</div>
               </div>
-              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                <div className="text-xs text-slate-500 dark:text-slate-400">{t('pages.adminAiDataAssistant.metrics.totalAmount', { defaultValue: 'Total Amount' })}</div>
-                <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{formatNumber(answer.totalAmount)}</div>
+              <div className="rounded-lg border app-border p-3">
+                <div className="text-xs app-text-soft">{t('pages.adminAiDataAssistant.metrics.totalAmount', { defaultValue: 'Total Amount' })}</div>
+                <div className="mt-1 text-2xl font-semibold app-text">{formatNumber(answer.totalAmount)}</div>
               </div>
-              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                <div className="text-xs text-slate-500 dark:text-slate-400">{t('pages.adminAiDataAssistant.metrics.topCustomer', { defaultValue: 'Top Customer' })}</div>
-                <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{answer.topCustomer?.companyName ?? '-'}</div>
+              <div className="rounded-lg border app-border p-3">
+                <div className="text-xs app-text-soft">{t('pages.adminAiDataAssistant.metrics.topCustomer', { defaultValue: 'Top Customer' })}</div>
+                <div className="mt-1 text-lg font-semibold app-text">{answer.topCustomer?.companyName ?? '-'}</div>
               </div>
             </div>
 
             {(answer.insights ?? []).length > 0 && (
               <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
                 {(answer.insights ?? []).map((item: DataQaInsight) => (
-                  <div key={`${item.title}-${item.detail}`} className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                  <div key={`${item.title}-${item.detail}`} className="rounded-lg border app-border app-surface p-3">
                     <div className="mb-1 flex items-center gap-2">
                       <Tag color={item.type === 'warning' ? 'orange' : item.type === 'positive' ? 'green' : 'blue'}>
                         {item.type}
                       </Tag>
-                      <span className="font-semibold text-slate-900 dark:text-slate-100">{item.title}</span>
+                      <span className="font-semibold app-text">{item.title}</span>
                     </div>
-                    <div className="text-sm leading-6 text-slate-600 dark:text-slate-300">{item.detail}</div>
+                    <div className="text-sm leading-6 app-text">{item.detail}</div>
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-6 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+            <div className="mt-4 rounded-lg border app-border app-surface-muted p-3 text-xs leading-6 app-text">
               {t('pages.adminAiDataAssistant.dataQuality', {
                 defaultValue:
                   'Data source: {{sources}}. Matched {{items}} items, {{orders}} orders, {{customers}} customers. Calculations are produced by system read-only logic.',
@@ -854,14 +854,14 @@ export function AdminAiDataAssistantPage() {
           {isMobile && (
             <div className="mt-4 grid grid-cols-1 gap-3">
               {(answer.trendRows ?? []).length > 0 && (
-                <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-                  <div className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <div className="rounded-lg border app-border app-surface p-3">
+                  <div className="mb-2 text-sm font-semibold app-text">
                     {t('pages.adminAiDataAssistant.trendTitle', { defaultValue: 'Sales Trend' })}
                   </div>
-                  <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="space-y-2 text-xs app-text">
                     {answer.trendRows.slice(-5).map((row) => (
-                      <div key={row.period} className="rounded-md bg-slate-50 p-2 dark:bg-slate-800/60">
-                        <div className="font-medium text-slate-900 dark:text-slate-100">{row.period}</div>
+                      <div key={row.period} className="rounded-md app-surface-muted p-2">
+                        <div className="font-medium app-text">{row.period}</div>
                         <div>
                           {t('pages.adminAiDataAssistant.columns.quantity', { defaultValue: 'Quantity' })}: {formatNumber(row.quantity)} ·{' '}
                           {t('pages.adminAiDataAssistant.columns.amount', { defaultValue: 'Amount' })}: {formatNumber(row.amount)}
@@ -873,14 +873,14 @@ export function AdminAiDataAssistantPage() {
               )}
 
               {answer.breakdownRows.length > 0 && (
-                <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-                  <div className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <div className="rounded-lg border app-border app-surface p-3">
+                  <div className="mb-2 text-sm font-semibold app-text">
                     {t('pages.adminAiDataAssistant.breakdownTitle', { defaultValue: 'Breakdown' })}
                   </div>
-                  <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="space-y-2 text-xs app-text">
                     {answer.breakdownRows.slice(0, 8).map((row) => (
-                      <div key={row.key} className="flex items-center justify-between gap-3 rounded-md bg-slate-50 p-2 dark:bg-slate-800/60">
-                        <span className="font-medium text-slate-900 dark:text-slate-100">{getBreakdownLabel(row)}</span>
+                      <div key={row.key} className="flex items-center justify-between gap-3 rounded-md app-surface-muted p-2">
+                        <span className="font-medium app-text">{getBreakdownLabel(row)}</span>
                         <span>{formatNumber(row.quantity)}</span>
                       </div>
                     ))}
@@ -888,14 +888,14 @@ export function AdminAiDataAssistantPage() {
                 </div>
               )}
 
-              <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-                <div className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+              <div className="rounded-lg border app-border app-surface p-3">
+                <div className="mb-2 text-sm font-semibold app-text">
                   {t('pages.adminAiDataAssistant.detailTitle', { defaultValue: 'Matched Customer Details' })}
                 </div>
-                <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                <div className="space-y-2 text-xs app-text">
                   {answer.rows.slice(0, 8).map((row) => (
-                    <div key={row.customerKey} className="rounded-md bg-slate-50 p-2 dark:bg-slate-800/60">
-                      <div className="font-medium text-slate-900 dark:text-slate-100">{row.companyName}</div>
+                    <div key={row.customerKey} className="rounded-md app-surface-muted p-2">
+                      <div className="font-medium app-text">{row.companyName}</div>
                       <div>
                         {t('pages.adminAiDataAssistant.columns.quantity', { defaultValue: 'Quantity' })}: {formatNumber(row.quantity)} ·{' '}
                         {t('pages.adminAiDataAssistant.columns.amount', { defaultValue: 'Amount' })}: {formatNumber(row.amount)}
@@ -911,8 +911,8 @@ export function AdminAiDataAssistantPage() {
           )}
 
           {!isMobile && (answer.trendRows ?? []).length > 0 && (
-            <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-              <div className="mb-3 text-base font-semibold text-slate-900 dark:text-slate-100">
+            <div className="mb-4 rounded-xl border app-border app-surface p-4">
+              <div className="mb-3 text-base font-semibold app-text">
                 {t('pages.adminAiDataAssistant.trendTitle', { defaultValue: 'Sales Trend' })}
               </div>
               <Table
@@ -957,8 +957,8 @@ export function AdminAiDataAssistantPage() {
           )}
 
           {!isMobile && answer.breakdownRows.length > 0 && (
-            <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-              <div className="mb-3 text-base font-semibold text-slate-900 dark:text-slate-100">
+            <div className="mb-4 rounded-xl border app-border app-surface p-4">
+              <div className="mb-3 text-base font-semibold app-text">
                 {t('pages.adminAiDataAssistant.breakdownTitle', { defaultValue: 'Breakdown' })}
               </div>
               <Table
@@ -1004,8 +1004,8 @@ export function AdminAiDataAssistantPage() {
           )}
 
           {!isMobile && (
-            <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-            <div className="mb-3 text-base font-semibold text-slate-900 dark:text-slate-100">
+            <div className="rounded-xl border app-border app-surface p-4">
+            <div className="mb-3 text-base font-semibold app-text">
               {t('pages.adminAiDataAssistant.detailTitle', { defaultValue: 'Matched Customer Details' })}
             </div>
             <Table
@@ -1055,7 +1055,7 @@ export function AdminAiDataAssistantPage() {
           )}
         </>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white p-8 dark:border-slate-700 dark:bg-slate-900">
+        <div className="rounded-xl border app-border app-surface p-8">
           <Empty description={t('pages.adminAiDataAssistant.emptyState', { defaultValue: 'Ask a question to see the answer.' })} />
         </div>
       )}

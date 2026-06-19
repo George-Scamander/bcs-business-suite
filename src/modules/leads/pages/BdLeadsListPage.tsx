@@ -6,6 +6,7 @@ import {
 } from 'react'
 import dayjs from 'dayjs'
 import {
+  Badge,
   Button,
   DatePicker,
   Drawer,
@@ -21,10 +22,12 @@ import {
 import {
   AdaptiveTable as Table,
 } from '../../../components/common/AdaptiveTable'
+import { ActionMenu } from '../../../components/common/ActionMenu'
 import type {
   UploadFile,
 } from 'antd'
 import {
+  FilterOutlined,
   PlusOutlined,
   SettingOutlined,
   UploadOutlined,
@@ -205,6 +208,7 @@ export function BdLeadsListPage() {
   const [importing, setImporting] = useState(false)
   const [importFileList, setImportFileList] = useState<UploadFile[]>([])
   const [controlPanelOpen, setControlPanelOpen] = useState(false)
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false)
 
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
@@ -458,6 +462,15 @@ export function BdLeadsListPage() {
     setKeyword('')
   }
 
+  const secondaryActiveCount = [
+    filters.region,
+    filters.industry,
+    filters.intentPackage,
+    filters.assignedBdId,
+    filters.createdFrom,
+    filters.createdTo,
+  ].filter(Boolean).length
+
   const filterPanel = (
     <Space direction={isProjectManager ? 'vertical' : 'horizontal'} size={12} wrap={!isProjectManager} className="w-full">
       <Select
@@ -673,9 +686,107 @@ export function BdLeadsListPage() {
           {filterPanel}
         </Drawer>
       ) : (
-        <div className="mb-4 rounded-xl border app-border app-surface p-4">
-          {filterPanel}
-        </div>
+        <>
+          <div className="mb-4 rounded-xl border app-border app-surface p-3">
+            <Space size={8} wrap>
+              <Input.Search
+                allowClear
+                style={{ width: 280 }}
+                placeholder={t('pages.bdLeads.keywordPlaceholder', { defaultValue: 'Keyword (lead code/company/contact/source)' })}
+                value={keyword}
+                onChange={(event) => setKeyword(event.target.value)}
+                onSearch={() => void loadRows()}
+              />
+              <Select
+                allowClear
+                style={{ width: 160 }}
+                placeholder={t('pages.bdLeads.statusPlaceholder', { defaultValue: 'Status' })}
+                options={leadStatusOptions}
+                value={filters.status}
+                onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
+              />
+              <Button type="primary" onClick={() => void loadRows()}>
+                {t('labels.apply', { defaultValue: 'Apply' })}
+              </Button>
+              <Badge count={secondaryActiveCount} size="small">
+                <Button icon={<FilterOutlined />} onClick={() => setMoreFiltersOpen(true)}>
+                  {t('labels.moreFilters', { defaultValue: '更多篩選' })}
+                </Button>
+              </Badge>
+            </Space>
+          </div>
+
+          <Drawer
+            title={t('labels.moreFilters', { defaultValue: '更多篩選' })}
+            placement="right"
+            width={360}
+            open={moreFiltersOpen}
+            onClose={() => setMoreFiltersOpen(false)}
+            destroyOnClose={false}
+          >
+            <Space direction="vertical" size={12} className="w-full">
+              <Input
+                className="w-full"
+                placeholder={t('pages.bdLeads.regionPlaceholder', { defaultValue: 'Region' })}
+                value={filters.region}
+                onChange={(event) => setFilters((current) => ({ ...current, region: event.target.value || undefined }))}
+              />
+              <Input
+                className="w-full"
+                placeholder={t('pages.bdLeads.industryPlaceholder', { defaultValue: 'Industry' })}
+                value={filters.industry}
+                onChange={(event) => setFilters((current) => ({ ...current, industry: event.target.value || undefined }))}
+              />
+              <Select
+                allowClear
+                className="w-full"
+                placeholder={t('pages.bdLeads.intentPackagePlaceholder', { defaultValue: 'BCS Business' })}
+                options={intentPackageOptions}
+                value={filters.intentPackage}
+                onChange={(value) => setFilters((current) => ({ ...current, intentPackage: value || undefined }))}
+              />
+              {canFilterByBd ? (
+                <Select
+                  allowClear
+                  showSearch
+                  className="w-full"
+                  optionFilterProp="label"
+                  placeholder={t('pages.bdLeads.bdOwnerPlaceholder', { defaultValue: 'BD Owner' })}
+                  options={bdUserOptions}
+                  value={filters.assignedBdId}
+                  onChange={(value) => setFilters((current) => ({ ...current, assignedBdId: value || undefined }))}
+                />
+              ) : null}
+              <DatePicker
+                className="w-full"
+                placeholder={t('pages.bdLeads.createdFrom', { defaultValue: 'Created From' })}
+                value={filters.createdFrom ? dayjs(filters.createdFrom) : undefined}
+                onChange={(value) =>
+                  setFilters((current) => ({ ...current, createdFrom: value ? value.startOf('day').toISOString() : undefined }))
+                }
+              />
+              <DatePicker
+                className="w-full"
+                placeholder={t('pages.bdLeads.createdTo', { defaultValue: 'Created To' })}
+                value={filters.createdTo ? dayjs(filters.createdTo) : undefined}
+                onChange={(value) =>
+                  setFilters((current) => ({ ...current, createdTo: value ? value.endOf('day').toISOString() : undefined }))
+                }
+              />
+              <Space>
+                <Button onClick={handleResetControlPanel}>
+                  {t('labels.reset', { defaultValue: 'Reset' })}
+                </Button>
+                <Button
+                  type="primary"
+                  onClick={() => { void loadRows(); setMoreFiltersOpen(false) }}
+                >
+                  {t('labels.apply', { defaultValue: 'Apply' })}
+                </Button>
+              </Space>
+            </Space>
+          </Drawer>
+        </>
       )}
 
       <Table
@@ -768,47 +879,48 @@ export function BdLeadsListPage() {
           {
             title: t('pages.bdLeads.actions', { defaultValue: 'Actions' }),
             key: 'actions',
-            width: 380,
+            width: 130,
             render: (_: unknown, row: Lead) => (
-              <Space wrap>
-                <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}`)}>
-                  {t('pages.bdLeads.actionDetail', { defaultValue: 'Detail' })}
-                </Button>
-                <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}/edit`)}>
-                  {t('pages.bdLeads.actionEdit', { defaultValue: 'Edit' })}
-                </Button>
-                <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}/followups`)}>
-                  {t('pages.bdLeads.actionTimeline', { defaultValue: 'Timeline' })}
-                </Button>
-                {row.status !== 'SIGNED' ? (
-                  <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}/sign`)}>
-                    {t('pages.bdLeads.actionSign', { defaultValue: 'Sign' })}
-                  </Button>
-                ) : null}
-                {row.status === 'SIGNED' ? (
-                  <Button size="small" onClick={() => navigate(`/app/bd/leads/${row.id}/onboarding`)}>
-                    {t('pages.bdLeads.actionOnboard', { defaultValue: 'Onboard' })}
-                  </Button>
-                ) : null}
-                {canAssign ? (
-                  <Button size="small" onClick={() => openAssignModal(row)}>
-                    {t('pages.bdLeads.actionAssign', { defaultValue: 'Assign' })}
-                  </Button>
-                ) : null}
-                <Popconfirm
-                  title={t('pages.bdLeads.deleteConfirmTitle', { defaultValue: 'Delete this lead?' })}
-                  description={`${t('pages.bdLeads.deleteConfirmDesc', {
-                    defaultValue: 'The lead will be moved to Recently Deleted.',
-                  })} ${deleteRetentionHint}`}
-                  okText={t('labels.delete', { defaultValue: 'Delete' })}
-                  cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
-                  onConfirm={() => void handleDeleteLead(row.id)}
-                >
-                  <Button size="small" danger>
-                    {t('labels.delete', { defaultValue: 'Delete' })}
-                  </Button>
-                </Popconfirm>
-              </Space>
+              <ActionMenu
+                primaryLabel={t('pages.bdLeads.actionDetail', { defaultValue: 'Detail' })}
+                primaryOnClick={() => navigate(`/app/bd/leads/${row.id}`)}
+                items={[
+                  {
+                    key: 'edit',
+                    label: t('pages.bdLeads.actionEdit', { defaultValue: 'Edit' }),
+                    onClick: () => navigate(`/app/bd/leads/${row.id}/edit`),
+                  },
+                  {
+                    key: 'timeline',
+                    label: t('pages.bdLeads.actionTimeline', { defaultValue: 'Timeline' }),
+                    onClick: () => navigate(`/app/bd/leads/${row.id}/followups`),
+                  },
+                  ...(row.status !== 'SIGNED' ? [{
+                    key: 'sign',
+                    label: t('pages.bdLeads.actionSign', { defaultValue: 'Sign' }),
+                    onClick: () => navigate(`/app/bd/leads/${row.id}/sign`),
+                  }] : []),
+                  ...(row.status === 'SIGNED' ? [{
+                    key: 'onboard',
+                    label: t('pages.bdLeads.actionOnboard', { defaultValue: 'Onboard' }),
+                    onClick: () => navigate(`/app/bd/leads/${row.id}/onboarding`),
+                  }] : []),
+                  ...(canAssign ? [{
+                    key: 'assign',
+                    label: t('pages.bdLeads.actionAssign', { defaultValue: 'Assign' }),
+                    onClick: () => openAssignModal(row),
+                  }] : []),
+                  {
+                    key: 'delete',
+                    label: t('labels.delete', { defaultValue: 'Delete' }),
+                    danger: true,
+                    confirmTitle: t('pages.bdLeads.deleteConfirmTitle', { defaultValue: 'Delete this lead?' }),
+                    confirmDescription: `${t('pages.bdLeads.deleteConfirmDesc', { defaultValue: 'The lead will be moved to Recently Deleted.' })} ${deleteRetentionHint}`,
+                    confirmOkText: t('labels.delete', { defaultValue: 'Delete' }),
+                    onClick: () => void handleDeleteLead(row.id),
+                  },
+                ]}
+              />
             ),
           },
         ]}

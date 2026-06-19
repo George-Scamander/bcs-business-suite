@@ -6,15 +6,18 @@ import {
 } from 'react'
 import dayjs from 'dayjs'
 import {
+  Badge,
   Button,
   DatePicker,
   Descriptions,
+  Drawer,
   Input,
   Modal,
   Select,
   Space,
   message,
 } from 'antd'
+import { FilterOutlined } from '@ant-design/icons'
 import {
   AdaptiveTable as Table,
 } from '../../../components/common/AdaptiveTable'
@@ -49,6 +52,15 @@ export function BdDepartmentLeadsPage() {
   const [keyword, setKeyword] = useState('')
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailRow, setDetailRow] = useState<DepartmentLeadRow | null>(null)
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false)
+
+  const secondaryActiveCount = [
+    filters.region,
+    filters.industry,
+    filters.intentPackage,
+    filters.createdFrom,
+    filters.createdTo,
+  ].filter(Boolean).length
 
   const leadStatusOptions = useMemo(() => getLeadStatusOptions(t), [t])
   const intentPackageOptions = useMemo(() => getIntentPackageOptions(t), [t])
@@ -97,73 +109,90 @@ export function BdDepartmentLeadsPage() {
         }
       />
 
-      <div className="mb-4 rounded-xl border app-border app-surface p-4">
-        <Space wrap>
+      <div className="mb-4 rounded-xl border app-border app-surface p-3">
+        <Space size={8} wrap>
+          <Input.Search
+            allowClear
+            style={{ width: 280 }}
+            placeholder={t('pages.bdDepartmentLeads.keywordPlaceholder', { defaultValue: 'Keyword (lead code/company/contact/source)' })}
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            onSearch={() => void loadRows()}
+          />
           <Select
             allowClear
+            style={{ width: 160 }}
             placeholder={t('pages.bdDepartmentLeads.statusPlaceholder', { defaultValue: 'Status' })}
-            style={{ width: 180 }}
             options={leadStatusOptions}
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
           />
+          <Button type="primary" onClick={() => void loadRows()}>
+            {t('labels.apply', { defaultValue: 'Apply' })}
+          </Button>
+          <Badge count={secondaryActiveCount} size="small">
+            <Button icon={<FilterOutlined />} onClick={() => setMoreFiltersOpen(true)}>
+              {t('labels.moreFilters', { defaultValue: '更多篩選' })}
+            </Button>
+          </Badge>
+        </Space>
+      </div>
+
+      <Drawer
+        title={t('labels.moreFilters', { defaultValue: '更多篩選' })}
+        placement="right"
+        width={360}
+        open={moreFiltersOpen}
+        onClose={() => setMoreFiltersOpen(false)}
+        destroyOnClose={false}
+      >
+        <Space direction="vertical" size={12} className="w-full">
           <Input
+            className="w-full"
             placeholder={t('pages.bdDepartmentLeads.regionPlaceholder', { defaultValue: 'Region' })}
-            style={{ width: 180 }}
             value={filters.region}
             onChange={(event) => setFilters((current) => ({ ...current, region: event.target.value || undefined }))}
           />
           <Input
+            className="w-full"
             placeholder={t('pages.bdDepartmentLeads.industryPlaceholder', { defaultValue: 'Industry' })}
-            style={{ width: 180 }}
             value={filters.industry}
             onChange={(event) => setFilters((current) => ({ ...current, industry: event.target.value || undefined }))}
           />
           <Select
             allowClear
+            className="w-full"
             placeholder={t('pages.bdDepartmentLeads.intentPackagePlaceholder', { defaultValue: 'BCS Business' })}
-            style={{ width: 200 }}
             options={intentPackageOptions}
             value={filters.intentPackage}
             onChange={(value) => setFilters((current) => ({ ...current, intentPackage: value || undefined }))}
           />
           <DatePicker
-            style={{ width: 170 }}
+            className="w-full"
             placeholder={t('pages.bdDepartmentLeads.createdFrom', { defaultValue: 'Created From' })}
             value={filters.createdFrom ? dayjs(filters.createdFrom) : undefined}
             onChange={(value) =>
-              setFilters((current) => ({
-                ...current,
-                createdFrom: value ? value.startOf('day').toISOString() : undefined,
-              }))
+              setFilters((current) => ({ ...current, createdFrom: value ? value.startOf('day').toISOString() : undefined }))
             }
           />
           <DatePicker
-            style={{ width: 170 }}
+            className="w-full"
             placeholder={t('pages.bdDepartmentLeads.createdTo', { defaultValue: 'Created To' })}
             value={filters.createdTo ? dayjs(filters.createdTo) : undefined}
             onChange={(value) =>
-              setFilters((current) => ({
-                ...current,
-                createdTo: value ? value.endOf('day').toISOString() : undefined,
-              }))
+              setFilters((current) => ({ ...current, createdTo: value ? value.endOf('day').toISOString() : undefined }))
             }
           />
-          <Input.Search
-            allowClear
-            placeholder={t('pages.bdDepartmentLeads.keywordPlaceholder', {
-              defaultValue: 'Keyword (lead code/company/contact/source)',
-            })}
-            style={{ width: 280 }}
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-            onSearch={() => void loadRows()}
-          />
-          <Button type="primary" onClick={() => void loadRows()}>
-            {t('labels.apply', { defaultValue: 'Apply' })}
-          </Button>
+          <Space>
+            <Button onClick={() => { setFilters({}); setKeyword('') }}>
+              {t('labels.reset', { defaultValue: 'Reset' })}
+            </Button>
+            <Button type="primary" onClick={() => { void loadRows(); setMoreFiltersOpen(false) }}>
+              {t('labels.apply', { defaultValue: 'Apply' })}
+            </Button>
+          </Space>
         </Space>
-      </div>
+      </Drawer>
 
       <Table
         className="compact-data-table"

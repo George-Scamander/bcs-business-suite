@@ -9,7 +9,6 @@ import {
   Form,
   Input,
   Modal,
-  Popconfirm,
   Select,
   Space,
   Tag,
@@ -19,6 +18,7 @@ import {
 import {
   AdaptiveTable as Table,
 } from '../../../components/common/AdaptiveTable'
+import { ActionMenu } from '../../../components/common/ActionMenu'
 import {
   useTranslation,
 } from 'react-i18next'
@@ -406,8 +406,8 @@ export function OnboardMerchantManagementPage() {
         }
       />
 
-      <div className="mb-4 rounded-xl border app-border app-surface p-4">
-        <Space wrap>
+      <div className="mb-4 rounded-xl border app-border app-surface p-3">
+        <Space size={8} wrap>
           <Input.Search
             allowClear
             style={{ width: 320 }}
@@ -536,33 +536,28 @@ export function OnboardMerchantManagementPage() {
           },
           {
             title: t('pages.onboardMerchant.columns.actions', { defaultValue: 'Actions' }),
-            width: 220,
+            width: 130,
             render: (_: unknown, row: OnboardMerchant) => (
-              <Space wrap>
-                <Button size="small" onClick={() => navigate(`/app/${portalPrefix}/onboarding/merchants/${row.id}`)}>
-                  {t('common.view', { defaultValue: 'View' })}
-                </Button>
-                {canManage ? (
-                  <Button size="small" onClick={() => openEditModal(row)}>
-                    {t('pages.onboardMerchant.edit', { defaultValue: 'Edit' })}
-                  </Button>
-                ) : null}
-                {canManage ? (
-                  <Popconfirm
-                    title={t('pages.onboardMerchant.deleteConfirmTitle', { defaultValue: 'Delete this onboard merchant?' })}
-                    description={`${t('pages.onboardMerchant.deleteConfirmDesc', {
-                      defaultValue: 'This merchant will be hidden from active list.',
-                    })} ${deleteRetentionHint}`}
-                    okText={t('labels.delete', { defaultValue: 'Delete' })}
-                    cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
-                    onConfirm={() => void handleDelete(row)}
-                  >
-                    <Button size="small" danger>
-                      {t('labels.delete', { defaultValue: 'Delete' })}
-                    </Button>
-                  </Popconfirm>
-                ) : null}
-              </Space>
+              <ActionMenu
+                primaryLabel={t('common.view', { defaultValue: 'View' })}
+                primaryOnClick={() => navigate(`/app/${portalPrefix}/onboarding/merchants/${row.id}`)}
+                items={[
+                  ...(canManage ? [{
+                    key: 'edit',
+                    label: t('pages.onboardMerchant.edit', { defaultValue: 'Edit' }),
+                    onClick: () => openEditModal(row),
+                  }] : []),
+                  ...(canManage ? [{
+                    key: 'delete',
+                    label: t('labels.delete', { defaultValue: 'Delete' }),
+                    danger: true,
+                    confirmTitle: t('pages.onboardMerchant.deleteConfirmTitle', { defaultValue: 'Delete this onboard merchant?' }),
+                    confirmDescription: `${t('pages.onboardMerchant.deleteConfirmDesc', { defaultValue: 'This merchant will be hidden from active list.' })} ${deleteRetentionHint}`,
+                    confirmOkText: t('labels.delete', { defaultValue: 'Delete' }),
+                    onClick: () => void handleDelete(row),
+                  }] : []),
+                ]}
+              />
             ),
           },
           ]}

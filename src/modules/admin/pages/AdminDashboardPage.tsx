@@ -6,6 +6,18 @@ import {
 } from 'react'
 import dayjs from 'dayjs'
 import {
+  AppstoreOutlined,
+  ContainerOutlined,
+  DeploymentUnitOutlined,
+  FileTextOutlined,
+  LineChartOutlined,
+  ReconciliationOutlined,
+  RobotOutlined,
+  SettingFilled,
+  TeamOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons'
+import {
   Button,
   Card,
   Col,
@@ -630,6 +642,135 @@ export function AdminDashboardPage() {
     return <MetricCard title={title} value={selectedMetrics[key]} onClick={() => openModuleList(path, periodForJump, extraQuery)} />
   }
 
+  // ── 手機版：支付寶式主頁 ──────────────────────────────────────────────
+  if (isMobile) {
+    const quickItems = [
+      { icon: <UnorderedListOutlined />, label: t('nav.lead-pool', { defaultValue: 'Lead Pool' }), path: '/app/admin/leads/pool', color: '#c10e0e' },
+      { icon: <TeamOutlined />, label: t('nav.users-roles', { defaultValue: 'Users' }), path: '/app/admin/users-roles', color: '#7c3aed' },
+      { icon: <ContainerOutlined />, label: t('nav.admin-onboard-merchants', { defaultValue: 'Merchants' }), path: '/app/admin/onboarding/merchants', color: '#0284c7' },
+      { icon: <ReconciliationOutlined />, label: t('nav.onboarding-review', { defaultValue: 'Review' }), path: '/app/admin/onboarding/review-center', color: '#16a34a' },
+      { icon: <DeploymentUnitOutlined />, label: t('nav.project-overview', { defaultValue: 'Projects' }), path: '/app/admin/projects/overview', color: '#9333ea' },
+      { icon: <LineChartOutlined />, label: t('nav.sales-supervision', { defaultValue: 'Sales' }), path: '/app/admin/sales/supervision', color: '#0891b2' },
+      { icon: <LineChartOutlined />, label: t('nav.bd-kpi-dashboard', { defaultValue: 'KPI' }), path: '/app/admin/kpi/dashboard', color: '#d97706' },
+      { icon: <RobotOutlined />, label: t('nav.admin-ai-data-assistant', { defaultValue: 'AI' }), path: '/app/admin/ai/data-assistant', color: '#0ea5e9' },
+      { icon: <FileTextOutlined />, label: t('nav.report-export', { defaultValue: 'Reports' }), path: '/app/admin/reports/export', color: '#64748b' },
+      { icon: <SettingFilled />, label: t('nav.system-config', { defaultValue: 'Settings' }), path: '/app/admin/system-config', color: '#475569' },
+      { icon: <FileTextOutlined />, label: t('nav.logs', { defaultValue: 'Logs' }), path: '/app/admin/logs', color: '#78716c' },
+      { icon: <AppstoreOutlined />, label: t('nav.uploads', { defaultValue: 'Files' }), path: '/app/files', color: '#0d9488' },
+    ]
+
+    const recentCases = pendingCases.slice(0, 3)
+
+    return (
+      <div className="pb-2">
+        {/* 關鍵數字 2×2 */}
+        <div className="mobile-home-stats">
+          <div
+            className="mobile-home-stat-item"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/app/admin/leads/pool')}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate('/app/admin/leads/pool') }}
+          >
+            <div className="mobile-home-stat-label">{t('pages.adminDashboard.metrics.totalLeads', { defaultValue: 'Total Leads' })}</div>
+            <div className="mobile-home-stat-value">{loading ? '—' : metricsDefault.totalLeads}</div>
+          </div>
+          <div
+            className="mobile-home-stat-item"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/app/admin/onboarding/review-center')}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate('/app/admin/onboarding/review-center') }}
+          >
+            <div className="mobile-home-stat-label">{t('pages.adminDashboard.metrics.activeOnboarding', { defaultValue: 'Active Cases' })}</div>
+            <div className="mobile-home-stat-value">{loading ? '—' : metricsDefault.activeOnboardingCases}</div>
+          </div>
+          <div
+            className="mobile-home-stat-item"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/app/admin/projects/overview')}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate('/app/admin/projects/overview') }}
+          >
+            <div className="mobile-home-stat-label">{t('pages.adminDashboard.metrics.totalProjects', { defaultValue: 'Projects' })}</div>
+            <div className="mobile-home-stat-value">{loading ? '—' : metricsDefault.totalProjects}</div>
+          </div>
+          <div
+            className="mobile-home-stat-item"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/app/admin/leads/pool/today-new')}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate('/app/admin/leads/pool/today-new') }}
+          >
+            <div className="mobile-home-stat-label">{t('pages.adminDashboard.metrics.todayNew', { defaultValue: "Today's New" })}</div>
+            <div className="mobile-home-stat-value">{loading ? '—' : leadBoardMetrics.todayNewLeads}</div>
+          </div>
+        </div>
+
+        {/* 功能宮格 */}
+        <div className="mobile-home-section-title">{t('pages.adminDashboard.quickActions', { defaultValue: 'Quick Access' })}</div>
+        <div className="mobile-quick-grid">
+          {quickItems.map((item) => (
+            <button
+              key={item.path + item.label}
+              type="button"
+              className="mobile-quick-item"
+              onClick={() => navigate(item.path)}
+            >
+              <div className="mobile-quick-icon" style={{ color: item.color }}>
+                {item.icon}
+              </div>
+              <span className="mobile-quick-label">{item.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* 待審核進件 */}
+        <div className="mobile-home-recent">
+          <div className="mobile-home-recent-header">
+            <span className="mobile-home-recent-title">
+              {t('pages.adminDashboard.pendingCases', { defaultValue: 'Pending Review' })}
+            </span>
+            <button
+              type="button"
+              className="mobile-home-recent-more"
+              onClick={() => navigate('/app/admin/onboarding/review-center')}
+            >
+              {t('labels.viewAll', { defaultValue: 'View all' })} →
+            </button>
+          </div>
+          {recentCases.length === 0 ? (
+            <div className="mobile-home-empty">
+              {loading ? t('labels.loading', { defaultValue: 'Loading…' }) : t('pages.adminDashboard.noPendingCases', { defaultValue: 'No pending cases' })}
+            </div>
+          ) : (
+            recentCases.map((row) => (
+              <div
+                key={row.id}
+                className="mobile-home-recent-item"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate('/app/admin/onboarding/review-center')}
+                onKeyDown={(e) => { if (e.key === 'Enter') navigate('/app/admin/onboarding/review-center') }}
+              >
+                <div className="mobile-home-recent-item-left">
+                  <div className="mobile-home-recent-item-code">{row.case_no}</div>
+                  <div className="mobile-home-recent-item-name">
+                    <StatusTag value={row.status} />
+                  </div>
+                </div>
+                <div className="mobile-home-recent-item-date">
+                  {row.sla_due_at ? new Date(row.sla_due_at).toLocaleDateString() : '—'}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ── 桌面版：原有代碼完全不動 ──────────────────────────────────────────
   return (
     <>
       <PageTitleBar
@@ -803,7 +944,7 @@ export function AdminDashboardPage() {
 
         <Row gutter={[16, 16]}>
           <Col xs={24} md={12} xl={8}>
-            <Card bordered={false} className="bg-blue-50">
+            <Card bordered={false}>
               <Statistic
                 title={t('pages.adminDashboard.salesMonthTotalAmount', { defaultValue: 'Selected Month Total Sales Amount' })}
                 value={salesMonthTotalAmount}
@@ -812,7 +953,7 @@ export function AdminDashboardPage() {
             </Card>
           </Col>
           <Col xs={24} md={12} xl={8}>
-            <Card bordered={false} className="bg-slate-50">
+            <Card bordered={false}>
               <Statistic
                 title={t('pages.adminDashboard.salesMonthTotalQuantity', { defaultValue: 'Selected Month Total Sales Quantity' })}
                 value={salesMonthTotalQuantity}
@@ -820,7 +961,7 @@ export function AdminDashboardPage() {
             </Card>
           </Col>
           <Col xs={24} md={12} xl={8}>
-            <Card bordered={false} className="bg-slate-50">
+            <Card bordered={false}>
               <Statistic
                 title={t('pages.adminDashboard.salesMonthActiveCategories', { defaultValue: 'Categories with Sales' })}
                 value={salesMonthActiveCategoryCount}
@@ -829,7 +970,7 @@ export function AdminDashboardPage() {
           </Col>
         </Row>
 
-        <div className="mb-3 mt-5 text-sm font-semibold text-slate-700">
+        <div className="mb-3 mt-5 text-sm font-semibold app-text-soft">
           {t('pages.adminDashboard.salesCategoryBreakdownTitle', { defaultValue: 'Sales Breakdown by Category' })}
         </div>
         <Table<SalesCategoryOverviewRow>
@@ -841,7 +982,7 @@ export function AdminDashboardPage() {
           mobileCardTitleKey="categoryLabel"
           onRow={(record) => ({
             onClick: () => setSelectedCategory(record.category),
-            className: record.category === selectedCategory ? 'cursor-pointer bg-blue-50/60' : 'cursor-pointer',
+            className: record.category === selectedCategory ? 'cursor-pointer bg-blue-50/60 dark:bg-blue-900/30' : 'cursor-pointer',
           })}
           expandable={{
             rowExpandable: (record) => record.subcategories.length > 0,
@@ -977,32 +1118,32 @@ export function AdminDashboardPage() {
                             key={row.bdUserId}
                             type="button"
                             onClick={() => setSelectedInsightBdId(row.bdUserId)}
-                            className={`w-full rounded-lg border p-3 text-left ${isSelected ? 'border-blue-300 bg-blue-50/60' : 'border-slate-200 bg-white'}`}
+                            className={`w-full rounded-lg border p-3 text-left ${isSelected ? 'border-blue-300 bg-blue-50/60 dark:border-blue-700 dark:bg-blue-900/30' : 'border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-800'}`}
                           >
                             <div className="mb-2 flex items-center gap-2">
                               <Tag color={isSelected ? 'geekblue' : 'blue'} bordered={false}>
                                 #{row.rank}
                               </Tag>
-                              <span className="truncate text-sm font-medium text-slate-700">
+                              <span className="truncate text-sm font-medium app-text">
                                 {formatDisplayName(row.bdName, row.bdEmail, row.bdUserId)}
                               </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                            <div className="grid grid-cols-2 gap-2 text-xs app-text-soft">
                               <div>
-                                <div className="text-slate-400">{t('pages.adminDashboard.analysis.salesAmount', { defaultValue: 'Sales Amount' })}</div>
-                                <div className="font-semibold text-slate-700">{formatCurrency(row.salesAmount)}</div>
+                                <div className="app-text-soft">{t('pages.adminDashboard.analysis.salesAmount', { defaultValue: 'Sales Amount' })}</div>
+                                <div className="font-semibold app-text">{formatCurrency(row.salesAmount)}</div>
                               </div>
                               <div>
-                                <div className="text-slate-400">{t('pages.adminDashboard.analysis.salesRecords', { defaultValue: 'Sales Records' })}</div>
-                                <div className="font-semibold text-slate-700">{formatNumber(row.salesRecordCount)}</div>
+                                <div className="app-text-soft">{t('pages.adminDashboard.analysis.salesRecords', { defaultValue: 'Sales Records' })}</div>
+                                <div className="font-semibold app-text">{formatNumber(row.salesRecordCount)}</div>
                               </div>
                               <div>
-                                <div className="text-slate-400">{t('pages.adminDashboard.analysis.categoryAmount', { defaultValue: 'Category Amount' })}</div>
-                                <div className="font-semibold text-slate-700">{formatCurrency(row.categoryAmount)}</div>
+                                <div className="app-text-soft">{t('pages.adminDashboard.analysis.categoryAmount', { defaultValue: 'Category Amount' })}</div>
+                                <div className="font-semibold app-text">{formatCurrency(row.categoryAmount)}</div>
                               </div>
                               <div>
-                                <div className="text-slate-400">{t('pages.adminDashboard.analysis.amountCompletion', { defaultValue: 'Amount Completion' })}</div>
-                                <div className="font-semibold text-slate-700">{formatPercent(row.amountCompletion)}</div>
+                                <div className="app-text-soft">{t('pages.adminDashboard.analysis.amountCompletion', { defaultValue: 'Amount Completion' })}</div>
+                                <div className="font-semibold app-text">{formatPercent(row.amountCompletion)}</div>
                               </div>
                             </div>
                           </button>
@@ -1014,17 +1155,17 @@ export function AdminDashboardPage() {
                       <table className="w-full min-w-[760px] border-collapse">
                         <thead>
                           <tr>
-                            <th className="border-b border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-600">BD</th>
-                            <th className="border-b border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-600">
+                            <th className="border-b app-border px-3 py-2 text-left text-xs font-semibold app-text-soft">BD</th>
+                            <th className="border-b app-border px-3 py-2 text-right text-xs font-semibold app-text-soft">
                               {t('pages.adminDashboard.analysis.salesAmount', { defaultValue: 'Sales Amount' })}
                             </th>
-                            <th className="border-b border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-600">
+                            <th className="border-b app-border px-3 py-2 text-right text-xs font-semibold app-text-soft">
                               {t('pages.adminDashboard.analysis.salesRecords', { defaultValue: 'Sales Records' })}
                             </th>
-                            <th className="border-b border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-600">
+                            <th className="border-b app-border px-3 py-2 text-right text-xs font-semibold app-text-soft">
                               {t('pages.adminDashboard.analysis.categoryAmount', { defaultValue: 'Category Amount' })}
                             </th>
-                            <th className="border-b border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-600">
+                            <th className="border-b app-border px-3 py-2 text-right text-xs font-semibold app-text-soft">
                               {t('pages.adminDashboard.analysis.amountCompletion', { defaultValue: 'Amount Completion' })}
                             </th>
                           </tr>
@@ -1033,8 +1174,8 @@ export function AdminDashboardPage() {
                           {salesInsightMatrixRows.map((row) => {
                             const isSelected = row.bdUserId === selectedInsightBdId
                             return (
-                              <tr key={row.bdUserId} className={isSelected ? 'bg-blue-50/60' : undefined}>
-                                <td className="border-b border-slate-100 px-3 py-2 align-middle">
+                              <tr key={row.bdUserId} className={isSelected ? 'bg-blue-50/60 dark:bg-blue-900/30' : undefined}>
+                                <td className="border-b app-border px-3 py-2 align-middle">
                                   <button
                                     type="button"
                                     onClick={() => setSelectedInsightBdId(row.bdUserId)}
@@ -1043,21 +1184,21 @@ export function AdminDashboardPage() {
                                     <Tag color={isSelected ? 'geekblue' : 'blue'} bordered={false}>
                                       #{row.rank}
                                     </Tag>
-                                    <span className="truncate text-sm font-medium text-slate-700">
+                                    <span className="truncate text-sm font-medium app-text">
                                       {formatDisplayName(row.bdName, row.bdEmail, row.bdUserId)}
                                     </span>
                                   </button>
                                 </td>
-                                <td className="border-b border-slate-100 px-3 py-2 text-right text-sm text-slate-700">
+                                <td className="border-b app-border px-3 py-2 text-right text-sm app-text">
                                   {formatCurrency(row.salesAmount)}
                                 </td>
-                                <td className="border-b border-slate-100 px-3 py-2 text-right text-sm text-slate-700">
+                                <td className="border-b app-border px-3 py-2 text-right text-sm app-text">
                                   {formatNumber(row.salesRecordCount)}
                                 </td>
-                                <td className="border-b border-slate-100 px-3 py-2 text-right text-sm text-slate-700">
+                                <td className="border-b app-border px-3 py-2 text-right text-sm app-text">
                                   {formatCurrency(row.categoryAmount)}
                                 </td>
-                                <td className="border-b border-slate-100 px-3 py-2 text-right text-sm text-slate-700">
+                                <td className="border-b app-border px-3 py-2 text-right text-sm app-text">
                                   {formatPercent(row.amountCompletion)}
                                 </td>
                               </tr>
@@ -1077,28 +1218,28 @@ export function AdminDashboardPage() {
                     <Empty description={t('pages.adminDashboard.analysis.selectBdFirst', { defaultValue: 'Please select a BD first' })} />
                   ) : (
                     <div className="space-y-3">
-                      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                        <div className="text-xs text-slate-500">{t('pages.adminDashboard.analysis.selectedBd', { defaultValue: 'Selected BD' })}</div>
-                        <div className="truncate text-sm font-semibold text-slate-800" title={selectedInsightBdName}>
+                      <div className="rounded-md border app-border app-surface-muted px-3 py-2">
+                        <div className="text-xs app-text-soft">{t('pages.adminDashboard.analysis.selectedBd', { defaultValue: 'Selected BD' })}</div>
+                        <div className="truncate text-sm font-semibold app-text" title={selectedInsightBdName}>
                           {selectedInsightBdName}
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="rounded-md border border-slate-200 p-2">
-                          <div className="text-xs text-slate-500">{t('pages.adminDashboard.analysis.salesAmount', { defaultValue: 'Sales Amount' })}</div>
-                          <div className="text-base font-semibold text-slate-800">{formatCurrency(selectedInsightBd.salesAmount)}</div>
+                        <div className="rounded-md border app-border p-2">
+                          <div className="text-xs app-text-soft">{t('pages.adminDashboard.analysis.salesAmount', { defaultValue: 'Sales Amount' })}</div>
+                          <div className="text-base font-semibold app-text">{formatCurrency(selectedInsightBd.salesAmount)}</div>
                         </div>
-                        <div className="rounded-md border border-slate-200 p-2">
-                          <div className="text-xs text-slate-500">{t('pages.adminDashboard.analysis.salesRecords', { defaultValue: 'Sales Records' })}</div>
-                          <div className="text-base font-semibold text-slate-800">{formatNumber(selectedInsightBd.salesRecordCount)}</div>
+                        <div className="rounded-md border app-border p-2">
+                          <div className="text-xs app-text-soft">{t('pages.adminDashboard.analysis.salesRecords', { defaultValue: 'Sales Records' })}</div>
+                          <div className="text-base font-semibold app-text">{formatNumber(selectedInsightBd.salesRecordCount)}</div>
                         </div>
-                        <div className="rounded-md border border-slate-200 p-2">
-                          <div className="text-xs text-slate-500">{t('pages.adminDashboard.analysis.categoryAmount', { defaultValue: 'Category Amount' })}</div>
-                          <div className="text-base font-semibold text-slate-800">{formatCurrency(selectedBdCategoryAmount)}</div>
+                        <div className="rounded-md border app-border p-2">
+                          <div className="text-xs app-text-soft">{t('pages.adminDashboard.analysis.categoryAmount', { defaultValue: 'Category Amount' })}</div>
+                          <div className="text-base font-semibold app-text">{formatCurrency(selectedBdCategoryAmount)}</div>
                         </div>
-                        <div className="rounded-md border border-slate-200 p-2">
-                          <div className="text-xs text-slate-500">{t('pages.adminDashboard.analysis.categoryQuantity', { defaultValue: 'Category Quantity' })}</div>
-                          <div className="text-base font-semibold text-slate-800">{formatNumber(selectedBdCategoryQuantity)}</div>
+                        <div className="rounded-md border app-border p-2">
+                          <div className="text-xs app-text-soft">{t('pages.adminDashboard.analysis.categoryQuantity', { defaultValue: 'Category Quantity' })}</div>
+                          <div className="text-base font-semibold app-text">{formatNumber(selectedBdCategoryQuantity)}</div>
                         </div>
                       </div>
                       <div className="space-y-2">
@@ -1183,10 +1324,10 @@ export function AdminDashboardPage() {
                         {selectedTrendRows.map((row) => (
                           <div key={row.key}>
                             <div className="mb-1 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 text-xs">
-                              <span className="font-medium text-slate-700">{row.label}</span>
-                              <span className="text-slate-500">{formatCurrency(row.totalAmount)}</span>
+                              <span className="font-medium app-text">{row.label}</span>
+                              <span className="app-text-soft">{formatCurrency(row.totalAmount)}</span>
                             </div>
-                            <div className="h-2 overflow-hidden rounded bg-slate-100">
+                            <div className="h-2 overflow-hidden rounded app-surface-muted">
                               <div className="flex h-full" style={{ width: `${(safeNumber(row.totalAmount) / trendMaxAmount) * 100}%` }}>
                                 {row.segments.map((segment) => (
                                   <div
@@ -1216,10 +1357,10 @@ export function AdminDashboardPage() {
                     <Empty description={t('pages.adminDashboard.analysis.noCategoryData', { defaultValue: 'No category data for selected BD' })} />
                   ) : (
                     <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-start">
-                      <div className="relative h-44 w-44 shrink-0 rounded-full border border-slate-200 sm:h-56 sm:w-56" style={{ background: selectedBdPieGradient }}>
-                        <div className="absolute left-1/2 top-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full bg-white shadow-sm">
-                          <div className="text-xs text-slate-500">{t('pages.adminDashboard.analysis.total', { defaultValue: 'Total' })}</div>
-                          <div className="text-sm font-semibold text-slate-700">{formatCurrency(selectedBdCategoryShare.total)}</div>
+                      <div className="relative h-44 w-44 shrink-0 rounded-full border app-border sm:h-56 sm:w-56" style={{ background: selectedBdPieGradient }}>
+                        <div className="absolute left-1/2 top-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full app-surface shadow-sm">
+                          <div className="text-xs app-text-soft">{t('pages.adminDashboard.analysis.total', { defaultValue: 'Total' })}</div>
+                          <div className="text-sm font-semibold app-text">{formatCurrency(selectedBdCategoryShare.total)}</div>
                         </div>
                       </div>
                       <div className="w-full space-y-2">
@@ -1227,7 +1368,7 @@ export function AdminDashboardPage() {
                           const percent = selectedBdCategoryShare.total > 0 ? point.value / selectedBdCategoryShare.total : 0
                           return (
                             <div key={point.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 text-sm">
-                              <span className="inline-flex min-w-0 items-center gap-2 text-slate-700">
+                              <span className="inline-flex min-w-0 items-center gap-2 app-text">
                                 <span
                                   className="mt-1 inline-block h-3 w-3 shrink-0 rounded-sm"
                                   style={{ backgroundColor: categoryColorByKey.get(point.key) ?? '#94a3b8' }}

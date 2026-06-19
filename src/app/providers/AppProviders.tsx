@@ -18,12 +18,12 @@ function AppProvidersInner({ children }: PropsWithChildren) {
           colorSuccess: '#16a34a',
           colorWarning: '#d97706',
           colorInfo: '#0284c7',
-          borderRadius: 10,
-          borderRadiusLG: 12,
-          borderRadiusSM: 6,
+          borderRadius: 12,
+          borderRadiusLG: 16,
+          borderRadiusSM: 8,
           fontFamily: '"IBM Plex Sans", "Segoe UI", sans-serif',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.04)',
-          boxShadowSecondary: '0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05)',
+          boxShadowSecondary: '0 6px 20px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.05)',
         },
         components: {
           Menu: {

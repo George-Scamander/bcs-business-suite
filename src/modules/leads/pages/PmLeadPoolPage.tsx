@@ -6,6 +6,7 @@ import {
 } from 'react'
 import dayjs from 'dayjs'
 import {
+  Badge,
   Button,
   DatePicker,
   Drawer,
@@ -15,7 +16,7 @@ import {
   Space,
   message,
 } from 'antd'
-import { SettingOutlined } from '@ant-design/icons'
+import { FilterOutlined } from '@ant-design/icons'
 import {
   AdaptiveTable as Table,
 } from '../../../components/common/AdaptiveTable'
@@ -80,6 +81,15 @@ export function PmLeadPoolPage() {
   const [filters, setFilters] = useState<LeadFilters>({})
   const [keyword, setKeyword] = useState('')
   const [controlPanelOpen, setControlPanelOpen] = useState(false)
+
+  const secondaryActiveCount = [
+    filters.region,
+    filters.assignedBdId,
+    filters.intentPackage,
+    filters.intentLevelMin !== undefined ? String(filters.intentLevelMin) : undefined,
+    filters.createdFrom,
+    filters.createdTo,
+  ].filter(Boolean).length
 
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
@@ -189,12 +199,38 @@ export function PmLeadPoolPage() {
         extra={
           <Space wrap>
             <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
-            <Button icon={<SettingOutlined />} onClick={() => setControlPanelOpen(true)}>
-              {t('labels.controlPanel', { defaultValue: 'Control Panel' })}
-            </Button>
+            <Badge count={secondaryActiveCount} size="small">
+              <Button icon={<FilterOutlined />} onClick={() => setControlPanelOpen(true)}>
+                {t('labels.controlPanel', { defaultValue: 'Control Panel' })}
+              </Button>
+            </Badge>
           </Space>
         }
       />
+
+      <div className="mb-4 rounded-xl border app-border app-surface p-3">
+        <Space size={8} wrap>
+          <Input.Search
+            allowClear
+            style={{ width: 280 }}
+            placeholder={t('pages.pmLeadPool.keywordPlaceholder', { defaultValue: 'Keyword (lead code/company/contact/source)' })}
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            onSearch={() => void handleApplyControlPanel()}
+          />
+          <Select
+            allowClear
+            style={{ width: 160 }}
+            placeholder={t('pages.bdLeads.statusPlaceholder', { defaultValue: 'Status' })}
+            options={leadStatusOptions}
+            value={filters.status}
+            onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
+          />
+          <Button type="primary" onClick={() => void handleApplyControlPanel()}>
+            {t('labels.apply', { defaultValue: 'Apply' })}
+          </Button>
+        </Space>
+      </div>
 
       <Drawer
         title={t('labels.controlPanel', { defaultValue: 'Control Panel' })}
@@ -278,16 +314,6 @@ export function PmLeadPoolPage() {
                 createdTo: value ? value.endOf('day').toISOString() : undefined,
               }))
             }
-          />
-          <Input
-            allowClear
-            className="w-full"
-            placeholder={t('pages.pmLeadPool.keywordPlaceholder', {
-              defaultValue: 'Keyword (lead code/company/contact/source)',
-            })}
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-            onPressEnter={() => void handleApplyControlPanel()}
           />
           <Space wrap>
             <Button type="primary" onClick={() => void handleApplyControlPanel()}>
