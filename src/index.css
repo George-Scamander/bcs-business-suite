@@ -25,8 +25,10 @@
   --app-text: #1d1d1f;
   --app-text-soft: #6e6e73;
   --app-body-bg:
-    radial-gradient(circle at 0% 0%, rgba(193, 14, 14, 0.05), transparent 35%),
-    linear-gradient(180deg, #f5f5f7, #ececef);
+    radial-gradient(circle at 8% 12%, rgba(193, 14, 14, 0.06), transparent 38%),
+    radial-gradient(circle at 88% 8%, rgba(59, 130, 246, 0.04), transparent 32%),
+    radial-gradient(circle at 50% 95%, rgba(139, 92, 246, 0.03), transparent 40%),
+    linear-gradient(160deg, #f5f5f7, #eeeef3 50%, #e8e9f0);
   --app-nav-bg: rgba(242, 242, 247, 0.94);
   --app-nav-border: #e4e4e7;
   --app-nav-text: #6e6e73;
@@ -34,7 +36,7 @@
   --app-nav-active-text: #c10e0e;
   --app-card-border: #e4e4e7;
   --app-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.04);
-  --app-sidebar-bg: #f5f5f7;
+  --app-sidebar-bg: rgba(240, 241, 248, 0.72);
 }
 
 :root[data-theme='dark'] {
@@ -49,11 +51,12 @@
   --app-border: #1f2937;
   --app-text: #e5e7eb;
   --app-text-soft: #9ca3af;
-  --app-sidebar-bg: #0f172a;
+  --app-sidebar-bg: rgba(10, 18, 32, 0.72);
   --app-body-bg:
-    radial-gradient(circle at 0% 0%, rgba(193, 14, 14, 0.2), transparent 36%),
-    radial-gradient(circle at 100% 0%, rgba(30, 64, 175, 0.26), transparent 42%),
-    linear-gradient(180deg, #0b1220, #0f172a);
+    radial-gradient(circle at 8% 10%, rgba(193, 14, 14, 0.22), transparent 36%),
+    radial-gradient(circle at 90% 8%, rgba(30, 64, 175, 0.28), transparent 42%),
+    radial-gradient(circle at 50% 95%, rgba(88, 28, 135, 0.15), transparent 44%),
+    linear-gradient(160deg, #080e1a, #0b1220 50%, #0e1729);
   --app-nav-bg: rgba(15, 23, 42, 0.96);
   --app-nav-border: #1e293b;
   --app-nav-text: #cbd5e1;
@@ -164,32 +167,44 @@ pre {
   color: #cbd5e1 !important;
 }
 
+/* iOS 26 Liquid Glass — Floating pill tab bar */
 .mobile-bottom-nav {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 12px;
+  right: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
   z-index: 120;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 2px;
-  padding: 8px 8px calc(env(safe-area-inset-bottom, 0px) + 8px);
-  border-top: 1px solid var(--app-nav-border);
+  gap: 4px;
+  padding: 6px;
+  border-top: none;
+  border-radius: 26px;
   background: var(--app-nav-bg);
   backdrop-filter: blur(12px);
 }
 
 .mobile-bottom-nav-item {
   display: flex;
-  min-height: 54px;
+  min-height: 50px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  border: 0;
-  border-radius: 10px;
+  border: 1px solid transparent;
+  border-radius: 20px;
   background: transparent;
   color: var(--app-nav-text);
+  cursor: pointer;
+  transition:
+    background 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+    border-color 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.mobile-bottom-nav-item:active {
+  transform: scale(0.92);
 }
 
 .mobile-bottom-nav-item.active {
@@ -197,10 +212,21 @@ pre {
   color: var(--app-nav-active-text);
 }
 
+@keyframes nav-icon-pop {
+  from { opacity: 0; transform: scale(0.6) rotate(-6deg); }
+  to   { opacity: 1; transform: scale(1)   rotate(0deg);  }
+}
+
 .mobile-bottom-nav-icon {
   display: inline-flex;
-  font-size: 18px;
+  font-size: 22px;
   line-height: 1;
+  animation: nav-icon-pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.mobile-bottom-nav-item.active .mobile-bottom-nav-icon {
+  transform: scale(1.08);
 }
 
 .mobile-bottom-nav-label {
@@ -310,22 +336,140 @@ pre {
   padding: 10px 12px;
 }
 
+/* ─── PageTitleBar 元件內容過渡基礎（全域）──────────────────────────────── */
+
+/* Grid 容器：grid-template-rows 折疊實現平滑高度動畫（不受內容高度限制）*/
+.page-title-description-wrap,
+.page-title-extra-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  transition: grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.page-title-description-wrap > *,
+.page-title-extra-wrap > * {
+  min-height: 0;
+}
+
+/* 內容層：opacity + 向上位移（不影響佈局空間）*/
+.page-title-description,
+.page-title-extra {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 0.2s ease,
+    transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* ─── Apple desktop refinements ──────────────────────────────────────────── */
 
-/* Step 2: Table header — near-invisible tint instead of Ant Design gray */
-.ant-table-thead > tr > th,
-.ant-table-thead > tr > td {
-  background-color: rgba(0, 0, 0, 0.02) !important;
+/* Step 2: Table header — moved and enhanced in desktop @media block below */
+
+/* Phase 2 — iOS 26 scroll-linked header (mobile only, toggled by .header-scrolled) */
+@media (max-width: 767px) {
+  .header-scrolled .ant-layout-header {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(64px) saturate(260%) brightness(106%);
+    -webkit-backdrop-filter: blur(64px) saturate(260%) brightness(106%);
+    box-shadow:
+      0 1px 0 rgba(0, 0, 0, 0.08),
+      0 8px 32px rgba(15, 23, 42, 0.10),
+      inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    transition:
+      background 0.3s ease,
+      backdrop-filter 0.3s ease,
+      box-shadow 0.3s ease;
+  }
+
+  :root[data-theme='dark'] .header-scrolled .ant-layout-header {
+    background: rgba(8, 8, 18, 0.92) !important;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06),
+      0 8px 32px rgba(0, 0, 0, 0.60);
+  }
+
+  .ant-layout-header {
+    transition:
+      background 0.3s ease,
+      backdrop-filter 0.3s ease,
+      box-shadow 0.3s ease;
+  }
 }
 
-:root[data-theme='dark'] .ant-table-thead > tr > th,
-:root[data-theme='dark'] .ant-table-thead > tr > td {
-  background-color: rgba(255, 255, 255, 0.04) !important;
+/* Step 3: Sidebar menu items — Apple Liquid Glass hover + active states */
+
+/* Base: transparent border for layout consistency + smooth transition */
+.ant-layout-sider .ant-menu-item {
+  border: 1px solid transparent !important;
+  transition:
+    background 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-/* Step 3: Sidebar active item — softer Apple-style highlight (desktop only) */
+/* Hover: soft glass lift (light mode) */
+.ant-layout-sider .ant-menu-item:hover:not(.ant-menu-item-selected) {
+  background: rgba(255, 255, 255, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.72) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.90),
+    0 2px 8px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Selected/Active: full glass pill + brand shadow (light mode) */
 .ant-layout-sider .ant-menu-item-selected {
-  background-color: rgba(193, 14, 14, 0.07) !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-color: rgba(255, 255, 255, 0.94) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    0 3px 10px rgba(193, 14, 14, 0.12) !important;
+}
+
+/* Dark mode hover */
+:root[data-theme='dark'] .ant-layout-sider .ant-menu-item:hover:not(.ant-menu-item-selected) {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 2px 6px rgba(0, 0, 0, 0.18) !important;
+}
+
+/* Dark mode selected/active */
+:root[data-theme='dark'] .ant-layout-sider .ant-menu-item-selected {
+  background: rgba(193, 14, 14, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 3px 12px rgba(193, 14, 14, 0.28) !important;
+}
+
+/* Sidebar collapse toggle button — glass hover + spring press */
+.sidebar-collapse-btn {
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.sidebar-collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.90) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+.sidebar-collapse-btn:active {
+  transform: scale(0.88) !important;
+}
+
+:root[data-theme='dark'] .sidebar-collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.10) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 2px 8px rgba(0, 0, 0, 0.38) !important;
 }
 
 @media (min-width: 768px) {
@@ -339,25 +483,195 @@ pre {
 
   /* Step 1: Header — frosted glass, matches Apple macOS title bar */
   .ant-layout-header {
-    background: rgba(249, 249, 251, 0.88) !important;
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    background: rgba(245, 245, 250, 0.88) !important;
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.06);
   }
 
   :root[data-theme='dark'] .ant-layout-header {
-    background: rgba(11, 18, 32, 0.92) !important;
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    background: rgba(8, 14, 26, 0.92) !important;
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.05);
   }
 
-  /* Step 4: Cards — hairline border only; shadow handled by Ant Design boxShadow token
-     so hover state (boxShadowSecondary) is preserved naturally */
+  /* Sidebar — Apple Liquid Glass panel */
+  .sidebar-glass {
+    backdrop-filter: blur(24px) saturate(180%) brightness(1.02) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.02) !important;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.5) !important;
+  }
+
+  :root[data-theme='dark'] .sidebar-glass {
+    backdrop-filter: blur(24px) saturate(180%) brightness(0.98) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(0.98) !important;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* Page title bar — liquid glass, same family as header */
+  .page-title-glass {
+    background: rgba(242, 242, 247, 0.82) !important;
+    backdrop-filter: blur(28px) saturate(180%) brightness(1.04);
+    -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.04);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+
+  :root[data-theme='dark'] .page-title-glass {
+    background: rgba(15, 23, 42, 0.88) !important;
+    backdrop-filter: blur(28px) saturate(180%) brightness(0.96);
+    -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(0.96);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.40);
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  /* Apple Liquid Glass cards (desktop only) */
   .ant-card {
-    border-color: rgba(0, 0, 0, 0.06) !important;
+    background: rgba(255, 255, 255, 0.65) !important;
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.58) !important;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      0 4px 16px rgba(0, 0, 0, 0.07),
+      inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
   }
 
   :root[data-theme='dark'] .ant-card {
-    border-color: var(--app-border) !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.15),
+      0 4px 16px rgba(0, 0, 0, 0.30),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* 可點擊卡片 — 懸停提升陰影（覆蓋基礎 !important 陰影）*/
+  .ant-card-hoverable:hover {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.06),
+      0 8px 24px rgba(0, 0, 0, 0.12),
+      0 20px 48px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92) !important;
+  }
+
+  :root[data-theme='dark'] .ant-card-hoverable:hover {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 8px 24px rgba(0, 0, 0, 0.50),
+      0 20px 48px rgba(0, 0, 0, 0.40),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  }
+
+  /* ── PageTitleBar 吸頂收縮（桌面版）────────────────────────────────────── */
+  .page-title-glass {
+    transition:
+      padding 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      border-radius 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      margin-bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* 標題字體大小平滑過渡（桌面）*/
+  .page-title-glass .ant-typography {
+    transition:
+      font-size 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      line-height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      margin-bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* 收縮狀態（桌面）— 吸頂後變成緊湊狀態欄 */
+  .header-scrolled .page-title-glass {
+    padding: 8px 20px !important;
+    border-radius: 10px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .header-scrolled .page-title-glass .ant-typography {
+    font-size: 15px !important;
+    line-height: 1.35 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* 描述文字向上滑出（桌面）— grid-wrap 折疊高度，內容往上位移並淡出 */
+  .header-scrolled .page-title-glass .page-title-description-wrap {
+    grid-template-rows: 0fr;
+  }
+
+  .header-scrolled .page-title-glass .page-title-description {
+    opacity: 0 !important;
+    transform: translateY(-10px) !important;
+    pointer-events: none;
+  }
+
+  /* ─── Step 2 (upgraded): Table header — glass tint ──────────────────────── */
+  .ant-table-thead > tr > th,
+  .ant-table-thead > tr > td {
+    background: rgba(248, 248, 252, 0.72) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  }
+
+  :root[data-theme='dark'] .ant-table-thead > tr > th,
+  :root[data-theme='dark'] .ant-table-thead > tr > td {
+    background: rgba(15, 23, 42, 0.72) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+
+  /* ─── Apple Liquid Glass tables (desktop only) ──────────────────────────── */
+
+  /* Wrapper — glass card treatment, matches .ant-card */
+  .ant-table-wrapper {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      0 4px 16px rgba(0, 0, 0, 0.07),
+      inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.58);
+  }
+
+  /* Table background — semi-transparent glass */
+  .ant-table {
+    background: rgba(255, 255, 255, 0.65) !important;
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+  }
+
+  /* Row alternating — very subtle tint for readability */
+  .ant-table-tbody > tr.ant-table-row:nth-child(even) > td {
+    background: rgba(0, 0, 0, 0.015) !important;
+  }
+
+  /* Row hover — gentle glass lift */
+  .ant-table-tbody > tr.ant-table-row:hover > td {
+    background: rgba(255, 255, 255, 0.82) !important;
+  }
+
+  /* Dark mode — wrapper */
+  :root[data-theme='dark'] .ant-table-wrapper {
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.15),
+      0 4px 16px rgba(0, 0, 0, 0.30),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Dark mode — table background */
+  :root[data-theme='dark'] .ant-table {
+    background: rgba(15, 23, 42, 0.65) !important;
+  }
+
+  /* Dark mode — even row tint */
+  :root[data-theme='dark'] .ant-table-tbody > tr.ant-table-row:nth-child(even) > td {
+    background: rgba(255, 255, 255, 0.02) !important;
+  }
+
+  /* Dark mode — row hover */
+  :root[data-theme='dark'] .ant-table-tbody > tr.ant-table-row:hover > td {
+    background: rgba(255, 255, 255, 0.06) !important;
   }
 }
 
@@ -479,15 +793,15 @@ pre {
       radial-gradient(ellipse 90% 55% at 8% -5%, rgba(193, 14, 14, 0.07), transparent 52%),
       radial-gradient(ellipse 65% 80% at 95% 105%, rgba(120, 130, 155, 0.12), transparent 55%),
       linear-gradient(175deg, #f2f2f7 0%, #ebebf0 50%, #f0f0f5 100%);
-    --mobile-glass-surface: rgba(255, 255, 255, 0.58);
-    --mobile-glass-surface-strong: rgba(255, 255, 255, 0.75);
+    --mobile-glass-surface: rgba(255, 255, 255, 0.88);
+    --mobile-glass-surface-strong: rgba(255, 255, 255, 0.94);
     --mobile-glass-border: rgba(255, 255, 255, 0.92);
     --mobile-glass-shadow:
       0 8px 32px rgba(15, 23, 42, 0.14),
       inset 0 1px 0 rgba(255, 255, 255, 0.95),
       inset 0 -1px 0 rgba(255, 255, 255, 0.22);
-    /* bottom nav base height: 1px border + 8px pad-top + 54px item + 8px base pad-bottom */
-    --mobile-nav-height: 71px;
+    /* bottom nav: 50px item + 6px×2 padding + 8px bottom offset = 70px visual clearance */
+    --mobile-nav-height: 70px;
   }
 
   :root[data-theme='dark'] {
@@ -495,8 +809,8 @@ pre {
       radial-gradient(ellipse 90% 55% at 8% -5%, rgba(193, 14, 14, 0.14), transparent 52%),
       radial-gradient(ellipse 65% 80% at 95% 105%, rgba(10, 10, 20, 0.5), transparent 55%),
       linear-gradient(175deg, #08080d 0%, #0a0a10 50%, #09090e 100%);
-    --mobile-glass-surface: rgba(22, 22, 38, 0.65);
-    --mobile-glass-surface-strong: rgba(32, 32, 52, 0.80);
+    --mobile-glass-surface: rgba(22, 22, 40, 0.94);
+    --mobile-glass-surface-strong: rgba(28, 28, 46, 0.96);
     --mobile-glass-border: rgba(255, 255, 255, 0.10);
     --mobile-glass-shadow:
       0 8px 32px rgba(0, 0, 0, 0.55),
@@ -526,19 +840,25 @@ pre {
   }
 
   .ant-layout-header {
-    background: rgba(255, 255, 255, 0.14) !important;
-    border-color: rgba(255, 255, 255, 0.92) !important;
-    backdrop-filter: blur(52px) saturate(220%) brightness(112%);
-    -webkit-backdrop-filter: blur(52px) saturate(220%) brightness(112%);
+    /* 與底部導航欄統一：同等半透明 + 模糊強度 */
+    background: rgba(255, 255, 255, 0.28) !important;
+    border-color: rgba(255, 255, 255, 0.88) !important;
+    backdrop-filter: blur(52px) saturate(240%) brightness(110%);
+    -webkit-backdrop-filter: blur(52px) saturate(240%) brightness(110%);
     box-shadow:
-      0 8px 30px rgba(15, 23, 42, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+      0 4px 24px rgba(15, 23, 42, 0.10),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.28);
   }
 
   :root[data-theme='dark'] .ant-layout-header {
-    background: rgba(15, 15, 25, 0.68) !important;
-    border-color: rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+    background: rgba(12, 12, 22, 0.72) !important;
+    border-color: rgba(255, 255, 255, 0.10) !important;
+    backdrop-filter: blur(52px) saturate(240%) brightness(0.85);
+    -webkit-backdrop-filter: blur(52px) saturate(240%) brightness(0.85);
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.10);
   }
 
   .ant-layout-content {
@@ -549,58 +869,75 @@ pre {
     background: transparent !important;
   }
 
+  /* iOS 26 Liquid Glass — floating pill container */
   .mobile-bottom-nav {
-    border-top-color: rgba(255, 255, 255, 0.88);
-    background: rgba(255, 255, 255, 0.11);
-    backdrop-filter: blur(52px) saturate(220%) brightness(112%);
-    -webkit-backdrop-filter: blur(52px) saturate(220%) brightness(112%);
+    border-top: none;
+    background: rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(52px) saturate(250%) brightness(108%);
+    -webkit-backdrop-filter: blur(52px) saturate(250%) brightness(108%);
     box-shadow:
-      0 -12px 32px rgba(15, 23, 42, 0.06),
-      inset 0 1px 0 rgba(255, 255, 255, 0.92);
+      0 8px 32px rgba(15, 23, 42, 0.16),
+      0 2px 8px rgba(15, 23, 42, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.30);
   }
 
   :root[data-theme='dark'] .mobile-bottom-nav {
-    border-top-color: rgba(255, 255, 255, 0.08);
-    background: rgba(15, 15, 25, 0.45);
-    box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.55);
+    background: rgba(10, 10, 20, 0.58);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.65),
+      inset 0 1px 0 rgba(255, 255, 255, 0.10),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.04);
   }
 
+  /* iOS 26 — each item has spring transition */
   .mobile-bottom-nav-item {
     border: 1px solid transparent;
-    transition: all 0.2s ease;
+    transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
+  /* iOS 26 — active tab: bright glass capsule with top shine */
   .mobile-bottom-nav-item.active {
-    border-color: rgba(255, 255, 255, 0.88);
+    border-color: rgba(255, 255, 255, 0.92);
     background: linear-gradient(
       165deg,
-      rgba(255, 255, 255, 0.62) 0%,
-      rgba(255, 255, 255, 0.36) 100%
+      rgba(255, 255, 255, 0.82) 0%,
+      rgba(255, 255, 255, 0.58) 100%
     );
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.96),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.28),
-      0 4px 16px rgba(15, 23, 42, 0.12);
+      inset 0 1.5px 0 rgba(255, 255, 255, 0.99),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.35),
+      0 4px 16px rgba(15, 23, 42, 0.14);
   }
 
   :root[data-theme='dark'] .mobile-bottom-nav-item.active {
-    border-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.15);
     background: linear-gradient(
       165deg,
-      rgba(50, 50, 80, 0.75) 0%,
-      rgba(30, 30, 55, 0.55) 100%
+      rgba(60, 60, 95, 0.82) 0%,
+      rgba(32, 32, 65, 0.62) 100%
     );
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.15),
-      0 5px 15px rgba(0, 0, 0, 0.40);
+      inset 0 1.5px 0 rgba(255, 255, 255, 0.20),
+      0 5px 18px rgba(0, 0, 0, 0.50);
   }
 
+  /* 卡片：固定玻璃底色，不加 backdrop-filter
+     原因：backdrop-filter 會對頁面背景漸層取樣，頁面不同位置取樣到不同顏色
+     → 左欄卡片和右欄卡片顯示出不同色調（已透過提高不透明度至 0.88/0.94 修正）*/
   .ant-card,
-  .adaptive-table-mobile .ant-card,
+  .adaptive-table-mobile .ant-card {
+    background: var(--mobile-glass-surface) !important;
+    border-color: var(--mobile-glass-border) !important;
+    --ant-color-bg-container: transparent;
+    box-shadow: var(--mobile-glass-shadow);
+  }
+
+  /* 表格：全寬元素，backdrop-filter 不會造成左右欄不一致 */
   .ant-table-wrapper .ant-table,
   .ant-table-wrapper .ant-table-container {
     background: var(--mobile-glass-surface) !important;
@@ -608,6 +945,29 @@ pre {
     backdrop-filter: blur(40px) saturate(200%);
     -webkit-backdrop-filter: blur(40px) saturate(200%);
     box-shadow: var(--mobile-glass-shadow);
+  }
+
+  /* Card body / head 透明 — 消除 AntD CSS-in-JS 注入的白色/深色 body 背景 */
+  .ant-card-body,
+  .ant-card-head {
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  /* 夜間模式卡片：整張卡片透明，以 border + shadow 定義邊界
+     用更高 specificity 覆蓋上方的 .ant-card { background: rgba(22,22,40,0.94) }
+     同時覆蓋 AntD CSS-in-JS 的 --ant-color-bg-container 變數（夜間為 #141414） */
+  :root[data-theme='dark'] .ant-card,
+  :root[data-theme='dark'] .adaptive-table-mobile .ant-card {
+    background: transparent !important;
+    --ant-color-bg-container: transparent !important;
+    --ant-card-bg: transparent !important;
+  }
+
+  :root[data-theme='dark'] .ant-card-body,
+  :root[data-theme='dark'] .ant-card-head {
+    background: transparent !important;
+    background-color: transparent !important;
   }
 
   .ant-table-thead > tr > th {
@@ -639,14 +999,15 @@ pre {
       0 4px 14px rgba(15, 23, 42, 0.10);
   }
 
+  /* 主要按鈕：品牌紅玻璃（與桌面版一致） */
   .ant-btn-primary {
-    color: #0b1220 !important;
-    border-color: rgba(147, 197, 253, 0.6) !important;
+    color: #fff !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
     background:
-      linear-gradient(180deg, rgba(219, 234, 254, 0.95), rgba(147, 197, 253, 0.85)) !important;
+      linear-gradient(180deg, rgba(220, 38, 38, 0.92), rgba(185, 15, 15, 0.88)) !important;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.82),
-      0 6px 18px rgba(59, 130, 246, 0.18) !important;
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      0 6px 18px rgba(193, 14, 14, 0.28) !important;
   }
 
   :root[data-theme='dark'] .ant-btn {
@@ -658,11 +1019,15 @@ pre {
       0 4px 14px rgba(0, 0, 0, 0.45);
   }
 
+  /* 主要按鈕夜間：深紅玻璃 */
   :root[data-theme='dark'] .ant-btn-primary {
-    color: #e2e8f0 !important;
-    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #fff !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
     background:
-      linear-gradient(180deg, rgba(55, 55, 85, 0.84), rgba(30, 30, 55, 0.84)) !important;
+      linear-gradient(180deg, rgba(185, 15, 15, 0.88), rgba(140, 10, 10, 0.80)) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 6px 20px rgba(193, 14, 14, 0.35) !important;
   }
 
   .ant-input,
@@ -755,5 +1120,828 @@ pre {
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.12),
       0 4px 12px rgba(0, 0, 0, 0.40);
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════════
+     Phase 5 — PageTitleBar 手機端 Liquid Glass + Sticky
+     ════════════════════════════════════════════════════════════════════════════ */
+
+  .mobile-title-glass {
+    background: rgba(242, 242, 248, 0.80) !important;
+    backdrop-filter: blur(40px) saturate(220%) brightness(108%);
+    -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(108%);
+    border-color: rgba(255, 255, 255, 0.88) !important;
+    box-shadow:
+      0 4px 20px rgba(15, 23, 42, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  }
+
+  :root[data-theme='dark'] .mobile-title-glass {
+    background: rgba(10, 10, 20, 0.82) !important;
+    backdrop-filter: blur(40px) saturate(220%) brightness(0.96);
+    -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(0.96);
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.50),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* ── PageTitleBar 吸頂收縮（手機版）────────────────────────────────────── */
+  .mobile-title-glass {
+    transition:
+      padding 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      border-radius 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      margin-bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      gap 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* 標題字體大小平滑過渡（手機）*/
+  .mobile-title-glass .ant-typography {
+    transition:
+      font-size 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      line-height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      margin-bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* 收縮狀態（手機）— 只保留標題 */
+  .header-scrolled .mobile-title-glass {
+    padding: 8px 14px !important;
+    border-radius: 12px !important;
+    margin-bottom: 12px !important;
+    gap: 0 !important;
+  }
+
+  .header-scrolled .mobile-title-glass .ant-typography {
+    font-size: 15px !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* 描述文字與 extra 操作區向上滑出（手機）— grid-wrap 折疊高度，內容往上位移並淡出 */
+  .header-scrolled .mobile-title-glass .page-title-description-wrap,
+  .header-scrolled .mobile-title-glass .page-title-extra-wrap {
+    grid-template-rows: 0fr;
+  }
+
+  .header-scrolled .mobile-title-glass .page-title-description,
+  .header-scrolled .mobile-title-glass .page-title-extra {
+    opacity: 0 !important;
+    transform: translateY(-12px) !important;
+    pointer-events: none;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════════
+     Phase 1 — iOS 26 Liquid Glass：補全剩餘元件覆蓋
+     ════════════════════════════════════════════════════════════════════════════ */
+
+  /* ── Tag — glass pill ──────────────────────────────────────────────────── */
+  /* 所有標籤：只加玻璃模糊，不覆蓋語義顏色 */
+  .ant-tag {
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+  }
+
+  /* 僅無顏色的預設標籤：套用完整白色玻璃 */
+  .ant-tag.ant-tag-default {
+    background: rgba(255, 255, 255, 0.55) !important;
+    border-color: rgba(255, 255, 255, 0.82) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.90),
+      0 2px 6px rgba(15, 23, 42, 0.06);
+    color: #1d1d1f !important;
+  }
+
+  :root[data-theme='dark'] .ant-tag.ant-tag-default {
+    background: rgba(30, 30, 55, 0.65) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    color: #e2e8f0 !important;
+  }
+
+  /* ── Alert — glass card with color tint ────────────────────────────────── */
+  .ant-alert {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 14px !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.90),
+      0 4px 16px rgba(15, 23, 42, 0.06);
+  }
+
+  .ant-alert-info {
+    background: rgba(219, 234, 254, 0.62) !important;
+    border-color: rgba(147, 197, 253, 0.55) !important;
+  }
+
+  .ant-alert-success {
+    background: rgba(187, 247, 208, 0.58) !important;
+    border-color: rgba(74, 222, 128, 0.45) !important;
+  }
+
+  .ant-alert-warning {
+    background: rgba(254, 240, 138, 0.58) !important;
+    border-color: rgba(251, 191, 36, 0.45) !important;
+  }
+
+  .ant-alert-error {
+    background: rgba(254, 202, 202, 0.60) !important;
+    border-color: rgba(252, 165, 165, 0.50) !important;
+  }
+
+  :root[data-theme='dark'] .ant-alert {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 16px rgba(0, 0, 0, 0.30);
+  }
+
+  :root[data-theme='dark'] .ant-alert-info {
+    background: rgba(30, 58, 138, 0.42) !important;
+    border-color: rgba(59, 130, 246, 0.30) !important;
+  }
+
+  :root[data-theme='dark'] .ant-alert-success {
+    background: rgba(20, 83, 45, 0.45) !important;
+    border-color: rgba(34, 197, 94, 0.28) !important;
+  }
+
+  :root[data-theme='dark'] .ant-alert-warning {
+    background: rgba(120, 53, 15, 0.45) !important;
+    border-color: rgba(245, 158, 11, 0.30) !important;
+  }
+
+  :root[data-theme='dark'] .ant-alert-error {
+    background: rgba(127, 29, 29, 0.45) !important;
+    border-color: rgba(239, 68, 68, 0.30) !important;
+  }
+
+  /* ── Badge — glass count bubble ────────────────────────────────────────── */
+  .ant-badge-count {
+    background: rgba(193, 14, 14, 0.85) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.30),
+      0 2px 8px rgba(193, 14, 14, 0.35) !important;
+  }
+
+  /* ── Descriptions — glass section panel ────────────────────────────────── */
+  .ant-descriptions-view {
+    background: rgba(255, 255, 255, 0.48) !important;
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border-color: rgba(255, 255, 255, 0.75) !important;
+    border-radius: 14px !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      0 4px 16px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+  }
+
+  .ant-descriptions-item-label {
+    background: rgba(248, 248, 252, 0.62) !important;
+  }
+
+  .ant-descriptions-item-content {
+    background: rgba(255, 255, 255, 0.38) !important;
+  }
+
+  :root[data-theme='dark'] .ant-descriptions-view {
+    background: rgba(15, 23, 42, 0.55) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 16px rgba(0, 0, 0, 0.35);
+  }
+
+  :root[data-theme='dark'] .ant-descriptions-item-label {
+    background: rgba(10, 15, 30, 0.55) !important;
+  }
+
+  :root[data-theme='dark'] .ant-descriptions-item-content {
+    background: rgba(20, 28, 48, 0.40) !important;
+  }
+
+  /* ── Timeline — glass line + dots ──────────────────────────────────────── */
+  .ant-timeline-item-head {
+    background: rgba(255, 255, 255, 0.72) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.90),
+      0 2px 8px rgba(15, 23, 42, 0.10);
+  }
+
+  .ant-timeline-item-tail {
+    border-inline-start-color: rgba(255, 255, 255, 0.55) !important;
+  }
+
+  :root[data-theme='dark'] .ant-timeline-item-head {
+    background: rgba(40, 40, 65, 0.75) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+
+  :root[data-theme='dark'] .ant-timeline-item-tail {
+    border-inline-start-color: rgba(255, 255, 255, 0.10) !important;
+  }
+
+  /* ── Progress — glass track ─────────────────────────────────────────────── */
+  .ant-progress-inner {
+    background: rgba(255, 255, 255, 0.45) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+  }
+
+  :root[data-theme='dark'] .ant-progress-inner {
+    background: rgba(30, 30, 55, 0.55) !important;
+  }
+
+  /* ── Checkbox / Radio — glass controls ─────────────────────────────────── */
+  .ant-checkbox-inner,
+  .ant-radio-inner {
+    background: rgba(255, 255, 255, 0.72) !important;
+    border-color: rgba(255, 255, 255, 0.88) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      0 2px 6px rgba(15, 23, 42, 0.08);
+  }
+
+  :root[data-theme='dark'] .ant-checkbox-inner,
+  :root[data-theme='dark'] .ant-radio-inner {
+    background: rgba(30, 30, 55, 0.72) !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  }
+
+  /* ── Upload — glass drop zone ──────────────────────────────────────────── */
+  .ant-upload.ant-upload-drag {
+    background: rgba(255, 255, 255, 0.40) !important;
+    border-color: rgba(255, 255, 255, 0.72) !important;
+    border-radius: 16px !important;
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.90),
+      0 4px 16px rgba(15, 23, 42, 0.06);
+  }
+
+  :root[data-theme='dark'] .ant-upload.ant-upload-drag {
+    background: rgba(15, 23, 42, 0.50) !important;
+    border-color: rgba(255, 255, 255, 0.10) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.30);
+  }
+
+  /* ── Tooltip — glass balloon ────────────────────────────────────────────── */
+  .ant-tooltip .ant-tooltip-inner {
+    background: rgba(248, 250, 255, 0.75) !important;
+    backdrop-filter: blur(28px) saturate(200%);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 12px !important;
+    box-shadow:
+      0 8px 24px rgba(15, 23, 42, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    color: #1d1d1f !important;
+  }
+
+  .ant-tooltip .ant-tooltip-arrow::before {
+    background: rgba(248, 250, 255, 0.82);
+  }
+
+  :root[data-theme='dark'] .ant-tooltip .ant-tooltip-inner {
+    background: rgba(18, 18, 32, 0.85) !important;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    color: #e2e8f0 !important;
+  }
+
+  /* ── Result — glass result page ─────────────────────────────────────────── */
+  .ant-result {
+    background: rgba(255, 255, 255, 0.48) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    border-radius: 20px !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      0 8px 32px rgba(15, 23, 42, 0.08);
+  }
+
+  :root[data-theme='dark'] .ant-result {
+    background: rgba(15, 23, 42, 0.55) !important;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 32px rgba(0, 0, 0, 0.40);
+  }
+
+  /* ── Spin — glass loading indicator ─────────────────────────────────────── */
+  .ant-spin-container::after {
+    background: rgba(255, 255, 255, 0.55) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  :root[data-theme='dark'] .ant-spin-container::after {
+    background: rgba(10, 10, 20, 0.55) !important;
+  }
+
+  /* ── Statistic — glass number card ──────────────────────────────────────── */
+  .ant-statistic {
+    background: rgba(255, 255, 255, 0.45);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius: 14px;
+    padding: 12px 16px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.90);
+  }
+
+  :root[data-theme='dark'] .ant-statistic {
+    background: rgba(20, 28, 48, 0.55);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* ── Popconfirm — already covered by .ant-popover, add arrow glass ──────── */
+  .ant-popover .ant-popover-arrow::before {
+    background: rgba(250, 252, 255, 0.75);
+  }
+
+  :root[data-theme='dark'] .ant-popover .ant-popover-arrow::before {
+    background: rgba(12, 12, 22, 0.88);
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════════
+     Phase 3 — iOS 26 觸控微互動 + Spring 動效補全
+     ════════════════════════════════════════════════════════════════════════════ */
+
+  /* 頁面內容進入動畫 — 模擬 iOS push 過渡的 fade-up */
+  @keyframes ios-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* 每次路由切換，content 子元素輕微淡入上浮 */
+  .ant-layout-content > * {
+    animation: ios-fade-up 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════════
+     Phase 4 — iOS 26 間距系統 + HIG 排版規範
+     ════════════════════════════════════════════════════════════════════════════ */
+
+  /* 最小觸控目標 44×44pt（Apple HIG 硬性要求）*/
+  .ant-btn {
+    min-height: 44px !important;
+    min-width: 44px;
+  }
+
+  /* 小按鈕豁免（icon-only）只保最小寬度 */
+  .ant-btn-sm {
+    min-height: 36px !important;
+    min-width: 36px;
+  }
+
+  /* Section 標題 — iOS 分組列表 header 樣式 */
+  .ant-list .ant-list-header {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--app-text-soft);
+    padding: 8px 0 4px;
+    border-bottom: none;
+  }
+
+  /* 列表分隔線 — 比 Ant Design 預設更淡（iOS 26 用極淡 hairline）*/
+  .ant-list-item {
+    border-bottom-color: rgba(0, 0, 0, 0.06) !important;
+  }
+
+  :root[data-theme='dark'] .ant-list-item {
+    border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+  }
+
+  /* 表單間距 — iOS 26 表單項目稍微寬鬆 */
+  .ant-form-item {
+    margin-bottom: 20px !important;
+  }
+
+  /* 圓角層次統一（iOS 26 HIG：小 10px → 中 14px → 大 22px）*/
+  .ant-modal .ant-modal-content {
+    border-radius: 22px !important;
+  }
+
+  .ant-card {
+    border-radius: 16px !important;
+  }
+
+  .ant-alert {
+    border-radius: 14px !important;
+  }
+
+  /* 空狀態頁面 — 增加上下留白 */
+  .ant-empty {
+    padding: 32px 0;
+  }
+
+  /* Pagination — 手機端更大的點擊區域 */
+  .ant-pagination .ant-pagination-item,
+  .ant-pagination .ant-pagination-prev,
+  .ant-pagination .ant-pagination-next {
+    min-width: 36px !important;
+    height: 36px !important;
+    line-height: 34px !important;
+  }
+
+  /* 卡片 — 按壓縮放 + Spring 恢復（iOS 26 press feedback）*/
+  .ant-card {
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  }
+
+  .ant-card-hoverable:active {
+    transform: scale(0.975) !important;
+  }
+
+  /* 走馬燈容器：禁用整卡按壓縮放
+     按鈕自身仍有 scale(0.91) 回饋，但外層卡片不跟著下沉 */
+  .ant-card.carousel-card:active {
+    transform: none !important;
+  }
+
+  /* List 項目 — 按壓縮放 */
+  .ant-list-item {
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  }
+
+  .ant-list-item:active {
+    transform: scale(0.98) !important;
+    background: rgba(255, 255, 255, 0.72) !important;
+  }
+
+  :root[data-theme='dark'] .ant-list-item:active {
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* 按鈕 — Spring 按壓（所有 type）*/
+  .ant-btn {
+    transition:
+      transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
+      background 0.2s ease,
+      box-shadow 0.2s ease !important;
+  }
+
+  .ant-btn:active {
+    transform: scale(0.91) !important;
+  }
+
+  .ant-btn-primary:active {
+    transform: scale(0.93) !important;
+  }
+
+  /* Tag — Spring 按壓 */
+  .ant-tag {
+    transition:
+      transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
+      background 0.2s ease !important;
+    cursor: default;
+  }
+
+  .ant-tag:active {
+    transform: scale(0.90) !important;
+  }
+
+  /* Table 行 — 按壓回饋 */
+  .ant-table-tbody > tr.ant-table-row:active > td {
+    background: rgba(255, 255, 255, 0.88) !important;
+  }
+
+  :root[data-theme='dark'] .ant-table-tbody > tr.ant-table-row:active > td {
+    background: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  /* Modal / Drawer — 進入動畫 Spring */
+  .ant-modal-content {
+    animation: ios-fade-up 0.36s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  .ant-drawer-content-wrapper {
+    transition: transform 0.38s cubic-bezier(0.34, 1.2, 0.64, 1) !important;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════════
+     手機主頁：支付寶 / 美團式快捷入口設計
+     ════════════════════════════════════════════════════════════════════════════ */
+
+  /* ── 歡迎橫幅 ──────────────────────────────────────────────────────────── */
+  .mobile-home-greeting {
+    background: linear-gradient(135deg, rgba(193, 14, 14, 0.88) 0%, rgba(140, 10, 10, 0.80) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 18px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      0 8px 28px rgba(193, 14, 14, 0.30);
+    color: #fff;
+  }
+
+  .mobile-home-greeting-app {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.72;
+    margin-bottom: 4px;
+  }
+
+  .mobile-home-greeting-name {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 2px;
+  }
+
+  .mobile-home-greeting-role {
+    font-size: 13px;
+    opacity: 0.80;
+  }
+
+  :root[data-theme='dark'] .mobile-home-greeting {
+    background: linear-gradient(135deg, rgba(140, 10, 10, 0.82) 0%, rgba(90, 5, 5, 0.72) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 8px 28px rgba(0, 0, 0, 0.50);
+  }
+
+  /* ── 關鍵數字宮格（2 × 2）────────────────────────────────────────────── */
+  .mobile-home-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .mobile-home-stat-item {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 16px;
+    padding: 14px 16px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      0 4px 14px rgba(15, 23, 42, 0.08);
+    cursor: pointer;
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 0.22s ease;
+  }
+
+  .mobile-home-stat-item:active {
+    transform: scale(0.96);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.90),
+      0 2px 8px rgba(15, 23, 42, 0.10);
+  }
+
+  .mobile-home-stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--app-text-soft);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .mobile-home-stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--app-text);
+    line-height: 1;
+  }
+
+  :root[data-theme='dark'] .mobile-home-stat-item {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.10),
+      0 4px 14px rgba(0, 0, 0, 0.40);
+  }
+
+  /* ── 分節標題 ──────────────────────────────────────────────────────────── */
+  .mobile-home-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--app-text-soft);
+    padding: 4px 2px 10px;
+  }
+
+  /* ── 功能宮格（4 列圖示）──────────────────────────────────────────────── */
+  .mobile-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .mobile-quick-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 4px 10px;
+    background: rgba(255, 255, 255, 0.68);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.90);
+    border-radius: 16px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      0 2px 10px rgba(15, 23, 42, 0.07);
+    cursor: pointer;
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 0.22s ease,
+      background 0.18s ease;
+    text-decoration: none;
+    border: none;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    background: rgba(255, 255, 255, 0.68);
+    border: 1px solid rgba(255, 255, 255, 0.90);
+  }
+
+  .mobile-quick-item:active {
+    transform: scale(0.91);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.88),
+      0 1px 6px rgba(15, 23, 42, 0.10);
+  }
+
+  .mobile-quick-icon {
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.80);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.10);
+  }
+
+  .mobile-quick-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--app-text);
+    text-align: center;
+    line-height: 1.3;
+    word-break: keep-all;
+  }
+
+  :root[data-theme='dark'] .mobile-quick-item {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.10),
+      0 2px 10px rgba(0, 0, 0, 0.40);
+  }
+
+  :root[data-theme='dark'] .mobile-quick-icon {
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+
+  :root[data-theme='dark'] .mobile-quick-label {
+    color: var(--app-text);
+  }
+
+  /* ── 近期清單 ──────────────────────────────────────────────────────────── */
+  .mobile-home-recent {
+    background: rgba(255, 255, 255, 0.68);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      0 4px 14px rgba(15, 23, 42, 0.08);
+    margin-bottom: 12px;
+  }
+
+  .mobile-home-recent-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  .mobile-home-recent-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--app-text);
+  }
+
+  .mobile-home-recent-more {
+    font-size: 12px;
+    font-weight: 500;
+    color: #c10e0e;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .mobile-home-recent-more:active {
+    opacity: 0.65;
+  }
+
+  .mobile-home-recent-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  .mobile-home-recent-item:last-child {
+    border-bottom: none;
+  }
+
+  .mobile-home-recent-item:active {
+    background: rgba(255, 255, 255, 0.80);
+    transform: scale(0.99);
+  }
+
+  .mobile-home-recent-item-left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-home-recent-item-code {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--app-text);
+    letter-spacing: 0.02em;
+  }
+
+  .mobile-home-recent-item-name {
+    font-size: 12px;
+    color: var(--app-text-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+
+  .mobile-home-recent-item-date {
+    font-size: 11px;
+    color: var(--app-text-soft);
+    white-space: nowrap;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+
+  .mobile-home-empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--app-text-soft);
+    font-size: 13px;
+  }
+
+  :root[data-theme='dark'] .mobile-home-recent {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.10),
+      0 4px 14px rgba(0, 0, 0, 0.45);
+  }
+
+  :root[data-theme='dark'] .mobile-home-recent-header {
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+  }
+
+  :root[data-theme='dark'] .mobile-home-recent-item {
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+  }
+
+  :root[data-theme='dark'] .mobile-home-recent-item:active {
+    background: rgba(255, 255, 255, 0.06);
   }
 }

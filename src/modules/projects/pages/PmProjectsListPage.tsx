@@ -16,6 +16,7 @@ import {
 import {
   AdaptiveTable as Table,
 } from '../../../components/common/AdaptiveTable'
+import { ActionMenu } from '../../../components/common/ActionMenu'
 import {
   useNavigate,
   useSearchParams,
@@ -349,38 +350,43 @@ export function PmProjectsListPage() {
           },
           {
             title: t('pages.pmProjects.actions', { defaultValue: 'Actions' }),
-            width: 360,
+            width: 130,
             render: (_: unknown, row: Project) => (
-              <Space wrap>
-                <Button size="small" onClick={() => navigate(`/app/pm/projects/${row.id}`)}>
-                  {t('pages.pmProjects.actionDetail', { defaultValue: 'Detail' })}
-                </Button>
-                <Button size="small" onClick={() => navigate(`/app/pm/projects/${row.id}/progress`)}>
-                  {t('pages.pmProjects.actionProgress', { defaultValue: 'Progress' })}
-                </Button>
-                <Button size="small" onClick={() => navigate(`/app/pm/projects/${row.id}/tasks`)}>
-                  {t('pages.pmProjects.actionTasks', { defaultValue: 'Tasks' })}
-                </Button>
-                <Button size="small" onClick={() => navigate(`/app/pm/projects/${row.id}/members`)}>
-                  {t('pages.pmProjects.actionMembers', { defaultValue: 'Members' })}
-                </Button>
-                <Button size="small" onClick={() => navigate(`/app/pm/projects/${row.id}/closure`)}>
-                  {t('pages.pmProjects.actionClosure', { defaultValue: 'Closure' })}
-                </Button>
-                <Popconfirm
-                  title={t('pages.pmProjects.deleteConfirmTitle', { defaultValue: 'Delete this project?' })}
-                  description={`${t('pages.pmProjects.deleteConfirmDesc', {
-                    defaultValue: 'The project will be moved to Recently Deleted.',
-                  })} ${deleteRetentionHint}`}
-                  okText={t('labels.delete', { defaultValue: 'Delete' })}
-                  cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
-                  onConfirm={() => void handleDeleteProject(row.id)}
-                >
-                  <Button size="small" danger>
-                    {t('labels.delete', { defaultValue: 'Delete' })}
-                  </Button>
-                </Popconfirm>
-              </Space>
+              <ActionMenu
+                primaryLabel={t('pages.pmProjects.actionDetail', { defaultValue: 'Detail' })}
+                primaryOnClick={() => navigate(`/app/pm/projects/${row.id}`)}
+                items={[
+                  {
+                    key: 'progress',
+                    label: t('pages.pmProjects.actionProgress', { defaultValue: 'Progress' }),
+                    onClick: () => navigate(`/app/pm/projects/${row.id}/progress`),
+                  },
+                  {
+                    key: 'tasks',
+                    label: t('pages.pmProjects.actionTasks', { defaultValue: 'Tasks' }),
+                    onClick: () => navigate(`/app/pm/projects/${row.id}/tasks`),
+                  },
+                  {
+                    key: 'members',
+                    label: t('pages.pmProjects.actionMembers', { defaultValue: 'Members' }),
+                    onClick: () => navigate(`/app/pm/projects/${row.id}/members`),
+                  },
+                  {
+                    key: 'closure',
+                    label: t('pages.pmProjects.actionClosure', { defaultValue: 'Closure' }),
+                    onClick: () => navigate(`/app/pm/projects/${row.id}/closure`),
+                  },
+                  {
+                    key: 'delete',
+                    label: t('labels.delete', { defaultValue: 'Delete' }),
+                    danger: true,
+                    confirmTitle: t('pages.pmProjects.deleteConfirmTitle', { defaultValue: 'Delete this project?' }),
+                    confirmDescription: `${t('pages.pmProjects.deleteConfirmDesc', { defaultValue: 'The project will be moved to Recently Deleted.' })} ${deleteRetentionHint}`,
+                    confirmOkText: t('labels.delete', { defaultValue: 'Delete' }),
+                    onClick: () => void handleDeleteProject(row.id),
+                  },
+                ]}
+              />
             ),
           },
         ]}

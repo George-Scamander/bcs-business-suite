@@ -65,10 +65,10 @@ function RankList({ counts, emptyText, formatLabel }: { counts: Record<string, n
       {entries.map(([label, value]) => (
         <div key={label}>
           <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-            <span className="truncate font-medium text-slate-700">{formatLabel ? formatLabel(label) : label}</span>
-            <span className="font-semibold text-slate-900">{value}</span>
+            <span className="truncate font-medium app-text">{formatLabel ? formatLabel(label) : label}</span>
+            <span className="font-semibold app-text">{value}</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-2 overflow-hidden rounded-full app-surface-muted">
             <div className="h-full rounded-full bg-emerald-700" style={{ width: `${Math.max(4, (value / max) * 100)}%` }} />
           </div>
         </div>
@@ -295,7 +295,7 @@ export function AdminLeadRegionDistributionPage() {
 
   const analysisPanel = (
     <>
-      <div className="space-y-3 border-b border-slate-200 p-4">
+      <div className="space-y-3 border-b app-border p-4">
         <Input.Search
           allowClear
           placeholder={t('pages.adminLeadRegionDistribution.searchPlaceholder')}
@@ -340,7 +340,7 @@ export function AdminLeadRegionDistributionPage() {
         </Space>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 border-b border-slate-200 p-4">
+      <div className="grid grid-cols-2 gap-2 border-b app-border p-4">
         {[
           [t('pages.adminLeadRegionDistribution.stats.visibleLeads'), stats.visible],
           [t('pages.adminLeadRegionDistribution.stats.mapZones'), stats.zones],
@@ -396,8 +396,8 @@ export function AdminLeadRegionDistributionPage() {
       </div>
 
       <Spin spinning={loading}>
-        <div className="grid min-h-[68dvh] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:min-h-[760px] lg:grid-cols-[360px_minmax(0,1fr)]">
-          {isCompact ? null : <aside className="overflow-auto border-r border-slate-200 bg-white">{analysisPanel}</aside>}
+        <div className="grid min-h-[68dvh] overflow-hidden rounded-xl border app-border app-surface shadow-sm lg:min-h-[760px] lg:grid-cols-[360px_minmax(0,1fr)]">
+          {isCompact ? null : <aside className="overflow-auto border-r app-border app-surface">{analysisPanel}</aside>}
 
           <main className="relative min-h-[68dvh] lg:min-h-[760px]">
             <div ref={mapElementRef} className="absolute inset-0" aria-label={t('pages.adminLeadRegionDistribution.mapAriaLabel')} />
@@ -411,8 +411,8 @@ export function AdminLeadRegionDistributionPage() {
                 {t('pages.adminLeadRegionDistribution.filtersAndAnalysis')}
               </Button>
             ) : null}
-            <div className="absolute bottom-4 right-4 z-[500] hidden w-64 rounded-lg border border-slate-200 bg-white/95 p-3 text-xs text-slate-600 shadow-lg sm:block">
-              <div className="mb-2 font-semibold text-slate-900">{t('pages.adminLeadRegionDistribution.legend.title')}</div>
+            <div className="absolute bottom-4 right-4 z-[500] hidden w-64 rounded-lg border app-border bg-white/95 dark:bg-slate-900/95 p-3 text-xs app-text-soft shadow-lg sm:block">
+              <div className="mb-2 font-semibold app-text">{t('pages.adminLeadRegionDistribution.legend.title')}</div>
               <div className="space-y-2">
                 <div><span className="mr-2 inline-block h-3 w-3 rounded-full bg-emerald-700" />{t('pages.adminLeadRegionDistribution.legend.locationEstimate')}</div>
                 <div><span className="mr-2 inline-block h-3 w-3 rounded-sm border border-emerald-700 bg-emerald-100" />{t('pages.adminLeadRegionDistribution.legend.coverageZone')}</div>
@@ -420,26 +420,26 @@ export function AdminLeadRegionDistributionPage() {
               </div>
             </div>
             {selectedLead ? (
-              <div className="absolute right-4 top-4 z-[500] w-[min(360px,calc(100%_-_32px))] rounded-lg border border-slate-200 bg-white/95 p-4 shadow-lg">
+              <div className="absolute right-4 top-4 z-[500] w-[min(360px,calc(100%_-_32px))] rounded-lg border app-border bg-white/95 dark:bg-slate-900/95 p-4 shadow-lg">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
-                    <h2 className="m-0 text-lg font-bold text-slate-900">{selectedLead.company_name}</h2>
+                    <h2 className="m-0 text-lg font-bold app-text">{selectedLead.company_name}</h2>
                     <Tag color="green" className="mt-2">{selectedLead.status}</Tag>
                   </div>
                   <Button type="text" onClick={() => setSelectedLead(null)}>{t('common.close', { defaultValue: 'Close' })}</Button>
                 </div>
                 <dl className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
-                  <dt className="font-semibold text-slate-500">{t('pages.adminLeadRegionDistribution.detail.leadCode')}</dt><dd className="m-0 break-words">{selectedLead.lead_code}</dd>
-                  <dt className="font-semibold text-slate-500">{t('pages.adminLeadRegionDistribution.detail.industry')}</dt><dd className="m-0 break-words">{selectedLead.industryLabel}</dd>
-                  <dt className="font-semibold text-slate-500">{t('pages.adminLeadRegionDistribution.detail.rawRegion')}</dt><dd className="m-0 break-words">{selectedLead.regionLabel}</dd>
-                  <dt className="font-semibold text-slate-500">{t('pages.adminLeadRegionDistribution.detail.mapZone')}</dt><dd className="m-0 break-words">{formatZoneLabel(selectedLead.estimatedZone)}</dd>
-                  <dt className="font-semibold text-slate-500">{t('pages.adminLeadRegionDistribution.detail.bdId')}</dt><dd className="m-0 break-words">{selectedLead.assigned_bd_id || '-'}</dd>
-                  <dt className="font-semibold text-slate-500">{t('pages.adminLeadRegionDistribution.detail.created')}</dt><dd className="m-0 break-words">{formatDate(selectedLead.created_at, i18n.language)}</dd>
-                  <dt className="font-semibold text-slate-500">{t('pages.adminLeadRegionDistribution.detail.location')}</dt><dd className="m-0 break-words">{t('pages.adminLeadRegionDistribution.detail.estimatedLocation')}</dd>
+                  <dt className="font-semibold app-text-soft">{t('pages.adminLeadRegionDistribution.detail.leadCode')}</dt><dd className="m-0 break-words">{selectedLead.lead_code}</dd>
+                  <dt className="font-semibold app-text-soft">{t('pages.adminLeadRegionDistribution.detail.industry')}</dt><dd className="m-0 break-words">{selectedLead.industryLabel}</dd>
+                  <dt className="font-semibold app-text-soft">{t('pages.adminLeadRegionDistribution.detail.rawRegion')}</dt><dd className="m-0 break-words">{selectedLead.regionLabel}</dd>
+                  <dt className="font-semibold app-text-soft">{t('pages.adminLeadRegionDistribution.detail.mapZone')}</dt><dd className="m-0 break-words">{formatZoneLabel(selectedLead.estimatedZone)}</dd>
+                  <dt className="font-semibold app-text-soft">{t('pages.adminLeadRegionDistribution.detail.bdId')}</dt><dd className="m-0 break-words">{selectedLead.assigned_bd_id || '-'}</dd>
+                  <dt className="font-semibold app-text-soft">{t('pages.adminLeadRegionDistribution.detail.created')}</dt><dd className="m-0 break-words">{formatDate(selectedLead.created_at, i18n.language)}</dd>
+                  <dt className="font-semibold app-text-soft">{t('pages.adminLeadRegionDistribution.detail.location')}</dt><dd className="m-0 break-words">{t('pages.adminLeadRegionDistribution.detail.estimatedLocation')}</dd>
                 </dl>
               </div>
             ) : null}
-            <div className={`absolute left-3 z-[500] rounded-md bg-white/95 px-3 py-2 text-xs text-slate-600 shadow ${isCompact ? 'top-16' : 'top-4'}`}>
+            <div className={`absolute left-3 z-[500] rounded-md bg-white/95 dark:bg-slate-900/95 px-3 py-2 text-xs app-text-soft shadow ${isCompact ? 'top-16' : 'top-4'}`}>
               <AimOutlined className="mr-1" /> {t('pages.adminLeadRegionDistribution.mappedLeads', { count: filteredRows.length })}
             </div>
           </main>

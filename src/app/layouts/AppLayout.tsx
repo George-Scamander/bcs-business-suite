@@ -99,6 +99,7 @@ export function AppLayout() {
   const [desktopSiderCollapsed, setDesktopSiderCollapsed] = useState(false)
   const [locale, setLocale] = useState(profile?.locale ?? 'en')
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false)
+  const [headerScrolled, setHeaderScrolled] = useState(false)
   const screens = Grid.useBreakpoint()
   const navigate = useNavigate()
   const location = useLocation()
@@ -131,6 +132,21 @@ export function AppLayout() {
     const quickKeys = new Set(MOBILE_QUICK_NAV_KEYS_BY_ROLE[primaryRole])
     return navItemsForRole.filter((item) => quickKeys.has(item.key))
   }, [navItemsForRole, primaryRole])
+
+  // Find the nav item that best matches the current path
+  const currentNavItem = useMemo(() => {
+    return [...navItemsForRole]
+      .sort((a, b) => b.path.length - a.path.length)
+      .find((item) => location.pathname.startsWith(item.path))
+  }, [navItemsForRole, location.pathname])
+
+  // Dynamic bottom nav: when on a page not in quick nav, swap slot 0 to show current page
+  const dynamicBottomNavItems = useMemo(() => {
+    if (!currentNavItem) return mobileQuickNavItems
+    const isQuickNavItem = mobileQuickNavItems.some((item) => item.key === currentNavItem.key)
+    if (isQuickNavItem) return mobileQuickNavItems
+    return [currentNavItem, ...mobileQuickNavItems.slice(1)]
+  }, [currentNavItem, mobileQuickNavItems])
 
   useEffect(() => {
     if (profile?.locale) {
@@ -176,6 +192,11 @@ export function AppLayout() {
     }
   }, [location.pathname, user?.id])
 
+  // Reset scroll state on navigation (iOS 26: header returns to light state on page change)
+  useEffect(() => {
+    setHeaderScrolled(false)
+  }, [location.pathname])
+
 
   async function handleLocaleChange(value: LocaleCode) {
     setLocale(value)
@@ -217,13 +238,13 @@ export function AppLayout() {
   )
 
   return (
-    <Layout className="min-h-dvh">
+    <Layout className="h-dvh overflow-hidden">
       {screens.md ? (
         <Sider
           width={248}
           collapsedWidth={80}
           collapsed={desktopSiderCollapsed}
-          className="app-sidebar border-r app-border"
+          className="app-sidebar sidebar-glass border-r app-border overflow-y-auto"
           trigger={null}
         >
           <div className={`border-b app-border ${desktopSiderCollapsed ? 'px-3 py-5' : 'px-5 py-5'}`}>
@@ -239,7 +260,7 @@ export function AppLayout() {
               )}
               <Button
                 type="text"
-                className="!h-8 !w-8"
+                className="!h-8 !w-8 sidebar-collapse-btn"
                 icon={desktopSiderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                 onClick={() => setDesktopSiderCollapsed((value) => !value)}
                 aria-label={desktopSiderCollapsed ? 'Expand side menu' : 'Collapse side menu'}
@@ -292,8 +313,8 @@ export function AppLayout() {
         </Drawer>
       )}
 
-      <Layout>
-        <Header className="h-auto min-h-[64px] border-b app-border app-surface px-3 py-2 sm:px-4 md:px-6">
+      <Layout className={`h-full overflow-hidden flex flex-col${headerScrolled ? ' header-scrolled' : ''}`}>
+        <Header className={`h-auto min-h-[64px] border-b app-border${isMobile ? '' : ' app-surface'} px-3 py-2 sm:px-4 md:px-6 flex-none`}>
           {isMobile ? (
             <>
               <div className="flex w-full items-center justify-between gap-2">
@@ -364,29 +385,32 @@ export function AppLayout() {
               </div>
             </>
           ) : (
-            <div className="flex w-full items-center justify-between gap-2 md:gap-3">
-              <Space>
+            <div className="flex w-full items-center justify-between gap-2">
+              <Space size={8} align="center">
+                <Avatar size={32} icon={<UserOutlined />} />
                 <div>
-                  <Typography.Text className="block app-text font-medium">
+                  <Typography.Text className="block text-sm font-semibold app-text leading-tight">
                     {profile?.full_name ?? profile?.email}
                   </Typography.Text>
-                  <Typography.Text className="hidden text-xs app-text-soft sm:block">
-                    {t('common.timezone', { defaultValue: 'Timezone' })}: {profile?.timezone ?? 'Asia/Jakarta'}
+                  <Typography.Text className="block text-xs app-text-soft leading-tight">
+                    {t(`role.${primaryRole}`, { defaultValue: ROLE_LABELS[primaryRole] })}
                   </Typography.Text>
                 </div>
               </Space>
 
-              <Space size="middle">
+              <Space size={4} align="center">
                 <Select
                   size="small"
                   value={locale}
-                  className="w-[150px]"
+                  className="w-[130px]"
                   options={SUPPORTED_LOCALES.map((item) => ({ value: item.code, label: item.label }))}
                   onChange={(value: LocaleCode) => void handleLocaleChange(value)}
                 />
-                <Button type="text" icon={<SettingOutlined />} onClick={() => navigate('/app/settings/profile')} />
+                <Button type="text" size="small" icon={<SettingOutlined />} onClick={() => navigate('/app/settings/profile')} className="!w-8 !h-8" />
                 <Button
                   type="text"
+                  size="small"
+                  className="!w-8 !h-8"
                   icon={(
                     <Badge dot={hasUnreadNotifications} size="small">
                       <BellOutlined />
@@ -394,8 +418,7 @@ export function AppLayout() {
                   )}
                   onClick={() => navigate('/app/notifications')}
                 />
-                <Avatar icon={<UserOutlined />} />
-                <Button icon={<LogoutOutlined />} onClick={() => void handleSignOut()}>
+                <Button size="small" icon={<LogoutOutlined />} onClick={() => void handleSignOut()}>
                   {t('common.logout', { defaultValue: 'Logout' })}
                 </Button>
               </Space>
@@ -404,26 +427,34 @@ export function AppLayout() {
         </Header>
 
         <Content
-          className={isMobile ? 'app-surface-muted p-3 overflow-x-hidden' : 'app-surface-muted p-3 sm:p-4 md:p-6 overflow-x-hidden'}
+          className={isMobile ? 'app-surface-muted p-3 overflow-x-hidden overflow-y-auto flex-1 min-h-0' : 'app-surface-muted p-3 sm:p-4 md:p-6 overflow-x-hidden overflow-y-auto flex-1 min-h-0'}
           style={isMobile ? { paddingBottom: 'calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 12px)' } : undefined}
+          onScroll={(e) => {
+            const top = e.currentTarget.scrollTop
+            setHeaderScrolled(prev => {
+              if (!prev && top > 48) return true
+              if (prev && top < 12) return false
+              return prev
+            })
+          }}
         >
           <Outlet />
         </Content>
 
         {isMobile ? (
           <div className="mobile-bottom-nav">
-            {mobileQuickNavItems.map((item) => {
+            {dynamicBottomNavItems.map((item, index) => {
               const isActive = location.pathname.startsWith(item.path)
               const icon = iconMap[item.key] ?? <AppstoreOutlined />
 
               return (
                 <button
-                  key={item.key}
+                  key={`nav-slot-${index}`}
                   type="button"
                   className={`mobile-bottom-nav-item ${isActive ? 'active' : ''}`}
                   onClick={() => navigate(item.path)}
                 >
-                  <span className="mobile-bottom-nav-icon">{icon}</span>
+                  <span key={item.key} className="mobile-bottom-nav-icon">{icon}</span>
                   <span className="mobile-bottom-nav-label">{t(`nav.${item.key}`, { defaultValue: item.label })}</span>
                 </button>
               )

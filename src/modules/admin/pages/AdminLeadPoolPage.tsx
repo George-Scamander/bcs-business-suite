@@ -6,6 +6,7 @@ import {
 } from 'react'
 import dayjs from 'dayjs'
 import {
+  Badge,
   Button,
   DatePicker,
   Drawer,
@@ -18,7 +19,7 @@ import {
   Tooltip,
   message,
 } from 'antd'
-import { EnvironmentOutlined, ExportOutlined, SettingOutlined } from '@ant-design/icons'
+import { EnvironmentOutlined, ExportOutlined, FilterOutlined } from '@ant-design/icons'
 import {
   AdaptiveTable as Table,
 } from '../../../components/common/AdaptiveTable'
@@ -358,6 +359,18 @@ export function AdminLeadPoolPage() {
     navigate(`/app/bd/leads/${leadId}?back=${encodeURIComponent(backPath)}`)
   }
 
+  const secondaryActiveCount = [
+    filters.region,
+    filters.assignedBdId,
+    filters.intentPackage,
+    filters.intentPackageGroup,
+    filters.intentLevelMin !== undefined ? String(filters.intentLevelMin) : undefined,
+    filters.hasSalesOrder !== undefined ? String(filters.hasSalesOrder) : undefined,
+    filters.merchantHealthTier,
+    filters.createdFrom,
+    filters.createdTo,
+  ].filter(Boolean).length
+
   async function handleApplyControlPanel() {
     await loadData()
     setControlPanelOpen(false)
@@ -439,12 +452,38 @@ export function AdminLeadPoolPage() {
               <ExportOutlined className="ml-1 text-xs" />
             </Button>
             <Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>
-            <Button icon={<SettingOutlined />} onClick={() => setControlPanelOpen(true)}>
-              {t('labels.controlPanel', { defaultValue: 'Control Panel' })}
-            </Button>
+            <Badge count={secondaryActiveCount} size="small">
+              <Button icon={<FilterOutlined />} onClick={() => setControlPanelOpen(true)}>
+                {t('labels.controlPanel', { defaultValue: 'Control Panel' })}
+              </Button>
+            </Badge>
           </Space>
         }
       />
+
+      <div className="mb-4 rounded-xl border app-border app-surface p-3">
+        <Space size={8} wrap>
+          <Input.Search
+            allowClear
+            style={{ width: 280 }}
+            placeholder={t('pages.adminLeadPool.keywordPlaceholder', { defaultValue: 'Keyword (lead code/company/contact/source)' })}
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            onSearch={() => void handleApplyControlPanel()}
+          />
+          <Select
+            allowClear
+            style={{ width: 160 }}
+            placeholder={t('pages.adminLeadPool.statusPlaceholder', { defaultValue: 'Status' })}
+            options={leadStatusOptions}
+            value={filters.status}
+            onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
+          />
+          <Button type="primary" onClick={() => void handleApplyControlPanel()}>
+            {t('labels.apply', { defaultValue: 'Apply' })}
+          </Button>
+        </Space>
+      </div>
 
       <Drawer
         title={t('labels.controlPanel', { defaultValue: 'Control Panel' })}
@@ -561,16 +600,6 @@ export function AdminLeadPoolPage() {
                 createdTo: value ? value.endOf('day').toISOString() : undefined,
               }))
             }
-          />
-          <Input
-            allowClear
-            className="w-full"
-            placeholder={t('pages.adminLeadPool.keywordPlaceholder', {
-              defaultValue: 'Keyword (lead code/company/contact/source)',
-            })}
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-            onPressEnter={() => void handleApplyControlPanel()}
           />
           <Space wrap>
             <Button type="primary" onClick={() => void handleApplyControlPanel()}>

@@ -20,9 +20,7 @@ import {
 import {
   AdaptiveTable as Table,
 } from '../../../components/common/AdaptiveTable'
-import {
-  EyeOutlined,
-} from '@ant-design/icons'
+import { ActionMenu } from '../../../components/common/ActionMenu'
 import {
   useTranslation,
 } from 'react-i18next'
@@ -469,8 +467,8 @@ export function AdminOnboardingReviewCenterPage() {
         extra={<Button onClick={() => void loadData()}>{t('labels.refresh', { defaultValue: 'Refresh' })}</Button>}
       />
 
-      <div className="mb-4 rounded-xl border app-border app-surface p-4">
-        <Space wrap>
+      <div className="mb-4 rounded-xl border app-border app-surface p-3">
+        <Space size={8} wrap>
           <Select
             allowClear
             placeholder={t('pages.adminOnboardingReview.statusPlaceholder', { defaultValue: 'Status' })}
@@ -603,22 +601,22 @@ export function AdminOnboardingReviewCenterPage() {
             },
             {
               title: t('pages.adminOnboardingReview.columns.actions', { defaultValue: 'Actions' }),
-              width: 220,
+              width: 130,
               render: (_: unknown, row: LeadIntentDowngradeCandidate) => (
-                <Space>
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      const backPath = `${location.pathname}${location.search}`
-                      navigate(`/app/bd/leads/${row.id}?back=${encodeURIComponent(backPath)}`)
-                    }}
-                  >
-                    {t('pages.adminOnboardingReview.openLead', { defaultValue: 'Open Lead' })}
-                  </Button>
-                  <Button size="small" onClick={() => void handleDowngradeLeadIntent(row)}>
-                    {t('pages.adminOnboardingReview.downgradeToLowIntent', { defaultValue: 'Downgrade to H3' })}
-                  </Button>
-                </Space>
+                <ActionMenu
+                  primaryLabel={t('pages.adminOnboardingReview.openLead', { defaultValue: 'Open Lead' })}
+                  primaryOnClick={() => {
+                    const backPath = `${location.pathname}${location.search}`
+                    navigate(`/app/bd/leads/${row.id}?back=${encodeURIComponent(backPath)}`)
+                  }}
+                  items={[
+                    {
+                      key: 'downgrade',
+                      label: t('pages.adminOnboardingReview.downgradeToLowIntent', { defaultValue: 'Downgrade to H3' }),
+                      onClick: () => void handleDowngradeLeadIntent(row),
+                    },
+                  ]}
+                />
               ),
             },
           ]}
@@ -648,7 +646,7 @@ export function AdminOnboardingReviewCenterPage() {
           </Typography.Text>
         </div>
 
-        <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
+        <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3 dark:border-blue-800/50 dark:bg-blue-950/40">
           <Typography.Text className="block text-sm app-text-soft">
             {selectedDocs.length === 0
               ? t('pages.adminOnboardingReview.noDocumentsCaseReviewHint', {
@@ -704,40 +702,33 @@ export function AdminOnboardingReviewCenterPage() {
             },
             {
               title: t('pages.adminOnboardingReview.columns.actions', { defaultValue: 'Actions' }),
-              width: 360,
+              width: 130,
               render: (_: unknown, row: OnboardingDocument) => (
-                <Space>
-                  <Button
-                    size="small"
-                    icon={<EyeOutlined />}
-                    onClick={() => void handlePreviewDocument(row)}
-                  >
-                    {t('pages.adminOnboardingReview.preview', { defaultValue: 'Preview' })}
-                  </Button>
-                  <Button
-                    size="small"
-                    type="primary"
-                    disabled={row.review_status !== 'PENDING'}
-                    onClick={() => void handleDocumentReview(row, 'APPROVED')}
-                  >
-                    {t('pages.adminOnboardingReview.approve', { defaultValue: 'Approve' })}
-                  </Button>
-                  <Button
-                    size="small"
-                    disabled={row.review_status !== 'PENDING'}
-                    onClick={() => void handleDocumentReview(row, 'REVISION_REQUIRED')}
-                  >
-                    {t('pages.adminOnboardingReview.revise', { defaultValue: 'Request Files' })}
-                  </Button>
-                  <Button
-                    size="small"
-                    danger
-                    disabled={row.review_status !== 'PENDING'}
-                    onClick={() => void handleDocumentReview(row, 'REJECTED')}
-                  >
-                    {t('pages.adminOnboardingReview.reject', { defaultValue: 'Reject' })}
-                  </Button>
-                </Space>
+                <ActionMenu
+                  primaryLabel={t('pages.adminOnboardingReview.preview', { defaultValue: 'Preview' })}
+                  primaryOnClick={() => void handlePreviewDocument(row)}
+                  items={[
+                    {
+                      key: 'approve',
+                      label: t('pages.adminOnboardingReview.approve', { defaultValue: 'Approve' }),
+                      disabled: row.review_status !== 'PENDING',
+                      onClick: () => void handleDocumentReview(row, 'APPROVED'),
+                    },
+                    {
+                      key: 'revise',
+                      label: t('pages.adminOnboardingReview.revise', { defaultValue: 'Request Files' }),
+                      disabled: row.review_status !== 'PENDING',
+                      onClick: () => void handleDocumentReview(row, 'REVISION_REQUIRED'),
+                    },
+                    {
+                      key: 'reject',
+                      label: t('pages.adminOnboardingReview.reject', { defaultValue: 'Reject' }),
+                      danger: true,
+                      disabled: row.review_status !== 'PENDING',
+                      onClick: () => void handleDocumentReview(row, 'REJECTED'),
+                    },
+                  ]}
+                />
               ),
             },
           ]}

@@ -4,8 +4,18 @@ import {
   useState,
 } from 'react'
 import {
+  BranchesOutlined,
+  CloudUploadOutlined,
+  ContainerOutlined,
+  FileTextOutlined,
+  LineChartOutlined,
+  PlusSquareOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons'
+import {
   Button,
   Col,
+  Grid,
   Progress,
   Row,
   message,
@@ -52,6 +62,8 @@ export function PmDashboardPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { user } = useAuth()
+  const screens = Grid.useBreakpoint()
+  const isMobile = screens.md === false
   const [metrics, setMetrics] = useState({
     myProjects: 0,
     delayedProjects: 0,
@@ -92,6 +104,129 @@ export function PmDashboardPage() {
     void loadData()
   }, [loadData])
 
+  // ── 手機版：支付寶式主頁 ──────────────────────────────────────────────
+  if (isMobile) {
+    const quickItems = [
+      { icon: <BranchesOutlined />, label: t('nav.pm-projects', { defaultValue: 'Projects' }), path: '/app/pm/projects', color: '#7c3aed' },
+      { icon: <PlusSquareOutlined />, label: t('nav.pm-new-project', { defaultValue: 'New Project' }), path: '/app/pm/projects/new', color: '#16a34a' },
+      { icon: <UnorderedListOutlined />, label: t('nav.pm-lead-pool', { defaultValue: 'Lead Pool' }), path: '/app/admin/leads/pool', color: '#c10e0e' },
+      { icon: <ContainerOutlined />, label: t('nav.pm-onboard-merchants', { defaultValue: 'Merchants' }), path: '/app/pm/onboarding/merchants', color: '#0284c7' },
+      { icon: <LineChartOutlined />, label: t('nav.sales-supervision', { defaultValue: 'Sales' }), path: '/app/pm/sales/supervision', color: '#0891b2' },
+      { icon: <LineChartOutlined />, label: t('nav.bd-kpi-dashboard', { defaultValue: 'KPI' }), path: '/app/pm/kpi/dashboard', color: '#d97706' },
+      { icon: <FileTextOutlined />, label: t('nav.report-export', { defaultValue: 'Reports' }), path: '/app/pm/reports/export', color: '#64748b' },
+      { icon: <CloudUploadOutlined />, label: t('nav.pm-leads-import', { defaultValue: 'Import' }), path: '/app/pm/leads/import', color: '#9333ea' },
+    ]
+
+    const recentRows = rows.slice(0, 3)
+
+    return (
+      <div className="pb-2">
+        {/* 關鍵數字 2×2 */}
+        <div className="mobile-home-stats">
+          <div
+            className="mobile-home-stat-item"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/app/pm/projects')}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate('/app/pm/projects') }}
+          >
+            <div className="mobile-home-stat-label">{t('pages.pmDashboard.metrics.myProjects', { defaultValue: 'My Projects' })}</div>
+            <div className="mobile-home-stat-value">{loading ? '—' : metrics.myProjects}</div>
+          </div>
+          <div
+            className="mobile-home-stat-item"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/app/pm/projects?status=DELAYED')}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate('/app/pm/projects?status=DELAYED') }}
+          >
+            <div className="mobile-home-stat-label">{t('pages.pmDashboard.metrics.delayedProjects', { defaultValue: 'Delayed' })}</div>
+            <div className="mobile-home-stat-value">{loading ? '—' : metrics.delayedProjects}</div>
+          </div>
+          <div
+            className="mobile-home-stat-item"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/app/pm/projects?task_due=week')}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate('/app/pm/projects?task_due=week') }}
+          >
+            <div className="mobile-home-stat-label">{t('pages.pmDashboard.metrics.tasksDueThisWeek', { defaultValue: 'Tasks Due' })}</div>
+            <div className="mobile-home-stat-value">{loading ? '—' : metrics.tasksDueThisWeek}</div>
+          </div>
+          <div
+            className="mobile-home-stat-item"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/app/pm/projects?sort=completion_desc')}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate('/app/pm/projects?sort=completion_desc') }}
+          >
+            <div className="mobile-home-stat-label">{t('pages.pmDashboard.metrics.avgCompletion', { defaultValue: 'Avg Progress' })}</div>
+            <div className="mobile-home-stat-value">{loading ? '—' : `${metrics.avgCompletionRate.toFixed(0)}%`}</div>
+          </div>
+        </div>
+
+        {/* 功能宮格 */}
+        <div className="mobile-home-section-title">{t('pages.pmDashboard.quickActions', { defaultValue: 'Quick Access' })}</div>
+        <div className="mobile-quick-grid">
+          {quickItems.map((item) => (
+            <button
+              key={item.path + item.label}
+              type="button"
+              className="mobile-quick-item"
+              onClick={() => navigate(item.path)}
+            >
+              <div className="mobile-quick-icon" style={{ color: item.color }}>
+                {item.icon}
+              </div>
+              <span className="mobile-quick-label">{item.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* 近期項目 */}
+        <div className="mobile-home-recent">
+          <div className="mobile-home-recent-header">
+            <span className="mobile-home-recent-title">
+              {t('pages.pmDashboard.snapshotTitle', { defaultValue: 'My Projects' })}
+            </span>
+            <button
+              type="button"
+              className="mobile-home-recent-more"
+              onClick={() => navigate('/app/pm/projects')}
+            >
+              {t('labels.viewAll', { defaultValue: 'View all' })} →
+            </button>
+          </div>
+          {recentRows.length === 0 ? (
+            <div className="mobile-home-empty">
+              {loading ? t('labels.loading', { defaultValue: 'Loading…' }) : t('pages.pmDashboard.noProjects', { defaultValue: 'No projects' })}
+            </div>
+          ) : (
+            recentRows.map((row) => (
+              <div
+                key={row.id}
+                className="mobile-home-recent-item"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/app/pm/projects/${row.id}`)}
+                onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/app/pm/projects/${row.id}`) }}
+              >
+                <div className="mobile-home-recent-item-left">
+                  <div className="mobile-home-recent-item-code">{row.project_code}</div>
+                  <div className="mobile-home-recent-item-name">{row.name}</div>
+                </div>
+                <div className="mobile-home-recent-item-date">
+                  {row.completion_rate.toFixed(0)}%
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ── 桌面版：原有代碼完全不動 ──────────────────────────────────────────
   return (
     <>
       <PageTitleBar
