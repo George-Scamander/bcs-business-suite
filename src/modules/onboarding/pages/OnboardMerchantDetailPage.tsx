@@ -428,7 +428,7 @@ export function OnboardMerchantDetailPage() {
           rowKey="id"
           pagination={{ pageSize: 10 }}
           dataSource={activities}
-          scroll={{ x: 1024 }}
+          scroll={{ x: 1620 }}
           columns={[
             {
               title: t('pages.onboardMerchantDetail.columns.time', { defaultValue: 'Activity Time' }),
@@ -476,6 +476,7 @@ export function OnboardMerchantDetailPage() {
             {
               title: t('pages.onboardMerchantDetail.columns.detail', { defaultValue: 'Detail' }),
               dataIndex: 'detail',
+              width: 260,
               render: (value: string | null) => value || '-',
             },
             {

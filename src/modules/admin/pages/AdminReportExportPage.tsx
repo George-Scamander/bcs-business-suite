@@ -49,7 +49,7 @@ import type {
   SalesProductSubcategory,
 } from '../../../types/business'
 
-type ReportModule = 'leads' | 'sales_leads' | 'onboarding' | 'projects'
+type ReportModule = 'leads' | 'sales_leads' | 'sales_mom' | 'onboarding' | 'projects'
 interface SalesLeadExportSourceRow {
   order_no: string
   company_name: string
@@ -66,6 +66,43 @@ interface SalesLeadExportSourceRow {
     quantity: number
     unit_price: number | null
   }>
+}
+
+interface SalesMomSourceRow {
+  bd_user_id: string
+  sold_at: string
+  bd_owner: { full_name: string | null; email: string | null } | null
+  items: Array<{ quantity: number; unit_price: number | null }>
+}
+
+function calcMomRate(current: number, previous: number): string {
+  if (previous === 0) {
+    return current === 0 ? '0.0%' : 'N/A'
+  }
+  const rate = ((current - previous) / previous) * 100
+  return (rate >= 0 ? '+' : '') + rate.toFixed(1) + '%'
+}
+
+function calcMomDiff(current: number, previous: number): string {
+  const diff = current - previous
+  return (diff >= 0 ? '+' : '') + diff
+}
+
+function calcMomDiffFloat(current: number, previous: number): string {
+  const diff = current - previous
+  return (diff >= 0 ? '+' : '') + diff.toFixed(2)
+}
+
+interface BdMomStats {
+  bdUserId: string
+  bdName: string
+  latestSoldAt: string
+  currentOrders: number
+  previousOrders: number
+  currentAmount: number
+  previousAmount: number
+  currentQuantity: number
+  previousQuantity: number
 }
 
 export function AdminReportExportPage() {
@@ -125,6 +162,9 @@ export function AdminReportExportPage() {
     }
     if (value === 'sales_leads') {
       return t('pages.adminReportExport.modules.salesLeads', { defaultValue: 'Sales Lead Report' })
+    }
+    if (value === 'sales_mom') {
+      return t('pages.adminReportExport.modules.salesMom', { defaultValue: 'Sales MoM Comparison' })
     }
     if (value === 'onboarding') {
       return t('pages.adminReportExport.modules.onboarding', { defaultValue: 'Onboarding Report' })
@@ -232,6 +272,155 @@ export function AdminReportExportPage() {
         })
 
         exportRowsToCsv(`bcs-sales-leads-${new Date().toISOString().slice(0, 10)}.csv`, exportRows)
+      } else if (moduleName === 'sales_mom') {
+        // Determine current-month and previous-month date ranges
+        const now = new Date()
+        let currentStart: Date
+        let currentEnd: Date
+
+        if (createdFrom && createdTo) {
+          currentStart = new Date(createdFrom)
+          currentEnd = new Date(createdTo)
+        } else {
+          currentStart = new Date(now.getFullYear(), now.getMonth(), 1)
+          currentEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+        }
+
+        const monthDiff = currentStart.getMonth() - 1
+        const prevYear = monthDiff < 0 ? currentStart.getFullYear() - 1 : currentStart.getFullYear()
+        const prevMonth = monthDiff < 0 ? 11 : monthDiff
+        const previousStart = new Date(prevYear, prevMonth, 1)
+        const previousEnd = new Date(prevYear, prevMonth + 1, 0, 23, 59, 59, 999)
+
+        const monthLabel = `${currentStart.getFullYear()}-${String(currentStart.getMonth() + 1).padStart(2, '0')}`
+
+        let currentQuery = supabase
+          .from('sales_orders')
+          .select('bd_user_id, sold_at, bd_owner:profiles!sales_orders_bd_user_id_fkey(full_name, email), items:sales_order_items(quantity, unit_price)')
+          .is('deleted_at', null)
+          .gte('sold_at', currentStart.toISOString())
+          .lte('sold_at', currentEnd.toISOString())
+
+        let previousQuery = supabase
+          .from('sales_orders')
+          .select('bd_user_id, sold_at, bd_owner:profiles!sales_orders_bd_user_id_fkey(full_name, email), items:sales_order_items(quantity, unit_price)')
+          .is('deleted_at', null)
+          .gte('sold_at', previousStart.toISOString())
+          .lte('sold_at', previousEnd.toISOString())
+
+        if (selectedUserId) {
+          currentQuery = currentQuery.eq('bd_user_id', selectedUserId)
+          previousQuery = previousQuery.eq('bd_user_id', selectedUserId)
+        }
+
+        const [currentResult, previousResult] = await Promise.all([
+          currentQuery.returns<SalesMomSourceRow[]>(),
+          previousQuery.returns<SalesMomSourceRow[]>(),
+        ])
+
+        if (currentResult.error) throw currentResult.error
+        if (previousResult.error) throw previousResult.error
+
+        // Aggregate by BD user
+        const statsMap = new Map<string, BdMomStats>()
+
+        function aggregateRows(rows: SalesMomSourceRow[], isCurrent: boolean) {
+          for (const row of rows) {
+            const bdId = row.bd_user_id
+            const bdName = formatDisplayName(
+              row.bd_owner?.full_name ?? null,
+              row.bd_owner?.email ?? null,
+              bdId,
+            )
+            if (!statsMap.has(bdId)) {
+              statsMap.set(bdId, {
+                bdUserId: bdId,
+                bdName,
+                latestSoldAt: row.sold_at,
+                currentOrders: 0,
+                previousOrders: 0,
+                currentAmount: 0,
+                previousAmount: 0,
+                currentQuantity: 0,
+                previousQuantity: 0,
+              })
+            }
+            const entry = statsMap.get(bdId)!
+            const items = row.items ?? []
+            const orderAmount = items.reduce((sum, item) => sum + Number(item.quantity ?? 0) * Number(item.unit_price ?? 0), 0)
+            const orderQuantity = items.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0)
+
+            if (isCurrent) {
+              entry.currentOrders += 1
+              entry.currentAmount += orderAmount
+              entry.currentQuantity += orderQuantity
+              if (row.sold_at > entry.latestSoldAt) {
+                entry.latestSoldAt = row.sold_at
+              }
+            } else {
+              entry.previousOrders += 1
+              entry.previousAmount += orderAmount
+              entry.previousQuantity += orderQuantity
+            }
+          }
+        }
+
+        aggregateRows(currentResult.data ?? [], true)
+        aggregateRows(previousResult.data ?? [], false)
+
+        // Sort by latest sold_at descending (actual data time, not name)
+        const sortedStats = Array.from(statsMap.values()).sort(
+          (a, b) => new Date(b.latestSoldAt).getTime() - new Date(a.latestSoldAt).getTime(),
+        )
+
+        // Build export rows (one row per BD)
+        const exportRows = sortedStats.map((s) => ({
+          bd_name: s.bdName,
+          latest_sold_at: new Date(s.latestSoldAt).toLocaleDateString(),
+          current_month_orders: s.currentOrders,
+          previous_month_orders: s.previousOrders,
+          orders_diff: calcMomDiff(s.currentOrders, s.previousOrders),
+          orders_growth_rate: calcMomRate(s.currentOrders, s.previousOrders),
+          current_month_amount: s.currentAmount.toFixed(2),
+          previous_month_amount: s.previousAmount.toFixed(2),
+          amount_diff: calcMomDiffFloat(s.currentAmount, s.previousAmount),
+          amount_growth_rate: calcMomRate(s.currentAmount, s.previousAmount),
+          current_month_quantity: s.currentQuantity,
+          previous_month_quantity: s.previousQuantity,
+          quantity_diff: calcMomDiff(s.currentQuantity, s.previousQuantity),
+          quantity_growth_rate: calcMomRate(s.currentQuantity, s.previousQuantity),
+        }))
+
+        // Totals row
+        const totalCurrent = { orders: 0, amount: 0, quantity: 0 }
+        const totalPrevious = { orders: 0, amount: 0, quantity: 0 }
+        for (const s of sortedStats) {
+          totalCurrent.orders += s.currentOrders
+          totalCurrent.amount += s.currentAmount
+          totalCurrent.quantity += s.currentQuantity
+          totalPrevious.orders += s.previousOrders
+          totalPrevious.amount += s.previousAmount
+          totalPrevious.quantity += s.previousQuantity
+        }
+
+        exportRows.push({
+          bd_name: t('pages.adminReportExport.momTotalRow', { defaultValue: 'Team Total' }),
+          latest_sold_at: '-',
+          current_month_orders: totalCurrent.orders,
+          previous_month_orders: totalPrevious.orders,
+          orders_diff: calcMomDiff(totalCurrent.orders, totalPrevious.orders),
+          orders_growth_rate: calcMomRate(totalCurrent.orders, totalPrevious.orders),
+          current_month_amount: totalCurrent.amount.toFixed(2),
+          previous_month_amount: totalPrevious.amount.toFixed(2),
+          amount_diff: calcMomDiffFloat(totalCurrent.amount, totalPrevious.amount),
+          amount_growth_rate: calcMomRate(totalCurrent.amount, totalPrevious.amount),
+          current_month_quantity: totalCurrent.quantity,
+          previous_month_quantity: totalPrevious.quantity,
+          quantity_diff: calcMomDiff(totalCurrent.quantity, totalPrevious.quantity),
+          quantity_growth_rate: calcMomRate(totalCurrent.quantity, totalPrevious.quantity),
+        })
+
+        exportRowsToCsv(`bcs-sales-mom-${monthLabel}.csv`, exportRows)
       } else if (moduleName === 'onboarding') {
         let query = supabase
           .from('onboarding_cases')
@@ -299,6 +488,7 @@ export function AdminReportExportPage() {
             options={[
               { label: t('pages.adminReportExport.modules.leads', { defaultValue: 'Lead Report' }), value: 'leads' },
               { label: t('pages.adminReportExport.modules.salesLeads', { defaultValue: 'Sales Lead Report' }), value: 'sales_leads' },
+              { label: t('pages.adminReportExport.modules.salesMom', { defaultValue: 'Sales MoM Comparison' }), value: 'sales_mom' },
               { label: t('pages.adminReportExport.modules.onboarding', { defaultValue: 'Onboarding Report' }), value: 'onboarding' },
               { label: t('pages.adminReportExport.modules.projects', { defaultValue: 'Project Report' }), value: 'projects' },
             ]}
@@ -306,13 +496,25 @@ export function AdminReportExportPage() {
           />
           <DatePicker
             style={{ width: 170 }}
-            placeholder={t('pages.adminReportExport.createdFrom', { defaultValue: 'Created From' })}
+            placeholder={
+              moduleName === 'sales_mom'
+                ? t('pages.adminReportExport.currentMonthFrom', { defaultValue: 'Current Month Start' })
+                : moduleName === 'sales_leads'
+                  ? t('pages.adminReportExport.soldFrom', { defaultValue: 'Sold From' })
+                  : t('pages.adminReportExport.createdFrom', { defaultValue: 'Created From' })
+            }
             value={createdFrom ? dayjs(createdFrom) : undefined}
             onChange={(value) => setCreatedFrom(value ? value.startOf('day').toISOString() : undefined)}
           />
           <DatePicker
             style={{ width: 170 }}
-            placeholder={t('pages.adminReportExport.createdTo', { defaultValue: 'Created To' })}
+            placeholder={
+              moduleName === 'sales_mom'
+                ? t('pages.adminReportExport.currentMonthTo', { defaultValue: 'Current Month End' })
+                : moduleName === 'sales_leads'
+                  ? t('pages.adminReportExport.soldTo', { defaultValue: 'Sold To' })
+                  : t('pages.adminReportExport.createdTo', { defaultValue: 'Created To' })
+            }
             value={createdTo ? dayjs(createdTo) : undefined}
             onChange={(value) => setCreatedTo(value ? value.endOf('day').toISOString() : undefined)}
           />

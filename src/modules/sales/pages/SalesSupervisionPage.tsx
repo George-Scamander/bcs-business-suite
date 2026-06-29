@@ -63,6 +63,7 @@ import {
   type UserOption,
 } from '../../shared/api/users'
 import {
+  confirmSalesOrderPayment,
   createSalesOrderWithAutoLeadAndAssignBd,
   fetchProductNameSuggestions,
   generateSalesPaymentDueNotifications,
@@ -504,6 +505,25 @@ export function SalesSupervisionPage() {
     }
   }
 
+  async function handleConfirmPayment(row: SalesOrderRow) {
+    try {
+      await confirmSalesOrderPayment(row.id)
+      const alreadyConfirmed = Boolean(row.payment_confirmed_at)
+      message.success(
+        alreadyConfirmed
+          ? t('pages.salesSupervision.paymentUnconfirmed', { defaultValue: 'Payment confirmation removed' })
+          : t('pages.salesSupervision.paymentConfirmed', { defaultValue: 'Payment confirmed' }),
+      )
+      await loadData()
+    } catch (error) {
+      const text =
+        error instanceof Error
+          ? error.message
+          : t('pages.salesSupervision.paymentConfirmFail', { defaultValue: 'Failed to update payment status' })
+      message.error(text)
+    }
+  }
+
   async function handleCreate(values: CreateSalesFormValues) {
     const normalizedItems = createItems
       .map((item) => ({
@@ -662,7 +682,7 @@ export function SalesSupervisionPage() {
         loading={loading}
         dataSource={rows}
         pagination={{ pageSize: 12 }}
-        scroll={{ x: 1820 }}
+        scroll={{ x: 2100 }}
         showSorterTooltip={{ target: 'sorter-icon' }}
         locale={{
           triggerAsc: t('pages.salesSupervision.sortTriggerAsc', { defaultValue: 'Click to sort ascending' }),
@@ -787,25 +807,72 @@ export function SalesSupervisionPage() {
             render: (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm:ss'),
           },
           {
+            title: t('pages.salesSupervision.columns.paymentStatus', { defaultValue: 'Payment Status' }),
+            width: 180,
+            render: (_: unknown, row: SalesOrderRow) => {
+              if (row.payment_confirmed_at) {
+                return (
+                  <Space direction="vertical" size={2}>
+                    <Tag color="success">
+                      {t('pages.salesSupervision.paymentStatusPaid', { defaultValue: 'Paid' })}
+                    </Tag>
+                    <span className="text-xs app-text-soft">
+                      {dayjs(row.payment_confirmed_at).format('YYYY-MM-DD')}
+                    </span>
+                  </Space>
+                )
+              }
+              return (
+                <Tag>
+                  {t('pages.salesSupervision.paymentStatusUnpaid', { defaultValue: 'Unpaid' })}
+                </Tag>
+              )
+            },
+          },
+          {
             title: t('pages.salesSupervision.columns.actions', { defaultValue: 'Actions' }),
-            width: 120,
-            render: (_: unknown, row: SalesOrderRow) => (
-              <Space wrap>
-                <Popconfirm
-                  title={t('pages.salesSupervision.deleteConfirmTitle', { defaultValue: 'Delete this sales order?' })}
-                  description={`${t('pages.salesSupervision.deleteConfirmDesc', {
-                    defaultValue: 'The sales order will be moved to Recently Deleted.',
-                  })} ${deleteRetentionHint}`}
-                  okText={t('labels.delete', { defaultValue: 'Delete' })}
-                  cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
-                  onConfirm={() => void handleDelete(row)}
-                >
-                  <Button size="small" danger icon={<DeleteOutlined />}>
-                    {t('labels.delete', { defaultValue: 'Delete' })}
-                  </Button>
-                </Popconfirm>
-              </Space>
-            ),
+            width: 200,
+            render: (_: unknown, row: SalesOrderRow) => {
+              const isPaid = Boolean(row.payment_confirmed_at)
+              return (
+                <Space wrap>
+                  {(isSuperAdmin || isProjectManager) ? (
+                    <Popconfirm
+                      title={
+                        isPaid
+                          ? t('pages.salesSupervision.paymentUnconfirmTitle', { defaultValue: 'Remove payment confirmation?' })
+                          : t('pages.salesSupervision.paymentConfirmTitle', { defaultValue: 'Confirm payment received?' })
+                      }
+                      okText={t('labels.confirm', { defaultValue: 'Confirm' })}
+                      cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
+                      onConfirm={() => void handleConfirmPayment(row)}
+                    >
+                      <Button
+                        size="small"
+                        type={isPaid ? 'default' : 'primary'}
+                      >
+                        {isPaid
+                          ? t('pages.salesSupervision.undoPayment', { defaultValue: 'Undo Payment' })
+                          : t('pages.salesSupervision.confirmPayment', { defaultValue: 'Confirm Payment' })}
+                      </Button>
+                    </Popconfirm>
+                  ) : null}
+                  <Popconfirm
+                    title={t('pages.salesSupervision.deleteConfirmTitle', { defaultValue: 'Delete this sales order?' })}
+                    description={`${t('pages.salesSupervision.deleteConfirmDesc', {
+                      defaultValue: 'The sales order will be moved to Recently Deleted.',
+                    })} ${deleteRetentionHint}`}
+                    okText={t('labels.delete', { defaultValue: 'Delete' })}
+                    cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
+                    onConfirm={() => void handleDelete(row)}
+                  >
+                    <Button size="small" danger icon={<DeleteOutlined />}>
+                      {t('labels.delete', { defaultValue: 'Delete' })}
+                    </Button>
+                  </Popconfirm>
+                </Space>
+              )
+            },
           },
         ]}
       />

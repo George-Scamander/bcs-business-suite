@@ -488,12 +488,16 @@ export async function createSalesOrderWithAutoLead(input: CreateSalesOrderInput)
     return createSalesOrderWithAutoLeadFallback(input)
   }
 
+  const payment = normalizePaymentTerms(input.payment_method, input.payment_top_term)
+
   const result = await supabase.rpc('create_sales_order_with_auto_lead', {
     p_company_name: input.company_name,
     p_sold_at: input.sold_at ?? null,
     p_note: input.note ?? null,
     p_items: input.items,
     p_onboard_merchant_id: input.onboard_merchant_id ?? null,
+    p_payment_method: payment.paymentMethod,
+    p_payment_top_term: payment.paymentTopTerm ?? null,
   })
 
   if (result.error) {
@@ -1054,6 +1058,14 @@ export async function hardDeleteSalesOrders(orderIds: string[]): Promise<void> {
     action: 'hard_delete_sales_orders_bulk',
     afterData: { order_ids: orderIds },
   })
+}
+
+export async function confirmSalesOrderPayment(orderId: string): Promise<void> {
+  const result = await supabase.rpc('confirm_sales_order_payment', { p_order_id: orderId })
+
+  if (result.error) {
+    throw extractDatabaseError(result.error, 'Failed to confirm sales order payment')
+  }
 }
 
 export async function fetchProductNameSuggestions(): Promise<Map<SalesProductCategory, string[]>> {
