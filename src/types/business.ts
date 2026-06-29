@@ -340,6 +340,8 @@ export interface SalesOrder {
   sold_at: string
   payment_method: SalesPaymentMethod
   payment_top_term: SalesTopTerm | null
+  payment_confirmed_at: string | null
+  payment_confirmed_by: string | null
   note: string | null
   created_by: string | null
   updated_by: string | null
