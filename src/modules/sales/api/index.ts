@@ -69,6 +69,8 @@ export interface SalesOrderFilters {
   soldTo?: string
   category?: SalesProductCategory
   brandKeyword?: string
+  paymentMethod?: SalesPaymentMethod
+  paymentConfirmed?: boolean
 }
 
 export interface TirePriceCatalogRow {
@@ -238,12 +240,22 @@ function normalizePaymentTerms(
   paymentMethod?: SalesPaymentMethod,
   paymentTopTerm?: SalesTopTerm | null,
 ): { paymentMethod: SalesPaymentMethod; paymentTopTerm: SalesTopTerm | null } {
-  const normalizedMethod: SalesPaymentMethod = paymentMethod === 'TOP' ? 'TOP' : 'CASH'
+  const normalizedMethod: SalesPaymentMethod =
+    paymentMethod === 'TOP' ? 'TOP'
+    : paymentMethod === 'CONSIGNMENT' ? 'CONSIGNMENT'
+    : 'CASH'
 
   if (normalizedMethod === 'TOP') {
     return {
       paymentMethod: normalizedMethod,
       paymentTopTerm: paymentTopTerm === '60_DAYS' ? '60_DAYS' : '30_DAYS',
+    }
+  }
+
+  if (normalizedMethod === 'CONSIGNMENT') {
+    return {
+      paymentMethod: normalizedMethod,
+      paymentTopTerm: '30_DAYS',
     }
   }
 
@@ -657,6 +669,16 @@ export async function listSalesOrders(filters: SalesOrderFilters = {}): Promise<
 
   if (filters.soldTo) {
     query = query.lte('sold_at', filters.soldTo)
+  }
+
+  if (filters.paymentMethod) {
+    query = query.eq('payment_method', filters.paymentMethod)
+  }
+
+  if (filters.paymentConfirmed === true) {
+    query = query.not('payment_confirmed_at', 'is', null)
+  } else if (filters.paymentConfirmed === false) {
+    query = query.is('payment_confirmed_at', null)
   }
 
   if (matchedOrderIds) {

@@ -89,6 +89,8 @@ interface SupervisionFilters {
   soldTo?: string
   category?: SalesProductCategory
   brandKeyword?: string
+  paymentMethod?: SalesPaymentMethod
+  paymentConfirmed?: boolean
 }
 
 interface DraftSalesItem {
@@ -135,6 +137,7 @@ const BRAND_FILTER_OPTIONS = [
 interface PaymentLabels {
   top: string
   cash: string
+  consignment: string
   top30Days: string
   top60Days: string
 }
@@ -179,16 +182,24 @@ function renderPaymentMethodLabel(method: SalesPaymentMethod, topTerm: SalesTopT
     return `${labels.top} (${topTerm === '60_DAYS' ? labels.top60Days : labels.top30Days})`
   }
 
+  if (method === 'CONSIGNMENT') {
+    return `${labels.consignment} (${labels.top30Days})`
+  }
+
   return labels.cash
 }
 
 function getPaymentDueAt(soldAt: string, method: SalesPaymentMethod, topTerm: SalesTopTerm | null): dayjs.Dayjs | null {
-  if (method !== 'TOP') {
-    return null
+  if (method === 'TOP') {
+    const days = topTerm === '60_DAYS' ? 60 : 30
+    return dayjs(soldAt).add(days, 'day')
   }
 
-  const days = topTerm === '60_DAYS' ? 60 : 30
-  return dayjs(soldAt).add(days, 'day')
+  if (method === 'CONSIGNMENT') {
+    return dayjs(soldAt).add(30, 'day')
+  }
+
+  return null
 }
 
 function getReminderDaysLeft(dueAt: dayjs.Dayjs | null): number | null {
@@ -268,6 +279,7 @@ export function SalesSupervisionPage() {
     () => ({
       top: t('pages.salesSupervision.paymentMethodTopOption', { defaultValue: 'TOP' }),
       cash: t('pages.salesSupervision.paymentMethodCashOption', { defaultValue: 'Cash' }),
+      consignment: t('pages.salesSupervision.paymentMethodConsignmentOption', { defaultValue: 'Consignment' }),
       top30Days: t('pages.salesSupervision.paymentTopTerm30Days', { defaultValue: '30 Days' }),
       top60Days: t('pages.salesSupervision.paymentTopTerm60Days', { defaultValue: '60 Days' }),
     }),
@@ -277,6 +289,7 @@ export function SalesSupervisionPage() {
     () => [
       { value: 'TOP', label: paymentLabels.top },
       { value: 'CASH', label: paymentLabels.cash },
+      { value: 'CONSIGNMENT', label: paymentLabels.consignment },
     ],
     [paymentLabels],
   )
@@ -318,6 +331,8 @@ export function SalesSupervisionPage() {
           soldTo: filters.soldTo,
           category: filters.category,
           brandKeyword: filters.brandKeyword,
+          paymentMethod: filters.paymentMethod,
+          paymentConfirmed: filters.paymentConfirmed,
         }),
         listActiveUsers(),
         supabase
@@ -343,7 +358,7 @@ export function SalesSupervisionPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters.bdUserId, filters.soldFrom, filters.soldTo, filters.category, filters.brandKeyword, keyword, t])
+  }, [filters.bdUserId, filters.soldFrom, filters.soldTo, filters.category, filters.brandKeyword, filters.paymentMethod, filters.paymentConfirmed, keyword, t])
 
   useEffect(() => {
     void loadData()
@@ -379,7 +394,7 @@ export function SalesSupervisionPage() {
       company_name: row.company_name,
       sold_at: dayjs(row.sold_at),
       payment_method: row.payment_method,
-      payment_top_term: row.payment_method === 'TOP' ? (row.payment_top_term ?? '30_DAYS') : undefined,
+      payment_top_term: (row.payment_method === 'TOP' || row.payment_method === 'CONSIGNMENT') ? (row.payment_top_term ?? '30_DAYS') : undefined,
       note: row.note ?? undefined,
     })
     setEditModalOpen(true)
@@ -471,7 +486,7 @@ export function SalesSupervisionPage() {
         company_name: values.company_name.trim(),
         sold_at: values.sold_at.toISOString(),
         payment_method: values.payment_method,
-        payment_top_term: values.payment_method === 'TOP' ? values.payment_top_term : null,
+        payment_top_term: values.payment_method === 'TOP' ? values.payment_top_term : (values.payment_method === 'CONSIGNMENT' ? '30_DAYS' : null),
         note: values.note ?? null,
         items: normalizedItems,
       })
@@ -547,7 +562,7 @@ export function SalesSupervisionPage() {
         company_name: values.company_name.trim(),
         sold_at: values.sold_at.toISOString(),
         payment_method: values.payment_method,
-        payment_top_term: values.payment_method === 'TOP' ? values.payment_top_term : null,
+        payment_top_term: values.payment_method === 'TOP' ? values.payment_top_term : (values.payment_method === 'CONSIGNMENT' ? '30_DAYS' : null),
         note: values.note ?? undefined,
         items: normalizedItems,
       })
@@ -644,6 +659,30 @@ export function SalesSupervisionPage() {
                 brandKeyword: first || undefined,
               }))
             }}
+          />
+          <Select
+            allowClear
+            style={{ width: 180 }}
+            placeholder={t('pages.salesSupervision.filterPaymentMethod', { defaultValue: 'Payment Method' })}
+            options={paymentMethodOptions}
+            value={filters.paymentMethod}
+            onChange={(value) => setFilters((current) => ({ ...current, paymentMethod: (value as SalesPaymentMethod | undefined) ?? undefined }))}
+          />
+          <Select
+            allowClear
+            style={{ width: 160 }}
+            placeholder={t('pages.salesSupervision.filterPaymentConfirmed', { defaultValue: 'Payment Status' })}
+            options={[
+              { value: 'true', label: t('pages.salesSupervision.filterPaymentConfirmedOption', { defaultValue: 'Paid' }) },
+              { value: 'false', label: t('pages.salesSupervision.filterPaymentUnconfirmedOption', { defaultValue: 'Unpaid' }) },
+            ]}
+            value={filters.paymentConfirmed === undefined ? undefined : String(filters.paymentConfirmed)}
+            onChange={(value) =>
+              setFilters((current) => ({
+                ...current,
+                paymentConfirmed: value === undefined ? undefined : value === 'true',
+              }))
+            }
           />
           <DatePicker
             style={{ width: 180 }}
@@ -930,17 +969,31 @@ export function SalesSupervisionPage() {
               <Select options={paymentMethodOptions} />
             </Form.Item>
             <Form.Item noStyle dependencies={['payment_method']}>
-              {({ getFieldValue }) =>
-                getFieldValue('payment_method') === 'TOP' ? (
-                  <Form.Item
-                    name="payment_top_term"
-                    label={t('pages.salesSupervision.paymentTopTerm', { defaultValue: 'TOP Term' })}
-                    rules={[{ required: true, message: t('pages.salesSupervision.paymentTopTermRequired', { defaultValue: 'Please select TOP term' }) }]}
-                  >
-                    <Select options={paymentTopTermOptions} />
-                  </Form.Item>
-                ) : null
-              }
+              {({ getFieldValue }) => {
+                const method = getFieldValue('payment_method') as SalesPaymentMethod
+                if (method === 'TOP') {
+                  return (
+                    <Form.Item
+                      name="payment_top_term"
+                      label={t('pages.salesSupervision.paymentTopTerm', { defaultValue: 'TOP Term' })}
+                      rules={[{ required: true, message: t('pages.salesSupervision.paymentTopTermRequired', { defaultValue: 'Please select TOP term' }) }]}
+                    >
+                      <Select options={paymentTopTermOptions} />
+                    </Form.Item>
+                  )
+                }
+                if (method === 'CONSIGNMENT') {
+                  return (
+                    <Form.Item label={t('pages.salesSupervision.paymentTopTerm', { defaultValue: 'TOP Term' })}>
+                      <span className="app-text-soft text-sm">
+                        {paymentLabels.top30Days}
+                        {' '}({t('pages.salesSupervision.paymentMethodConsignmentOption', { defaultValue: 'Consignment' })})
+                      </span>
+                    </Form.Item>
+                  )
+                }
+                return null
+              }}
             </Form.Item>
           </div>
           <Form.Item name="note" label={t('pages.salesSupervision.note', { defaultValue: 'Remark' })}>
@@ -1025,7 +1078,7 @@ export function SalesSupervisionPage() {
               },
               {
                 title: t('pages.salesSupervision.columns.quantity', { defaultValue: 'Qty' }),
-                width: 120,
+                width: 160,
                 render: (_: unknown, row: DraftSalesItem) => (
                   <InputNumber
                     min={1}
@@ -1193,17 +1246,31 @@ export function SalesSupervisionPage() {
               <Select options={paymentMethodOptions} />
             </Form.Item>
             <Form.Item noStyle dependencies={['payment_method']}>
-              {({ getFieldValue }) =>
-                getFieldValue('payment_method') === 'TOP' ? (
-                  <Form.Item
-                    name="payment_top_term"
-                    label={t('pages.salesSupervision.paymentTopTerm', { defaultValue: 'TOP Term' })}
-                    rules={[{ required: true, message: t('pages.salesSupervision.paymentTopTermRequired', { defaultValue: 'Please select TOP term' }) }]}
-                  >
-                    <Select options={paymentTopTermOptions} />
-                  </Form.Item>
-                ) : null
-              }
+              {({ getFieldValue }) => {
+                const method = getFieldValue('payment_method') as SalesPaymentMethod
+                if (method === 'TOP') {
+                  return (
+                    <Form.Item
+                      name="payment_top_term"
+                      label={t('pages.salesSupervision.paymentTopTerm', { defaultValue: 'TOP Term' })}
+                      rules={[{ required: true, message: t('pages.salesSupervision.paymentTopTermRequired', { defaultValue: 'Please select TOP term' }) }]}
+                    >
+                      <Select options={paymentTopTermOptions} />
+                    </Form.Item>
+                  )
+                }
+                if (method === 'CONSIGNMENT') {
+                  return (
+                    <Form.Item label={t('pages.salesSupervision.paymentTopTerm', { defaultValue: 'TOP Term' })}>
+                      <span className="app-text-soft text-sm">
+                        {paymentLabels.top30Days}
+                        {' '}({t('pages.salesSupervision.paymentMethodConsignmentOption', { defaultValue: 'Consignment' })})
+                      </span>
+                    </Form.Item>
+                  )
+                }
+                return null
+              }}
             </Form.Item>
           </div>
           <Form.Item name="note" label={t('pages.salesSupervision.note', { defaultValue: 'Remark' })}>
@@ -1288,7 +1355,7 @@ export function SalesSupervisionPage() {
               },
               {
                 title: t('pages.salesSupervision.columns.quantity', { defaultValue: 'Qty' }),
-                width: 120,
+                width: 160,
                 render: (_: unknown, row: DraftSalesItem) => (
                   <InputNumber
                     min={1}
