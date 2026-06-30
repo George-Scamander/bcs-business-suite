@@ -41,7 +41,7 @@ export type SalesProductSubcategory =
   | 'CHEMICAL_OTHER'
   | 'X_OWL_BRAKE_PAD'
   | 'X_OWL_OTHER'
-export type SalesPaymentMethod = 'TOP' | 'CASH'
+export type SalesPaymentMethod = 'TOP' | 'CASH' | 'CONSIGNMENT'
 export type SalesTopTerm = '30_DAYS' | '60_DAYS'
 export type OnboardMerchantType = 'BCS_FRANCHISE' | 'NON_BCS_PARTNER'
 export type MerchantActivityType = 'RENOVATION_TASK' | 'DELIVERY' | 'SALES_ORDER' | 'NOTE' | 'OTHER'
