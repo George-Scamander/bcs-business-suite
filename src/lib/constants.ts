@@ -1,7 +1,7 @@
 import type { LocaleCode, RoleCode } from '../types/rbac'
 
 export const APP_NAME = 'BCS Business Suite'
-export const APP_VERSION = 'V1.4.2'
+export const APP_VERSION = 'V1.5.0'
 export const PRIVATE_BUCKET = 'private-documents'
 
 export const SUPPORTED_LOCALES: Array<{ code: LocaleCode; label: string }> = [
@@ -33,6 +33,7 @@ export const NAV_ITEMS_BY_ROLE: Record<RoleCode, Array<{ key: string; label: str
     { key: 'recently-deleted', label: 'Recently Deleted', path: '/app/recently-deleted' },
     { key: 'report-export', label: 'Report Export', path: '/app/admin/reports/export' },
     { key: 'system-config', label: 'System Config', path: '/app/admin/system-config' },
+    { key: 'accurate-finance', label: 'Accurate Finance', path: '/app/admin/accurate/finance' },
     { key: 'logs', label: 'Operation Logs', path: '/app/admin/logs' },
     { key: 'uploads', label: 'File Center', path: '/app/files' },
     { key: 'profile', label: 'Profile', path: '/app/settings/profile' },

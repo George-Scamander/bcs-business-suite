@@ -630,7 +630,7 @@ export function AdminOnboardingReviewCenterPage() {
             : t('pages.adminOnboardingReview.reviewCase', { defaultValue: 'Review Case' })
         }
         open={drawerOpen}
-        width={760}
+        styles={{ wrapper: { width: 760 } }}
         onClose={() => {
           setDrawerOpen(false)
           setSelectedCase(null)

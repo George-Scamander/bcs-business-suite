@@ -68,6 +68,7 @@ const iconMap: Record<string, React.ReactNode> = {
   'pm-onboard-merchants': <ContainerOutlined />,
   'sales-supervision': <LineChartOutlined />,
   'admin-ai-data-assistant': <RobotOutlined />,
+  'accurate-finance': <ReconciliationOutlined />,
   'bd-kpi-dashboard': <LineChartOutlined />,
   'pm-new-project': <PlusSquareOutlined />,
   'pm-leads-import': <CloudUploadOutlined />,
@@ -288,10 +289,9 @@ export function AppLayout() {
             </div>
           }
           placement="left"
-          width="72vw"
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          styles={{ body: { padding: 0 } }}
+          styles={{ body: { padding: 0 }, wrapper: { width: '72vw' } }}
         >
           <div className="px-4 pb-3">
             <Typography.Text className="block text-sm font-medium app-text">

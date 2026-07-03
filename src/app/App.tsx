@@ -52,6 +52,7 @@ import { SalesSupervisionPage } from '../modules/sales/pages/SalesSupervisionPag
 import { AdminSalesDashboardPage } from '../modules/admin/pages/AdminSalesDashboardPage'
 import { BdKpiDashboardPage } from '../modules/reports/pages/BdKpiDashboardPage'
 import { BdKpiInsightsPage } from '../modules/reports/pages/BdKpiInsightsPage'
+import { AccurateFinanceDashboardPage } from '../modules/accurate/pages/AccurateFinanceDashboardPage'
 
 export default function App() {
   return (
@@ -537,6 +538,15 @@ export default function App() {
                 </RoleGuard>
               }
             />
+            <Route
+              path="admin/accurate/finance"
+              element={
+                <RoleGuard allowRoles={['super_admin']} requiredPermissions={[PERMISSIONS.PROJECTS_READ]}>
+                  <AccurateFinanceDashboardPage />
+                </RoleGuard>
+              }
+            />
+
             <Route path="settings/profile" element={<ProfileSettingsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="unauthorized" element={<UnauthorizedPage />} />

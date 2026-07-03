@@ -408,7 +408,7 @@ export function BdKpiDashboardPage() {
       />
       <Drawer
         title={t('pages.bdKpi.controlPanel', { defaultValue: 'Control Panel' })}
-        width={460}
+        styles={{ wrapper: { width: 460 } }}
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
         destroyOnClose={false}
