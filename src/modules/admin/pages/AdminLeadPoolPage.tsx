@@ -487,7 +487,7 @@ export function AdminLeadPoolPage() {
 
       <Drawer
         title={t('labels.controlPanel', { defaultValue: 'Control Panel' })}
-        width={460}
+        styles={{ wrapper: { width: 460 } }}
         open={controlPanelOpen}
         onClose={() => setControlPanelOpen(false)}
         destroyOnClose={false}

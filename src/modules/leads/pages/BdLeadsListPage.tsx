@@ -719,10 +719,10 @@ export function BdLeadsListPage() {
           <Drawer
             title={t('labels.moreFilters', { defaultValue: '更多篩選' })}
             placement="right"
-            width={360}
             open={moreFiltersOpen}
             onClose={() => setMoreFiltersOpen(false)}
             destroyOnClose={false}
+            styles={{ wrapper: { width: 360 } }}
           >
             <Space direction="vertical" size={12} className="w-full">
               <Input
