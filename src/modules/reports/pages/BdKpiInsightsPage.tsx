@@ -14,7 +14,6 @@ import {
   Grid,
   Input,
   Progress,
-  Segmented,
   Select,
   Space,
   Statistic,
@@ -26,6 +25,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { getSalesProductCategoryOptions } from '../../../lib/business-constants'
+import { BD_CITIES } from '../../../lib/constants'
 import { formatDisplayName } from '../../../lib/user-display'
 import type { SalesProductCategory } from '../../../types/business'
 import {
@@ -37,17 +37,11 @@ import {
 } from '../api/kpi'
 
 type DateRange = [Dayjs | null, Dayjs | null] | null
-type MetricKey = 'tire' | 'accessory' | 'bcs'
 type TrendBucket = 'day' | 'week' | 'month'
 
 interface CalculatedKpiRow extends BdKpiRow {
-  tireTarget: number
-  accessoryTarget: number
-  bcsTarget: number
-  tireCompletionRate: number
-  accessoryCompletionRate: number
-  bcsCompletionRate: number
-  overallCompletionRate: number
+  salesAmountTarget: number
+  salesCompletionRate: number
 }
 
 interface CategorySharePoint {
@@ -119,23 +113,6 @@ function parseQueryDate(value: string | null): Dayjs | null {
   return parsed.isValid() ? parsed : null
 }
 
-function getMetricLabel(metric: MetricKey, t: (key: string, options?: { defaultValue: string }) => string): string {
-  if (metric === 'accessory') {
-    return t('pages.bdKpi.analysis.metricAccessory', { defaultValue: 'Accessory Sales Amount' })
-  }
-  if (metric === 'bcs') {
-    return t('pages.bdKpi.analysis.metricBcs', { defaultValue: 'BCS Signed Count' })
-  }
-  return t('pages.bdKpi.analysis.metricTire', { defaultValue: 'Tire Sales Quantity' })
-}
-
-function renderMetricValue(metric: MetricKey, value: number): string {
-  if (metric === 'accessory') {
-    return formatCurrency(value)
-  }
-  return formatNumber(value)
-}
-
 function resolveTrendBucket(range: DateRange): TrendBucket {
   const start = range?.[0]
   const end = range?.[1]
@@ -198,11 +175,9 @@ export function BdKpiInsightsPage() {
   const [keyword, setKeyword] = useState(initialKeyword)
   const [dateRangeInput, setDateRangeInput] = useState<DateRange>(initialDateRange)
   const [dateRange, setDateRange] = useState<DateRange>(initialDateRange)
-  const [metric, setMetric] = useState<MetricKey>('tire')
+  const [cityFilter, setCityFilter] = useState<string | undefined>(undefined)
   const [selectedBdUserId, setSelectedBdUserId] = useState<string | null>(null)
-  const [defaultPersonalTireTarget, setDefaultPersonalTireTarget] = useState<number>(10)
-  const [defaultPersonalAccessoryTarget, setDefaultPersonalAccessoryTarget] = useState<number>(10000)
-  const [defaultPersonalBcsTarget, setDefaultPersonalBcsTarget] = useState<number>(5)
+  const [defaultPersonalSalesAmountTarget, setDefaultPersonalSalesAmountTarget] = useState<number>(5_000_000)
 
   const dashboardPath = location.pathname.startsWith('/app/admin/')
     ? '/app/admin/kpi/dashboard'
@@ -231,6 +206,7 @@ export function BdKpiInsightsPage() {
     try {
       const queryFilters = {
         keyword: keyword.trim() || undefined,
+        city: cityFilter || undefined,
         dateFrom: dateRange?.[0] ? dateRange[0].startOf('day').toISOString() : undefined,
         dateTo: dateRange?.[1] ? dateRange[1].endOf('day').toISOString() : undefined,
       }
@@ -257,19 +233,13 @@ export function BdKpiInsightsPage() {
     } finally {
       setLoading(false)
     }
-  }, [dateRange, keyword, t])
+  }, [dateRange, keyword, cityFilter, t])
 
   const loadTargetSettings = useCallback(async () => {
     try {
       const settings = await getBdKpiTargetSettings()
-      if (settings.defaultPersonalTireTarget !== undefined) {
-        setDefaultPersonalTireTarget(settings.defaultPersonalTireTarget)
-      }
-      if (settings.defaultPersonalAccessoryTarget !== undefined) {
-        setDefaultPersonalAccessoryTarget(settings.defaultPersonalAccessoryTarget)
-      }
-      if (settings.defaultPersonalBcsTarget !== undefined) {
-        setDefaultPersonalBcsTarget(settings.defaultPersonalBcsTarget)
+      if (settings.defaultPersonalSalesAmountTarget !== undefined) {
+        setDefaultPersonalSalesAmountTarget(settings.defaultPersonalSalesAmountTarget)
       }
     } catch (error) {
       const text =
@@ -289,29 +259,17 @@ export function BdKpiInsightsPage() {
   }, [loadTargetSettings])
 
   const calculatedRows = useMemo<CalculatedKpiRow[]>(() => {
-    return rows.map((row) => {
-      const tireTarget = safeNumber(defaultPersonalTireTarget)
-      const accessoryTarget = safeNumber(defaultPersonalAccessoryTarget)
-      const bcsTarget = safeNumber(defaultPersonalBcsTarget)
-      const tireCompletionRate = completionRate(row.tireSalesQuantity, tireTarget)
-      const accessoryCompletionRate = completionRate(row.accessorySalesAmount, accessoryTarget)
-      const bcsCompletionRate = row.isBcsTargetExempt ? 1 : completionRate(row.bcsSignedCount, bcsTarget)
-      return {
-        ...row,
-        tireTarget,
-        accessoryTarget,
-        bcsTarget,
-        tireCompletionRate,
-        accessoryCompletionRate,
-        bcsCompletionRate,
-        overallCompletionRate: (tireCompletionRate + accessoryCompletionRate + bcsCompletionRate) / 3,
-      }
-    })
-  }, [defaultPersonalAccessoryTarget, defaultPersonalBcsTarget, defaultPersonalTireTarget, rows])
+    const personalTarget = safeNumber(defaultPersonalSalesAmountTarget)
+    return rows.map((row) => ({
+      ...row,
+      salesAmountTarget: personalTarget,
+      salesCompletionRate: completionRate(row.salesAmount, personalTarget),
+    }))
+  }, [defaultPersonalSalesAmountTarget, rows])
 
   const rankedRows = useMemo(() => {
     return [...calculatedRows]
-      .sort((left, right) => right.overallCompletionRate - left.overallCompletionRate)
+      .sort((left, right) => right.salesCompletionRate - left.salesCompletionRate)
       .slice(0, 8)
   }, [calculatedRows])
 
@@ -338,58 +296,31 @@ export function BdKpiInsightsPage() {
     ? formatDisplayName(selectedBdSummary.bdName, selectedBdSummary.bdEmail, selectedBdSummary.bdUserId)
     : ''
 
-  const metricRows = useMemo(() => {
-    return rankedRows.map((row) => {
-      if (metric === 'accessory') {
-        return {
-          key: row.bdUserId,
-          label: formatDisplayName(row.bdName, row.bdEmail, row.bdUserId),
-          actual: row.accessorySalesAmount,
-          target: row.accessoryTarget,
-          completionRate: row.accessoryCompletionRate,
-        }
-      }
+  const salesRows = useMemo(() => {
+    return rankedRows.map((row) => ({
+      key: row.bdUserId,
+      label: formatDisplayName(row.bdName, row.bdEmail, row.bdUserId),
+      bdCity: row.bdCity,
+      actual: row.salesAmount,
+      target: row.salesAmountTarget,
+      completionRate: row.salesCompletionRate,
+    }))
+  }, [rankedRows])
 
-      if (metric === 'bcs') {
-        return {
-          key: row.bdUserId,
-          label: formatDisplayName(row.bdName, row.bdEmail, row.bdUserId),
-          actual: row.bcsSignedCount,
-          target: row.bcsTarget,
-          completionRate: row.bcsCompletionRate,
-        }
-      }
-
-      return {
-        key: row.bdUserId,
-        label: formatDisplayName(row.bdName, row.bdEmail, row.bdUserId),
-        actual: row.tireSalesQuantity,
-        target: row.tireTarget,
-        completionRate: row.tireCompletionRate,
-      }
-    })
-  }, [metric, rankedRows])
-
-  const maxMetricValue = useMemo(() => {
-    if (metricRows.length === 0) {
+  const maxSalesValue = useMemo(() => {
+    if (salesRows.length === 0) {
       return 1
     }
-
-    return Math.max(
-      1,
-      ...metricRows.flatMap((row) => [safeNumber(row.actual), safeNumber(row.target)]),
-    )
-  }, [metricRows])
+    return Math.max(1, ...salesRows.flatMap((row) => [safeNumber(row.actual), safeNumber(row.target)]))
+  }, [salesRows])
 
   const completionMatrixRows = useMemo(() => {
     return rankedRows.map((row, index) => ({
       rank: index + 1,
       key: row.bdUserId,
       label: formatDisplayName(row.bdName, row.bdEmail, row.bdUserId),
-      tireCompletionRate: row.tireCompletionRate,
-      accessoryCompletionRate: row.accessoryCompletionRate,
-      bcsCompletionRate: row.bcsCompletionRate,
-      overallCompletionRate: row.overallCompletionRate,
+      bdCity: row.bdCity,
+      salesCompletionRate: row.salesCompletionRate,
     }))
   }, [rankedRows])
 
@@ -603,11 +534,11 @@ export function BdKpiInsightsPage() {
     return calculatedRows.reduce((sum, row) => sum + safeNumber(row.salesAmount), 0)
   }, [calculatedRows])
 
-  const averageOverallCompletion = useMemo(() => {
+  const averageSalesCompletion = useMemo(() => {
     if (calculatedRows.length === 0) {
       return 0
     }
-    const total = calculatedRows.reduce((sum, row) => sum + row.overallCompletionRate, 0)
+    const total = calculatedRows.reduce((sum, row) => sum + row.salesCompletionRate, 0)
     return total / calculatedRows.length
   }, [calculatedRows])
 
@@ -657,6 +588,14 @@ export function BdKpiInsightsPage() {
             placeholder={t('pages.bdKpi.keyword', { defaultValue: 'Search BD name or email' })}
             className={isMobile ? 'w-full' : 'w-[280px]'}
           />
+          <Select
+            allowClear
+            value={cityFilter}
+            onChange={(value: string | undefined) => setCityFilter(value ?? undefined)}
+            placeholder={t('pages.bdKpi.allCities', { defaultValue: 'All Cities' })}
+            options={BD_CITIES.map((c) => ({ value: c, label: c }))}
+            className={isMobile ? 'w-full' : 'w-[160px]'}
+          />
           <Button type="primary" onClick={applyFilters}>
             {t('labels.apply', { defaultValue: 'Apply' })}
           </Button>
@@ -667,6 +606,7 @@ export function BdKpiInsightsPage() {
               setDateRange(currentRange)
               setKeywordInput('')
               setKeyword('')
+              setCityFilter(undefined)
               syncQuery('', currentRange)
             }}
           >
@@ -697,7 +637,7 @@ export function BdKpiInsightsPage() {
         <Card size="small">
           <Statistic
             title={t('pages.bdKpi.analysis.avgOverallCompletion', { defaultValue: 'Average Overall Completion' })}
-            valueRender={() => <span>{formatPercent(averageOverallCompletion)}</span>}
+            valueRender={() => <span>{formatPercent(averageSalesCompletion)}</span>}
             loading={loading}
           />
         </Card>
@@ -718,47 +658,27 @@ export function BdKpiInsightsPage() {
               </Space>
             }
             extra={
-              <div className="max-w-full overflow-x-auto">
-                <Segmented
-                  value={metric}
-                  onChange={(value) => setMetric(value as MetricKey)}
-                  options={[
-                    {
-                      label: t('pages.bdKpi.analysis.metricTire', { defaultValue: 'Tire Sales Quantity' }),
-                      value: 'tire',
-                    },
-                    {
-                      label: t('pages.bdKpi.analysis.metricAccessory', { defaultValue: 'Accessory Sales Amount' }),
-                      value: 'accessory',
-                    },
-                    {
-                      label: t('pages.bdKpi.analysis.metricBcs', { defaultValue: 'BCS Signed Count' }),
-                      value: 'bcs',
-                    },
-                  ]}
-                />
-              </div>
+              <Tag color="blue" bordered={false}>
+                {t('pages.bdKpi.analysis.metricSales', { defaultValue: 'Sales Amount' })}
+              </Tag>
             }
           >
-            <div className="mb-2 text-xs text-slate-500">
-              {t('pages.bdKpi.analysis.metricNow', { defaultValue: 'Current metric:' })}{' '}
-              <span className="font-semibold text-slate-700">{getMetricLabel(metric, t)}</span>
-            </div>
             <div className="space-y-4">
-              {metricRows.map((row) => {
-                const targetPercent = (safeNumber(row.target) / maxMetricValue) * 100
-                const actualPercent = (safeNumber(row.actual) / maxMetricValue) * 100
+              {salesRows.map((row) => {
+                const targetPercent = (safeNumber(row.target) / maxSalesValue) * 100
+                const actualPercent = (safeNumber(row.actual) / maxSalesValue) * 100
                 return (
                   <div key={row.key}>
                     <div className={`mb-1 grid items-start gap-2 text-xs ${isMobile ? 'grid-cols-1' : 'grid-cols-[minmax(0,1fr)_auto]'}`}>
                       <span className="truncate font-medium text-slate-700" title={row.label}>
                         {row.label}
+                        {row.bdCity && <Tag color="blue" bordered={false} className="ml-1">{row.bdCity}</Tag>}
                       </span>
                       <span className={isMobile ? 'text-slate-500' : 'whitespace-nowrap text-right text-slate-500'}>
                         {t('pages.bdKpi.analysis.target', { defaultValue: 'Target' })}:{' '}
-                        {renderMetricValue(metric, row.target)} |{' '}
+                        {formatCurrency(row.target)} |{' '}
                         {t('pages.bdKpi.analysis.actual', { defaultValue: 'Actual' })}:{' '}
-                        {renderMetricValue(metric, row.actual)} | {formatPercent(row.completionRate)}
+                        {formatCurrency(row.actual)} | {formatPercent(row.completionRate)}
                       </span>
                     </div>
                     <div className="space-y-1">
@@ -817,21 +737,15 @@ export function BdKpiInsightsPage() {
                           <span className="truncate text-sm font-medium app-text" title={row.label}>
                             {row.label}
                           </span>
+                          {row.bdCity && <Tag color="cyan" bordered={false}>{row.bdCity}</Tag>}
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { label: t('pages.bdKpi.analysis.tireCompletionRate', { defaultValue: 'Tire Completion' }), value: row.tireCompletionRate },
-                            { label: t('pages.bdKpi.analysis.accessoryCompletionRate', { defaultValue: 'Accessory Completion' }), value: row.accessoryCompletionRate },
-                            { label: t('pages.bdKpi.analysis.bcsCompletionRate', { defaultValue: 'BCS Completion' }), value: row.bcsCompletionRate },
-                            { label: t('pages.bdKpi.columns.overall', { defaultValue: 'Overall Completion' }), value: row.overallCompletionRate },
-                          ].map((item) => (
-                            <div key={`${row.key}-${item.label}`}>
-                              <div className="mb-1 text-[11px] app-text-soft">{item.label}</div>
-                              <div className="rounded-md px-2 py-2 text-center text-xs font-semibold" style={getCompletionHeatStyle(item.value)}>
-                                {formatPercent(item.value)}
-                              </div>
-                            </div>
-                          ))}
+                        <div>
+                          <div className="mb-1 text-[11px] app-text-soft">
+                            {t('pages.bdKpi.columns.salesCompletion', { defaultValue: 'Sales Completion' })}
+                          </div>
+                          <div className="rounded-md px-2 py-2 text-center text-xs font-semibold" style={getCompletionHeatStyle(row.salesCompletionRate)}>
+                            {formatPercent(row.salesCompletionRate)}
+                          </div>
                         </div>
                       </button>
                     )
@@ -839,23 +753,14 @@ export function BdKpiInsightsPage() {
                 </div>
               ) : (
                 <div className="w-full overflow-x-auto">
-                  <table className="w-full min-w-[680px] border-collapse">
+                  <table className="w-full border-collapse">
                     <thead>
                       <tr>
                         <th className="border-b app-border px-3 py-2 text-left text-xs font-semibold app-text-soft">
                           BD
                         </th>
                         <th className="border-b app-border px-3 py-2 text-center text-xs font-semibold app-text-soft">
-                          {t('pages.bdKpi.analysis.tireCompletionRate', { defaultValue: 'Tire Completion' })}
-                        </th>
-                        <th className="border-b app-border px-3 py-2 text-center text-xs font-semibold app-text-soft">
-                          {t('pages.bdKpi.analysis.accessoryCompletionRate', { defaultValue: 'Accessory Completion' })}
-                        </th>
-                        <th className="border-b app-border px-3 py-2 text-center text-xs font-semibold app-text-soft">
-                          {t('pages.bdKpi.analysis.bcsCompletionRate', { defaultValue: 'BCS Completion' })}
-                        </th>
-                        <th className="border-b app-border px-3 py-2 text-center text-xs font-semibold app-text-soft">
-                          {t('pages.bdKpi.columns.overall', { defaultValue: 'Overall Completion' })}
+                          {t('pages.bdKpi.columns.salesCompletion', { defaultValue: 'Sales Completion' })}
                         </th>
                       </tr>
                     </thead>
@@ -879,18 +784,17 @@ export function BdKpiInsightsPage() {
                                 <span className="truncate text-sm font-medium app-text" title={row.label}>
                                   {row.label}
                                 </span>
+                                {row.bdCity && <Tag color="cyan" bordered={false}>{row.bdCity}</Tag>}
                               </button>
                             </td>
-                            {[row.tireCompletionRate, row.accessoryCompletionRate, row.bcsCompletionRate, row.overallCompletionRate].map((value, index) => (
-                              <td key={`${row.key}-${index}`} className="border-b app-border px-2 py-2 align-middle">
-                                <div
-                                  className="rounded-md px-2 py-2 text-center text-xs font-semibold"
-                                  style={getCompletionHeatStyle(value)}
-                                >
-                                  {formatPercent(value)}
-                                </div>
-                              </td>
-                            ))}
+                            <td className="border-b app-border px-2 py-2 align-middle">
+                              <div
+                                className="rounded-md px-2 py-2 text-center text-xs font-semibold"
+                                style={getCompletionHeatStyle(row.salesCompletionRate)}
+                              >
+                                {formatPercent(row.salesCompletionRate)}
+                              </div>
+                            </td>
                           </tr>
                         )
                       })}
@@ -935,45 +839,16 @@ export function BdKpiInsightsPage() {
                     </div>
                     <div className="rounded-md border app-border p-2">
                       <div className="text-xs app-text-soft">{t('pages.bdKpi.analysis.selectedOverallCompletion', { defaultValue: 'Overall Completion' })}</div>
-                      <div className="text-base font-semibold app-text">{formatPercent(selectedBdSummary.overallCompletionRate)}</div>
+                      <div className="text-base font-semibold app-text">{formatPercent(selectedBdSummary.salesCompletionRate)}</div>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    {[
-                      {
-                        key: 'tire',
-                        label: t('pages.bdKpi.analysis.tireCompletionRate', { defaultValue: 'Tire Completion' }),
-                        value: selectedBdSummary.tireCompletionRate,
-                        color: '#2563eb',
-                      },
-                      {
-                        key: 'accessory',
-                        label: t('pages.bdKpi.analysis.accessoryCompletionRate', { defaultValue: 'Accessory Completion' }),
-                        value: selectedBdSummary.accessoryCompletionRate,
-                        color: '#f97316',
-                      },
-                      {
-                        key: 'bcs',
-                        label: t('pages.bdKpi.analysis.bcsCompletionRate', { defaultValue: 'BCS Completion' }),
-                        value: selectedBdSummary.bcsCompletionRate,
-                        color: '#16a34a',
-                      },
-                      {
-                        key: 'overall',
-                        label: t('pages.bdKpi.columns.overall', { defaultValue: 'Overall Completion' }),
-                        value: selectedBdSummary.overallCompletionRate,
-                        color: '#0f766e',
-                      },
-                    ].map((metricPoint) => (
-                      <div key={metricPoint.key}>
-                        <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
-                          <span>{metricPoint.label}</span>
-                          <span className="font-medium text-slate-700">{formatPercent(metricPoint.value)}</span>
-                        </div>
-                        <Progress percent={toProgressPercent(metricPoint.value)} showInfo={false} size="small" strokeColor={metricPoint.color} />
-                      </div>
-                    ))}
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
+                      <span>{t('pages.bdKpi.columns.salesCompletion', { defaultValue: 'Sales Completion' })}</span>
+                      <span className="font-medium text-slate-700">{formatPercent(selectedBdSummary.salesCompletionRate)}</span>
+                    </div>
+                    <Progress percent={toProgressPercent(selectedBdSummary.salesCompletionRate)} showInfo={false} size="small" strokeColor="#16a34a" />
                   </div>
                 </div>
               )}

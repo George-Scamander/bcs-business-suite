@@ -8,6 +8,7 @@ export interface Profile {
   locale: LocaleCode
   timezone: string
   is_active: boolean
+  city: string | null
   created_at: string
   updated_at: string
 }

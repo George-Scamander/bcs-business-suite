@@ -1,8 +1,11 @@
 import type { LocaleCode, RoleCode } from '../types/rbac'
 
 export const APP_NAME = 'BCS Business Suite'
-export const APP_VERSION = 'V1.5.0'
+export const APP_VERSION = 'V1.5.1'
 export const PRIVATE_BUCKET = 'private-documents'
+
+export const BD_CITIES = ['Jakarta', 'Bandung', 'Surabaya'] as const
+export type BdCity = (typeof BD_CITIES)[number]
 
 export const SUPPORTED_LOCALES: Array<{ code: LocaleCode; label: string }> = [
   { code: 'en', label: 'English' },

@@ -548,6 +548,8 @@ export async function createSalesOrderWithAutoLeadAndAssignBd(
     note: input.note,
     onboard_merchant_id: input.onboard_merchant_id,
     items: input.items,
+    payment_method: payment.paymentMethod,
+    payment_top_term: payment.paymentTopTerm,
   }
   const result = await createSalesOrderWithAutoLead(orderInput)
   const nowIso = new Date().toISOString()

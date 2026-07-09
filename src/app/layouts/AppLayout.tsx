@@ -234,7 +234,7 @@ export function AppLayout() {
       inlineCollapsed={!isMobile && desktopSiderCollapsed}
       selectedKeys={selectedKey ? [selectedKey] : []}
       items={menuItems}
-      className="h-full border-0"
+      className="border-0"
     />
   )
 
@@ -245,10 +245,10 @@ export function AppLayout() {
           width={248}
           collapsedWidth={80}
           collapsed={desktopSiderCollapsed}
-          className="app-sidebar sidebar-glass border-r app-border overflow-y-auto"
+          className="app-sidebar sidebar-glass border-r app-border"
           trigger={null}
         >
-          <div className={`border-b app-border ${desktopSiderCollapsed ? 'px-3 py-5' : 'px-5 py-5'}`}>
+          <div className={`border-b app-border flex-shrink-0 ${desktopSiderCollapsed ? 'px-3 py-5' : 'px-5 py-5'}`}>
             <div className="mb-2 flex items-center justify-between gap-2">
               {desktopSiderCollapsed ? (
                 <Typography.Text className="text-base font-bold app-text">BCS</Typography.Text>
@@ -278,7 +278,9 @@ export function AppLayout() {
               </Space>
             )}
           </div>
-          {sideMenu}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {sideMenu}
+          </div>
         </Sider>
       ) : (
         <Drawer

@@ -63,6 +63,13 @@ import {
   type LeadFilters,
 } from '../api'
 import {
+  buildRegionOptions,
+} from '../lead-options'
+import {
+  listDictionaryItems,
+  type DictionaryItem,
+} from '../../shared/api/dictionary'
+import {
   StatusTag,
 } from '../../../components/common/StatusTag'
 import {
@@ -214,6 +221,7 @@ export function BdLeadsListPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [assignTargetUserId, setAssignTargetUserId] = useState<string>()
   const [userOptions, setUserOptions] = useState<UserOption[]>([])
+  const [dictionaryItems, setDictionaryItems] = useState<DictionaryItem[]>([])
 
   const canAssign = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_ASSIGN)
   const isProjectManager = roles.includes('project_manager') && !roles.includes('super_admin')
@@ -226,6 +234,7 @@ export function BdLeadsListPage() {
     [t],
   )
   const intentPackageOptions = useMemo(() => getIntentPackageOptions(t), [t])
+  const regionOptions = useMemo(() => buildRegionOptions(dictionaryItems), [dictionaryItems])
   const deleteRetentionHint = t('labels.autoDelete30DaysHint', {
     defaultValue: 'Moved to Recently Deleted and auto-permanently deleted after 30 days.',
   })
@@ -318,6 +327,12 @@ export function BdLeadsListPage() {
   useEffect(() => {
     void loadUsers()
   }, [loadUsers])
+
+  useEffect(() => {
+    listDictionaryItems()
+      .then(setDictionaryItems)
+      .catch(() => {})
+  }, [])
 
   async function handleDeleteLead(leadId: string) {
     try {
@@ -482,12 +497,16 @@ export function BdLeadsListPage() {
         value={filters.status}
         onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
       />
-      <Input
+      <Select
+        allowClear
+        showSearch
         className={isProjectManager ? 'w-full' : undefined}
         placeholder={t('pages.bdLeads.regionPlaceholder', { defaultValue: 'Region' })}
         style={isProjectManager ? undefined : { width: 180 }}
+        options={regionOptions.map((r) => ({ value: r.value, label: r.label }))}
         value={filters.region}
-        onChange={(event) => setFilters((current) => ({ ...current, region: event.target.value || undefined }))}
+        onChange={(value) => setFilters((current) => ({ ...current, region: value || undefined }))}
+        optionFilterProp="label"
       />
       <Input
         className={isProjectManager ? 'w-full' : undefined}
@@ -725,11 +744,15 @@ export function BdLeadsListPage() {
             styles={{ wrapper: { width: 360 } }}
           >
             <Space direction="vertical" size={12} className="w-full">
-              <Input
+              <Select
+                allowClear
+                showSearch
                 className="w-full"
                 placeholder={t('pages.bdLeads.regionPlaceholder', { defaultValue: 'Region' })}
+                options={regionOptions.map((r) => ({ value: r.value, label: r.label }))}
                 value={filters.region}
-                onChange={(event) => setFilters((current) => ({ ...current, region: event.target.value || undefined }))}
+                onChange={(value) => setFilters((current) => ({ ...current, region: value || undefined }))}
+                optionFilterProp="label"
               />
               <Input
                 className="w-full"
@@ -836,6 +859,7 @@ export function BdLeadsListPage() {
           { title: t('pages.bdLeads.columns.company', { defaultValue: 'Company' }), dataIndex: 'company_name' },
           { title: t('pages.bdLeads.columns.industry', { defaultValue: 'Industry' }), dataIndex: 'industry', width: 160 },
           { title: t('pages.bdLeads.columns.region', { defaultValue: 'Region' }), dataIndex: 'region', width: 140 },
+          { title: t('pages.bdLeads.columns.city', { defaultValue: 'Customer City' }), dataIndex: 'city', width: 130 },
           ...(isProjectManager
             ? [{
                 title: t('pages.bdLeads.columns.intentLevel', { defaultValue: 'Intent Level' }),
