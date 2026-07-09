@@ -6,12 +6,14 @@ export interface BdKpiFilters {
   dateFrom?: string
   dateTo?: string
   keyword?: string
+  city?: string
 }
 
 export interface BdKpiRow {
   bdUserId: string
   bdName: string
   bdEmail: string
+  bdCity: string | null
   salesAmount: number
   tireSalesQuantity: number
   accessorySalesAmount: number
@@ -34,6 +36,7 @@ interface ProfileRow {
   id: string
   email: string
   full_name: string | null
+  city: string | null
 }
 
 interface SalesOrderItemKpiRow {
@@ -62,6 +65,7 @@ interface BdAggregateRow {
   bdUserId: string
   bdName: string
   bdEmail: string
+  bdCity: string | null
   salesAmount: number
   tireSalesQuantity: number
   accessorySalesAmount: number
@@ -71,12 +75,8 @@ interface BdAggregateRow {
 }
 
 export interface BdKpiTargetSettings {
-  teamTireTarget: number
-  teamAccessoryTarget: number
-  teamBcsTarget: number
-  defaultPersonalTireTarget: number
-  defaultPersonalAccessoryTarget: number
-  defaultPersonalBcsTarget: number
+  teamSalesAmountTarget: number
+  defaultPersonalSalesAmountTarget: number
 }
 
 export interface BdKpiSalesOrderDetailItem {
@@ -96,12 +96,8 @@ export interface BdKpiSalesOrderDetail {
 const KPI_TARGET_DICTIONARY_TYPE = 'bd_kpi_target'
 
 const KPI_TARGET_CODE_MAP: Record<keyof BdKpiTargetSettings, string> = {
-  teamTireTarget: 'team_tire_target',
-  teamAccessoryTarget: 'team_accessory_target',
-  teamBcsTarget: 'team_bcs_target',
-  defaultPersonalTireTarget: 'default_personal_tire_target',
-  defaultPersonalAccessoryTarget: 'default_personal_accessory_target',
-  defaultPersonalBcsTarget: 'default_personal_bcs_target',
+  teamSalesAmountTarget: 'team_sales_amount_target',
+  defaultPersonalSalesAmountTarget: 'default_personal_sales_amount_target',
 }
 
 function normalizeSettingValue(value: unknown): number | null {
@@ -165,7 +161,7 @@ export async function queryBdKpiSummary(filters: BdKpiFilters = {}): Promise<{ r
 
   const profileResult = await supabase
     .from('profiles')
-    .select('id, email, full_name')
+    .select('id, email, full_name, city')
     .eq('is_active', true)
     .is('deleted_at', null)
     .order('full_name', { ascending: true })
@@ -193,6 +189,7 @@ export async function queryBdKpiSummary(filters: BdKpiFilters = {}): Promise<{ r
         bdUserId: profile.id,
         bdName: profile.full_name ?? profile.email,
         bdEmail: profile.email,
+        bdCity: profile.city ?? null,
         salesAmount: 0,
         tireSalesQuantity: 0,
         accessorySalesAmount: 0,
@@ -291,12 +288,19 @@ export async function queryBdKpiSummary(filters: BdKpiFilters = {}): Promise<{ r
   }
 
   const filteredAggregateRows = [...aggregateByBdId.values()].filter((row) => {
-    if (!keyword) {
-      return true
+    if (keyword) {
+      const matchedName = row.bdName.toLowerCase().includes(keyword)
+      const matchedEmail = row.bdEmail.toLowerCase().includes(keyword)
+      if (!matchedName && !matchedEmail) {
+        return false
+      }
     }
-    const matchedName = row.bdName.toLowerCase().includes(keyword)
-    const matchedEmail = row.bdEmail.toLowerCase().includes(keyword)
-    return matchedName || matchedEmail
+    if (filters.city) {
+      if (row.bdCity !== filters.city) {
+        return false
+      }
+    }
+    return true
   })
 
   const rows: BdKpiRow[] = filteredAggregateRows

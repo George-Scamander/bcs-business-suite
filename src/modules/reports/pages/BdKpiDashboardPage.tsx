@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
-import { Button, Card, DatePicker, Drawer, Input, InputNumber, Progress, Space, Statistic, Tooltip, message } from 'antd'
-import { InfoCircleOutlined, LineChartOutlined, SettingOutlined } from '@ant-design/icons'
+import { Button, Card, DatePicker, Drawer, Grid, Input, InputNumber, Progress, Select, Space, Statistic, Tag, message } from 'antd'
+import { LineChartOutlined, SettingOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { AdaptiveTable as Table } from '../../../components/common/AdaptiveTable'
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
 import { PERMISSIONS } from '../../../lib/permissions'
+import { BD_CITIES } from '../../../lib/constants'
 import { formatDisplayName, formatEmailAccount } from '../../../lib/user-display'
 import { useAuth } from '../../auth/auth-context'
 import {
@@ -31,12 +32,6 @@ const DEFAULT_TEAM: TeamKpiSummary = {
   salesRecordCount: 0,
   bcsSignedCount: 0,
   exemptBdCount: 0,
-}
-
-interface PersonalTargetSetting {
-  tireTarget: number
-  accessoryTarget: number
-  bcsTarget: number
 }
 
 function formatCurrency(value: number): string {
@@ -81,6 +76,8 @@ export function BdKpiDashboardPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { hasPermission } = useAuth()
+  const screens = Grid.useBreakpoint()
+  const isMobile = screens.md === false
   const currentMonthRange: [Dayjs, Dayjs] = [dayjs().startOf('month'), dayjs().endOf('month')]
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<BdKpiRow[]>([])
@@ -90,12 +87,9 @@ export function BdKpiDashboardPage() {
   const [dateRangeInput, setDateRangeInput] = useState<DateRange>(currentMonthRange)
   const [keyword, setKeyword] = useState('')
   const [dateRange, setDateRange] = useState<DateRange>(currentMonthRange)
-  const [teamTireTarget, setTeamTireTarget] = useState<number>(100)
-  const [teamAccessoryTarget, setTeamAccessoryTarget] = useState<number>(100000)
-  const [teamBcsTarget, setTeamBcsTarget] = useState<number>(50)
-  const [defaultPersonalTireTarget, setDefaultPersonalTireTarget] = useState<number>(10)
-  const [defaultPersonalAccessoryTarget, setDefaultPersonalAccessoryTarget] = useState<number>(10000)
-  const [defaultPersonalBcsTarget, setDefaultPersonalBcsTarget] = useState<number>(5)
+  const [cityFilter, setCityFilter] = useState<string | undefined>(undefined)
+  const [teamSalesAmountTarget, setTeamSalesAmountTarget] = useState<number>(50_000_000)
+  const [defaultPersonalSalesAmountTarget, setDefaultPersonalSalesAmountTarget] = useState<number>(5_000_000)
   const [targetSaving, setTargetSaving] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
   const canPersistTargets = hasPermission(PERMISSIONS.SYSTEM_CONFIG)
@@ -112,32 +106,23 @@ export function BdKpiDashboardPage() {
     setDateRange(dateRangeInput)
   }
 
-  function applyCurrentMonthFilters() {
+  function resetAllFilters() {
     const monthRange = toCurrentMonthRange()
+    setKeywordInput('')
+    setKeyword('')
     setDateRangeInput(monthRange)
     setDateRange(monthRange)
+    setCityFilter(undefined)
   }
 
   const loadTargetSettings = useCallback(async () => {
     try {
       const settings = await getBdKpiTargetSettings()
-      if (settings.teamTireTarget !== undefined) {
-        setTeamTireTarget(settings.teamTireTarget)
+      if (settings.teamSalesAmountTarget !== undefined) {
+        setTeamSalesAmountTarget(settings.teamSalesAmountTarget)
       }
-      if (settings.teamAccessoryTarget !== undefined) {
-        setTeamAccessoryTarget(settings.teamAccessoryTarget)
-      }
-      if (settings.teamBcsTarget !== undefined) {
-        setTeamBcsTarget(settings.teamBcsTarget)
-      }
-      if (settings.defaultPersonalTireTarget !== undefined) {
-        setDefaultPersonalTireTarget(settings.defaultPersonalTireTarget)
-      }
-      if (settings.defaultPersonalAccessoryTarget !== undefined) {
-        setDefaultPersonalAccessoryTarget(settings.defaultPersonalAccessoryTarget)
-      }
-      if (settings.defaultPersonalBcsTarget !== undefined) {
-        setDefaultPersonalBcsTarget(settings.defaultPersonalBcsTarget)
+      if (settings.defaultPersonalSalesAmountTarget !== undefined) {
+        setDefaultPersonalSalesAmountTarget(settings.defaultPersonalSalesAmountTarget)
       }
     } catch (error) {
       const text =
@@ -162,6 +147,7 @@ export function BdKpiDashboardPage() {
     try {
       const result = await queryBdKpiSummary({
         keyword: keyword.trim() || undefined,
+        city: cityFilter || undefined,
         dateFrom: dateRange?.[0] ? dateRange[0].startOf('day').toISOString() : undefined,
         dateTo: dateRange?.[1] ? dateRange[1].endOf('day').toISOString() : undefined,
       })
@@ -176,7 +162,7 @@ export function BdKpiDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [dateRange, keyword, t])
+  }, [dateRange, keyword, cityFilter, t])
 
   useEffect(() => {
     void loadData()
@@ -186,27 +172,21 @@ export function BdKpiDashboardPage() {
     void loadTargetSettings()
   }, [loadTargetSettings])
 
-  async function handleApplyControlPanel() {
-    applyFilters()
-    setPanelOpen(false)
-
+  async function handleSaveTargets() {
     if (!canPersistTargets) {
       return
     }
 
     const payload: BdKpiTargetSettings = {
-      teamTireTarget: safeNumber(teamTireTarget),
-      teamAccessoryTarget: safeNumber(teamAccessoryTarget),
-      teamBcsTarget: safeNumber(teamBcsTarget),
-      defaultPersonalTireTarget: safeNumber(defaultPersonalTireTarget),
-      defaultPersonalAccessoryTarget: safeNumber(defaultPersonalAccessoryTarget),
-      defaultPersonalBcsTarget: safeNumber(defaultPersonalBcsTarget),
+      teamSalesAmountTarget: safeNumber(teamSalesAmountTarget),
+      defaultPersonalSalesAmountTarget: safeNumber(defaultPersonalSalesAmountTarget),
     }
 
     setTargetSaving(true)
     try {
       await saveBdKpiTargetSettings(payload)
       message.success(t('pages.bdKpi.saveTargetsSuccess', { defaultValue: 'KPI target settings saved' }))
+      setPanelOpen(false)
     } catch (error) {
       const text =
         error instanceof Error
@@ -219,37 +199,18 @@ export function BdKpiDashboardPage() {
   }
 
   const calculatedRows = useMemo(() => {
-    const unifiedTargets: PersonalTargetSetting = {
-      tireTarget: safeNumber(defaultPersonalTireTarget),
-      accessoryTarget: safeNumber(defaultPersonalAccessoryTarget),
-      bcsTarget: safeNumber(defaultPersonalBcsTarget),
-    }
-
+    const personalTarget = safeNumber(defaultPersonalSalesAmountTarget)
     return rows.map((row) => {
-      const tireCompletionRate = completionRate(row.tireSalesQuantity, unifiedTargets.tireTarget)
-      const accessoryCompletionRate = completionRate(row.accessorySalesAmount, unifiedTargets.accessoryTarget)
-      const bcsCompletionRate = row.isBcsTargetExempt ? 1 : completionRate(row.bcsSignedCount, unifiedTargets.bcsTarget)
+      const salesCompletionRate = completionRate(row.salesAmount, personalTarget)
       return {
         ...row,
-        tireTarget: unifiedTargets.tireTarget,
-        accessoryTarget: unifiedTargets.accessoryTarget,
-        bcsTarget: unifiedTargets.bcsTarget,
-        tireCompletionRate,
-        accessoryCompletionRate,
-        bcsCompletionRate,
-        overallCompletionRate: (tireCompletionRate + accessoryCompletionRate + bcsCompletionRate) / 3,
+        salesAmountTarget: personalTarget,
+        salesCompletionRate,
       }
     })
-  }, [defaultPersonalAccessoryTarget, defaultPersonalBcsTarget, defaultPersonalTireTarget, rows])
+  }, [defaultPersonalSalesAmountTarget, rows])
 
-  const teamTireCompletionRate = completionRate(team.tireSalesQuantity, safeNumber(teamTireTarget))
-  const teamAccessoryCompletionRate = completionRate(team.accessorySalesAmount, safeNumber(teamAccessoryTarget))
-  const teamBcsCompletionRate = completionRate(team.bcsSignedCount, safeNumber(teamBcsTarget))
-  const teamOverallCompletionRate = (teamTireCompletionRate + teamAccessoryCompletionRate + teamBcsCompletionRate) / 3
-
-  const totalPersonalTireTarget = calculatedRows.reduce((sum, row) => sum + row.tireTarget, 0)
-  const totalPersonalAccessoryTarget = calculatedRows.reduce((sum, row) => sum + row.accessoryTarget, 0)
-  const totalPersonalBcsTarget = calculatedRows.reduce((sum, row) => sum + row.bcsTarget, 0)
+  const teamSalesCompletionRate = completionRate(team.salesAmount, safeNumber(teamSalesAmountTarget))
 
   const columns = useMemo(
     () => [
@@ -261,51 +222,29 @@ export function BdKpiDashboardPage() {
           <div>
             <div className="font-medium app-text">{formatDisplayName(row.bdName, row.bdEmail, row.bdUserId)}</div>
             <div className="text-xs app-text-soft">{formatEmailAccount(row.bdEmail)}</div>
+            {row.bdCity && <Tag color="blue" className="mt-1">{row.bdCity}</Tag>}
           </div>
         ),
       },
       {
-        title: t('pages.bdKpi.columns.tireSalesQuantity', { defaultValue: 'Tire Sales Quantity' }),
-        dataIndex: 'tireSalesQuantity',
-        width: 180,
-        render: (value: number) => formatNumber(safeNumber(value)),
-      },
-      {
-        title: t('pages.bdKpi.columns.tireTarget', { defaultValue: 'Personal Tire Target' }),
-        dataIndex: 'tireTarget',
-        width: 180,
-        render: (value: number) => formatNumber(value),
-      },
-      {
-        title: t('pages.bdKpi.columns.tireCompletion', { defaultValue: 'Tire Completion' }),
-        dataIndex: 'tireCompletionRate',
+        title: t('pages.bdKpi.columns.salesAmount', { defaultValue: 'Sales Amount' }),
+        dataIndex: 'salesAmount',
         width: 200,
-        render: (value: number) => (
-          <Space direction="vertical" size={2} className="w-full">
-            <Progress percent={toProgressPercent(value)} size="small" showInfo={false} />
-            <span className="text-xs app-text-soft">{formatPercent(value)}</span>
-          </Space>
-        ),
+        render: (value: number) => formatCurrency(safeNumber(value)),
       },
       {
-        title: t('pages.bdKpi.columns.accessorySalesAmount', { defaultValue: 'Accessory Sales Amount' }),
-        dataIndex: 'accessorySalesAmount',
+        title: t('pages.bdKpi.columns.salesAmountTarget', { defaultValue: 'Target' }),
+        dataIndex: 'salesAmountTarget',
         width: 180,
         render: (value: number) => formatCurrency(value),
       },
       {
-        title: t('pages.bdKpi.columns.accessoryTarget', { defaultValue: 'Personal Accessory Target' }),
-        dataIndex: 'accessoryTarget',
-        width: 200,
-        render: (value: number) => formatCurrency(value),
-      },
-      {
-        title: t('pages.bdKpi.columns.accessoryCompletion', { defaultValue: 'Accessory Completion' }),
-        dataIndex: 'accessoryCompletionRate',
-        width: 210,
+        title: t('pages.bdKpi.columns.salesCompletion', { defaultValue: 'Sales Completion' }),
+        dataIndex: 'salesCompletionRate',
+        width: 220,
         render: (value: number) => (
           <Space direction="vertical" size={2} className="w-full">
-            <Progress percent={toProgressPercent(value)} size="small" showInfo={false} />
+            <Progress percent={toProgressPercent(value)} size="small" strokeColor="#16a34a" showInfo={false} />
             <span className="text-xs app-text-soft">{formatPercent(value)}</span>
           </Space>
         ),
@@ -316,38 +255,6 @@ export function BdKpiDashboardPage() {
         width: 150,
         render: (value: number) => formatNumber(safeNumber(value)),
       },
-      {
-        title: t('pages.bdKpi.columns.bcsTarget', { defaultValue: 'BCS KPI Target' }),
-        dataIndex: 'bcsTarget',
-        width: 170,
-        render: (value: number) => formatNumber(value),
-      },
-      {
-        title: t('pages.bdKpi.columns.bcsCompletion', { defaultValue: 'BCS Completion' }),
-        dataIndex: 'bcsCompletionRate',
-        width: 200,
-        render: (value: number, row: BdKpiRow & { isBcsTargetExempt: boolean }) => (
-          <Space direction="vertical" size={2} className="w-full">
-            <Progress percent={toProgressPercent(value)} size="small" showInfo={false} />
-            <span className="text-xs app-text-soft">
-              {row.isBcsTargetExempt
-                ? t('pages.bdKpi.bcsExempted', { defaultValue: 'Exempted this month (sales > IDR 5,000,000)' })
-                : formatPercent(value)}
-            </span>
-          </Space>
-        ),
-      },
-      {
-        title: t('pages.bdKpi.columns.overall', { defaultValue: 'Overall Completion' }),
-        dataIndex: 'overallCompletionRate',
-        width: 190,
-        render: (value: number) => (
-          <Space direction="vertical" size={2} className="w-full">
-            <Progress percent={toProgressPercent(value)} size="small" strokeColor="#16a34a" showInfo={false} />
-            <span className="text-xs app-text-soft">{formatPercent(value)}</span>
-          </Space>
-        ),
-      },
     ],
     [t],
   )
@@ -356,21 +263,12 @@ export function BdKpiDashboardPage() {
     <>
       <PageTitleBar
         title={t('pages.bdKpi.title', { defaultValue: 'BD Staff KPI Dashboard' })}
-        description={
-          <div className="space-y-1">
-            <div>
-              {t('pages.bdKpi.description', {
-                defaultValue:
-                  'Query and calculate KPI based on onboard merchants (BD owner) and actual sales records (BD owner).',
-              })}
-            </div>
-            <div>
-              {t('pages.bdKpi.periodLabel', { defaultValue: 'KPI Record Period:' })} {formatDateRangeLabel(dateRange)}
-            </div>
-          </div>
-        }
+        description={t('pages.bdKpi.description', {
+          defaultValue:
+            'Query and calculate KPI based on onboard merchants (BD owner) and actual sales records (BD owner).',
+        })}
         extra={
-          <Space wrap>
+          <>
             <Button
               icon={<LineChartOutlined />}
               onClick={() => {
@@ -391,122 +289,92 @@ export function BdKpiDashboardPage() {
             >
               {t('pages.bdKpi.analysis.entry', { defaultValue: 'View Analysis' })}
             </Button>
-            <Button
-              onClick={() => {
-                setKeywordInput('')
-                setKeyword('')
-                applyCurrentMonthFilters()
-              }}
-            >
+            <Button onClick={resetAllFilters}>
               {t('labels.refresh', { defaultValue: 'Refresh' })}
             </Button>
-            <Button icon={<SettingOutlined />} onClick={() => setPanelOpen(true)}>
-              {t('pages.bdKpi.controlPanel', { defaultValue: 'Control Panel' })}
-            </Button>
-          </Space>
+            {canPersistTargets ? (
+              <Button icon={<SettingOutlined />} onClick={() => setPanelOpen(true)}>
+                {t('pages.bdKpi.targetsPanel', { defaultValue: 'KPI Targets' })}
+              </Button>
+            ) : null}
+          </>
         }
       />
+
+      <div className="mb-4 rounded-xl border app-border app-surface p-4">
+        <div className="mb-3 text-xs app-text-soft">
+          {t('pages.bdKpi.periodLabel', { defaultValue: 'KPI Record Period:' })} <span className="font-medium app-text">{formatDateRangeLabel(dateRange)}</span>
+        </div>
+        <Space direction={isMobile ? 'vertical' : 'horizontal'} wrap className={isMobile ? 'w-full' : undefined}>
+          <RangePicker
+            className={isMobile ? 'w-full' : undefined}
+            value={dateRangeInput}
+            onChange={(values) => setDateRangeInput(values)}
+          />
+          <Input
+            allowClear
+            className={isMobile ? 'w-full' : 'w-[220px]'}
+            value={keywordInput}
+            onChange={(event) => setKeywordInput(event.target.value)}
+            onPressEnter={applyFilters}
+            placeholder={t('pages.bdKpi.keyword', { defaultValue: 'Search BD name or email' })}
+          />
+          <Select
+            allowClear
+            className={isMobile ? 'w-full' : 'w-[160px]'}
+            placeholder={t('pages.bdKpi.allCities', { defaultValue: 'All Cities' })}
+            options={BD_CITIES.map((c) => ({ value: c, label: c }))}
+            value={cityFilter}
+            onChange={(value: string | undefined) => setCityFilter(value ?? undefined)}
+          />
+          <Button type="primary" className={isMobile ? 'w-full' : undefined} onClick={applyFilters}>
+            {t('labels.apply', { defaultValue: 'Apply' })}
+          </Button>
+          <Button className={isMobile ? 'w-full' : undefined} onClick={resetAllFilters}>
+            {t('pages.bdKpi.currentMonth', { defaultValue: 'Current Month' })}
+          </Button>
+        </Space>
+      </div>
+
       <Drawer
-        title={t('pages.bdKpi.controlPanel', { defaultValue: 'Control Panel' })}
-        styles={{ wrapper: { width: 460 } }}
+        title={t('pages.bdKpi.targetsPanel', { defaultValue: 'KPI Targets' })}
+        styles={{ wrapper: { width: isMobile ? '100%' : 400 } }}
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
         destroyOnClose={false}
       >
         <Space direction="vertical" size={16} className="w-full">
           <div>
-            <div className="mb-1 text-sm app-text-soft">{t('pages.bdKpi.periodLabel', { defaultValue: 'KPI Record Period:' })}</div>
-            <RangePicker className="w-full" value={dateRangeInput} onChange={(values) => setDateRangeInput(values)} />
-          </div>
-          <Input
-            allowClear
-            value={keywordInput}
-            onChange={(event) => setKeywordInput(event.target.value)}
-            placeholder={t('pages.bdKpi.keyword', { defaultValue: 'Search BD name or email' })}
-          />
-          <div>
-            <div className="mb-1 text-sm app-text-soft">{t('pages.bdKpi.teamTireTarget', { defaultValue: 'Team Tire Target' })}</div>
-            <InputNumber
-              min={0}
-              precision={0}
-              className="w-full"
-              value={teamTireTarget}
-              onChange={(value) => setTeamTireTarget(Number(value ?? 0))}
-            />
-          </div>
-          <div>
-            <div className="mb-1 text-sm app-text-soft">{t('pages.bdKpi.teamAccessoryTarget', { defaultValue: 'Team Accessory Target' })}</div>
-            <InputNumber
-              min={0}
-              precision={2}
-              className="w-full"
-              value={teamAccessoryTarget}
-              onChange={(value) => setTeamAccessoryTarget(Number(value ?? 0))}
-            />
-          </div>
-          <div>
-            <div className="mb-1 text-sm app-text-soft">{t('pages.bdKpi.teamBcsTarget', { defaultValue: 'Team BCS Target' })}</div>
-            <InputNumber
-              min={0}
-              precision={0}
-              className="w-full"
-              value={teamBcsTarget}
-              onChange={(value) => setTeamBcsTarget(Number(value ?? 0))}
-            />
-          </div>
-          <div>
             <div className="mb-1 text-sm app-text-soft">
-              {t('pages.bdKpi.defaultPersonalTireTarget', { defaultValue: 'Default Tire / Person' })}
+              {t('pages.bdKpi.teamSalesAmountTarget', { defaultValue: 'Team Sales Amount Target' })}
             </div>
             <InputNumber
               min={0}
               precision={0}
               className="w-full"
-              value={defaultPersonalTireTarget}
-              onChange={(value) => setDefaultPersonalTireTarget(Number(value ?? 0))}
+              value={teamSalesAmountTarget}
+              onChange={(value) => setTeamSalesAmountTarget(Number(value ?? 0))}
             />
           </div>
           <div>
             <div className="mb-1 text-sm app-text-soft">
-              {t('pages.bdKpi.defaultPersonalAccessoryTarget', { defaultValue: 'Default Accessory / Person' })}
-            </div>
-            <InputNumber
-              min={0}
-              precision={2}
-              className="w-full"
-              value={defaultPersonalAccessoryTarget}
-              onChange={(value) => setDefaultPersonalAccessoryTarget(Number(value ?? 0))}
-            />
-          </div>
-          <div>
-            <div className="mb-1 text-sm app-text-soft">
-              {t('pages.bdKpi.defaultPersonalBcsTarget', { defaultValue: 'Default BCS / Person' })}
+              {t('pages.bdKpi.defaultPersonalSalesAmountTarget', { defaultValue: 'Default Personal Sales Amount Target' })}
             </div>
             <InputNumber
               min={0}
               precision={0}
               className="w-full"
-              value={defaultPersonalBcsTarget}
-              onChange={(value) => setDefaultPersonalBcsTarget(Number(value ?? 0))}
+              value={defaultPersonalSalesAmountTarget}
+              onChange={(value) => setDefaultPersonalSalesAmountTarget(Number(value ?? 0))}
             />
           </div>
-          <Space wrap>
-            <Button
-              type="primary"
-              loading={targetSaving}
-              onClick={() => void handleApplyControlPanel()}
-            >
-              {t('labels.apply', { defaultValue: 'Apply' })}
-            </Button>
-            <Button
-              onClick={() => {
-                applyCurrentMonthFilters()
-                setPanelOpen(false)
-              }}
-            >
-              {t('pages.bdKpi.currentMonth', { defaultValue: 'Current Month' })}
-            </Button>
-          </Space>
+          <Button
+            type="primary"
+            loading={targetSaving}
+            onClick={() => void handleSaveTargets()}
+          >
+            {t('pages.bdKpi.saveTargets', { defaultValue: 'Save Targets' })}
+          </Button>
         </Space>
       </Drawer>
 
@@ -516,94 +384,31 @@ export function BdKpiDashboardPage() {
         </Card>
         <Card size="small">
           <Statistic
-            title={t('pages.bdKpi.team.tireSalesQuantity', { defaultValue: 'Team Tire Sales Quantity' })}
-            value={team.tireSalesQuantity}
-          />
-        </Card>
-        <Card size="small">
-          <Statistic
-            title={t('pages.bdKpi.team.accessorySalesAmount', { defaultValue: 'Team Accessory Sales Amount' })}
-            value={team.accessorySalesAmount}
+            title={t('pages.bdKpi.team.salesAmount', { defaultValue: 'Team Total Sales Amount' })}
+            value={team.salesAmount}
             formatter={(value) => formatCurrency(Number(value ?? 0))}
           />
         </Card>
         <Card size="small">
-          <Statistic title={t('pages.bdKpi.team.salesRecordCount', { defaultValue: 'Team Sales Record Count' })} value={team.salesRecordCount} />
+          <Statistic
+            title={t('pages.bdKpi.team.salesAmountTarget', { defaultValue: 'Team Sales Target' })}
+            value={teamSalesAmountTarget}
+            formatter={(value) => formatCurrency(Number(value ?? 0))}
+          />
+        </Card>
+        <Card size="small">
+          <Statistic
+            title={t('pages.bdKpi.team.salesAmountCompletion', { defaultValue: 'Team Sales Completion' })}
+            valueRender={() => <span>{formatPercent(teamSalesCompletionRate)}</span>}
+          />
         </Card>
         <Card size="small">
           <Statistic title={t('pages.bdKpi.team.bcsSigned', { defaultValue: 'Team BCS Signed Count' })} value={team.bcsSignedCount} />
         </Card>
         <Card size="small">
-          <Statistic
-            title={t('pages.bdKpi.team.overallCompletion', { defaultValue: 'Team Overall Completion' })}
-            valueRender={() => <span>{formatPercent(teamOverallCompletionRate)}</span>}
-          />
+          <Statistic title={t('pages.bdKpi.team.salesRecordCount', { defaultValue: 'Team Sales Record Count' })} value={team.salesRecordCount} />
         </Card>
       </div>
-
-      <Card
-        title={t('pages.bdKpi.team.summaryTitle', { defaultValue: 'Team KPI Summary' })}
-        size="small"
-        className="mb-3"
-      >
-        <div className="grid gap-2 text-xs md:grid-cols-3 xl:grid-cols-6">
-          <div>
-            <div className="app-text-soft">{t('pages.bdKpi.team.tireTarget', { defaultValue: 'Team Tire Target' })}</div>
-            <div className="font-semibold">{formatNumber(safeNumber(teamTireTarget))}</div>
-          </div>
-          <div>
-            <div className="app-text-soft">{t('pages.bdKpi.team.tireCompletion', { defaultValue: 'Team Tire Completion' })}</div>
-            <div className="font-semibold">{formatPercent(teamTireCompletionRate)}</div>
-          </div>
-          <div>
-            <div className="app-text-soft">{t('pages.bdKpi.team.accessoryTarget', { defaultValue: 'Team Accessory Target' })}</div>
-            <div className="font-semibold">{formatCurrency(safeNumber(teamAccessoryTarget))}</div>
-          </div>
-          <div>
-            <div className="app-text-soft">{t('pages.bdKpi.team.accessoryCompletion', { defaultValue: 'Team Accessory Completion' })}</div>
-            <div className="font-semibold">{formatPercent(teamAccessoryCompletionRate)}</div>
-          </div>
-          <div>
-            <div className="app-text-soft">{t('pages.bdKpi.team.bcsTarget', { defaultValue: 'Team BCS Target' })}</div>
-            <div className="font-semibold">{formatNumber(safeNumber(teamBcsTarget))}</div>
-          </div>
-          <div>
-            <div className="app-text-soft">{t('pages.bdKpi.team.bcsCompletion', { defaultValue: 'Team BCS Completion' })}</div>
-            <div className="font-semibold">{formatPercent(teamBcsCompletionRate)}</div>
-          </div>
-          <div>
-            <div className="app-text-soft">{t('pages.bdKpi.team.overall', { defaultValue: 'Team Overall Completion' })}</div>
-            <div className="font-semibold">{formatPercent(teamOverallCompletionRate)}</div>
-          </div>
-          <div>
-            <div className="app-text-soft">{t('pages.bdKpi.team.bdCount', { defaultValue: 'BD Staff Count' })}</div>
-            <div className="font-semibold">{formatNumber(team.bdCount)}</div>
-          </div>
-          <div>
-            <div className="app-text-soft">{t('pages.bdKpi.team.personalTireTargetSum', { defaultValue: 'Personal Tire Target Sum' })}</div>
-            <div className="font-semibold">{formatNumber(totalPersonalTireTarget)}</div>
-          </div>
-          <div>
-            <div className="app-text-soft">
-              {t('pages.bdKpi.team.personalAccessoryTargetSum', { defaultValue: 'Personal Accessory Target Sum' })}
-            </div>
-            <div className="font-semibold">{formatCurrency(totalPersonalAccessoryTarget)}</div>
-          </div>
-          <div>
-            <div className="app-text-soft">{t('pages.bdKpi.team.personalBcsTargetSum', { defaultValue: 'Personal BCS Target Sum' })}</div>
-            <div className="font-semibold">{formatNumber(totalPersonalBcsTarget)}</div>
-          </div>
-          <div>
-            <div className="flex items-center gap-1 app-text-soft">
-              {t('pages.bdKpi.team.exemptBdCount', { defaultValue: 'BCS Exempted BD Count' })}
-              <Tooltip title={t('pages.bdKpi.exemptRuleHint', { defaultValue: 'If BD total sales amount in the selected period is above IDR 5,000,000, BCS signed target is exempted for that period.' })}>
-                <InfoCircleOutlined />
-              </Tooltip>
-            </div>
-            <div className="font-semibold">{formatNumber(team.exemptBdCount)}</div>
-          </div>
-        </div>
-      </Card>
 
       <div className="kpi-table-scroll-wrap">
         <Table
@@ -613,7 +418,7 @@ export function BdKpiDashboardPage() {
           dataSource={calculatedRows}
           pagination={{ pageSize: 12 }}
           columns={columns}
-          scroll={{ x: 2580 }}
+          scroll={{ x: 1000 }}
         />
       </div>
     </>

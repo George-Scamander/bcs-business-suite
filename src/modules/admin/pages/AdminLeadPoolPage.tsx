@@ -59,6 +59,13 @@ import {
   type LeadFilters,
 } from '../../leads/api'
 import {
+  buildRegionOptions,
+} from '../../leads/lead-options'
+import {
+  listDictionaryItems,
+  type DictionaryItem,
+} from '../../shared/api/dictionary'
+import {
   listActiveUsers,
   type UserOption,
 } from '../../shared/api/users'
@@ -165,6 +172,7 @@ export function AdminLeadPoolPage() {
   const [merchantHealthByLeadId, setMerchantHealthByLeadId] = useState<Map<string, LeadMerchantHealth>>(new Map())
   const [users, setUsers] = useState<UserOption[]>([])
   const [bdUsers, setBdUsers] = useState<UserOption[]>([])
+  const [dictionaryItems, setDictionaryItems] = useState<DictionaryItem[]>([])
   const [filters, setFilters] = useState<LeadFilters>(() => parseLeadFiltersFromSearch(searchParams).filters)
   const [keyword, setKeyword] = useState(() => parseLeadFiltersFromSearch(searchParams).keyword)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -175,6 +183,7 @@ export function AdminLeadPoolPage() {
   const [selectedUserId, setSelectedUserId] = useState<string>()
   const leadStatusOptions = useMemo(() => getLeadStatusOptions(t), [t])
   const intentPackageOptions = useMemo(() => getIntentPackageOptions(t), [t])
+  const regionOptions = useMemo(() => buildRegionOptions(dictionaryItems), [dictionaryItems])
   const deleteRetentionHint = t('labels.autoDelete30DaysHint', {
     defaultValue: 'Moved to Recently Deleted and auto-permanently deleted after 30 days.',
   })
@@ -296,6 +305,12 @@ export function AdminLeadPoolPage() {
     setFilters((current) => (JSON.stringify(current) === JSON.stringify(parsed.filters) ? current : parsed.filters))
     setKeyword((current) => (current === parsed.keyword ? current : parsed.keyword))
   }, [searchParams])
+
+  useEffect(() => {
+    listDictionaryItems()
+      .then(setDictionaryItems)
+      .catch(() => {})
+  }, [])
 
   function openAssignModal(row: Lead) {
     setSelectedLead(row)
@@ -501,11 +516,15 @@ export function AdminLeadPoolPage() {
             value={filters.status}
             onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
           />
-          <Input
+          <Select
+            allowClear
+            showSearch
             className="w-full"
             placeholder={t('pages.adminLeadPool.regionPlaceholder', { defaultValue: 'Region' })}
+            options={regionOptions.map((r) => ({ value: r.value, label: r.label }))}
             value={filters.region}
-            onChange={(event) => setFilters((current) => ({ ...current, region: event.target.value || undefined }))}
+            onChange={(value) => setFilters((current) => ({ ...current, region: value || undefined }))}
+            optionFilterProp="label"
           />
           <Select
             allowClear
@@ -688,6 +707,7 @@ export function AdminLeadPoolPage() {
             render: (value: string | null) => (value ? userNameById.get(value) ?? value : '-'),
           },
           { title: t('pages.adminLeadPool.columns.region', { defaultValue: 'Region' }), dataIndex: 'region', width: 140 },
+          { title: t('pages.adminLeadPool.columns.city', { defaultValue: 'Customer City' }), dataIndex: 'city', width: 130 },
           {
             title: t('pages.adminLeadPool.columns.industry', { defaultValue: 'Industry' }),
             dataIndex: 'industry',

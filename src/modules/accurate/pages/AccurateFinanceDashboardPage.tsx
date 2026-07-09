@@ -8,6 +8,7 @@ import {
   Descriptions,
   Divider,
   Drawer,
+  Grid,
   Input,
   Select,
   Space,
@@ -98,7 +99,7 @@ function SalesInvoiceDrawer({ item, open, onClose }: {
       destroyOnClose
     >
       {item && (
-        <Descriptions column={2} bordered size="small">
+        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
           <DescItem label={t('accurate.cols.customer')} span={2}>{item.customer_name ?? '—'}</DescItem>
           <DescItem label={t('accurate.cols.branch')}>{item.branch_name ?? '—'}</DescItem>
           <DescItem label={t('accurate.cols.status')}>{statusTag(item.status)}</DescItem>
@@ -139,7 +140,7 @@ function PurchaseInvoiceDrawer({ item, open, onClose }: {
       destroyOnClose
     >
       {item && (
-        <Descriptions column={2} bordered size="small">
+        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
           <DescItem label={t('accurate.cols.vendor')} span={2}>{item.vendor_name ?? '—'}</DescItem>
           <DescItem label={t('accurate.cols.branch')}>{item.branch_name ?? '—'}</DescItem>
           <DescItem label={t('accurate.cols.status')}>{statusTag(item.status)}</DescItem>
@@ -227,7 +228,7 @@ function InventoryDrawer({ item, open, onClose }: {
     >
       {item && (
         <Spin spinning={detailLoading}>
-          <Descriptions column={2} bordered size="small">
+          <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
             <DescItem label={t('accurate.cols.category')}>{item.category ?? '—'}</DescItem>
             <DescItem label={t('accurate.cols.unit')}>{item.unit ?? '—'}</DescItem>
             <DescItem label={t('accurate.cols.stock')}>
@@ -275,7 +276,7 @@ function BackorderDrawer({ item, open, onClose }: {
       destroyOnClose
     >
       {item && (
-        <Descriptions column={2} bordered size="small">
+        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
           <DescItem label={t('accurate.cols.customer')} span={2}>{item.customer_name ?? '—'}</DescItem>
           <DescItem label={t('accurate.cols.branch')}>{item.branch_name ?? '—'}</DescItem>
           <DescItem label={t('accurate.cols.status')}>{statusTag(item.status)}</DescItem>
@@ -284,7 +285,7 @@ function BackorderDrawer({ item, open, onClose }: {
           {item.item_code && <DescItem label={t('accurate.cols.itemCode')}>{item.item_code}</DescItem>}
           {item.item_name && (
             <DescItem label={t('accurate.cols.itemName')} span={item.item_code ? 1 : 2}>
-              <Text style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{item.item_name}</Text>
+              <Text style={{ whiteSpace: 'normal', fontSize: 12 }}>{item.item_name}</Text>
             </DescItem>
           )}
           {item.ordered_quantity != null && (
@@ -322,7 +323,7 @@ function CashFlowDrawer({ item, open, onClose }: {
       destroyOnClose
     >
       {item && (
-        <Descriptions column={2} bordered size="small">
+        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
           <DescItem label={t('accurate.cols.date')}>{fmtDate(item.transaction_date)}</DescItem>
           <DescItem label={t('accurate.cols.type')}>{item.transaction_type ?? '—'}</DescItem>
           <DescItem label={t('accurate.cols.account')} span={2}>{item.account_name ?? '—'}</DescItem>
@@ -810,8 +811,10 @@ interface FilterBarProps {
 
 function FilterBar({ filters, onChange, onSearch, loading, hideDateRange, skuMode }: FilterBarProps) {
   const { t } = useTranslation()
+  const screens = Grid.useBreakpoint()
+  const isMobile = screens.md === false
   return (
-    <div className="flex flex-wrap gap-2 items-center">
+    <div className={isMobile ? 'flex flex-col gap-2' : 'flex flex-wrap gap-2 items-center'}>
       <Input
         placeholder={skuMode ? t('accurate.skuSearchPlaceholder') : t('accurate.searchPlaceholder')}
         prefix={<SearchOutlined />}
@@ -819,7 +822,7 @@ function FilterBar({ filters, onChange, onSearch, loading, hideDateRange, skuMod
         onChange={(e) => onChange({ ...filters, keyword: e.target.value })}
         onPressEnter={onSearch}
         allowClear
-        style={{ width: skuMode ? 280 : 220 }}
+        style={{ width: isMobile ? '100%' : (skuMode ? 280 : 220) }}
       />
       {!hideDateRange && (
         <RangePicker
@@ -832,18 +835,21 @@ function FilterBar({ filters, onChange, onSearch, loading, hideDateRange, skuMod
             dateFrom: dates?.[0]?.format('YYYY-MM-DD'),
             dateTo: dates?.[1]?.format('YYYY-MM-DD'),
           })}
-          style={{ width: 260 }}
+          style={{ width: isMobile ? '100%' : 260 }}
         />
       )}
-      <Button icon={<SearchOutlined />} onClick={onSearch} loading={loading} type="primary">
-        {t('accurate.searchBtn')}
-      </Button>
-      <Button
-        onClick={() => { onChange({}); setTimeout(onSearch, 0) }}
-        disabled={loading}
-      >
-        {t('accurate.reset')}
-      </Button>
+      <div className={isMobile ? 'flex gap-2' : 'contents'}>
+        <Button icon={<SearchOutlined />} onClick={onSearch} loading={loading} type="primary" className={isMobile ? 'flex-1' : ''}>
+          {t('accurate.searchBtn')}
+        </Button>
+        <Button
+          onClick={() => { onChange({}); setTimeout(onSearch, 0) }}
+          disabled={loading}
+          className={isMobile ? 'flex-1' : ''}
+        >
+          {t('accurate.reset')}
+        </Button>
+      </div>
     </div>
   )
 }

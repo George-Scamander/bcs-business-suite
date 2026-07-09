@@ -45,6 +45,7 @@ import {
   getSalesProductSubcategoryLabel,
   getSalesProductSubcategoryOptions,
 } from '../../../lib/business-constants'
+import { BD_CITIES } from '../../../lib/constants'
 import {
   supabase,
 } from '../../../lib/supabase/client'
@@ -244,6 +245,8 @@ export function SalesSupervisionPage() {
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<SalesOrderRow[]>([])
   const [bdUsers, setBdUsers] = useState<UserOption[]>([])
+  const [bdCityByUserId, setBdCityByUserId] = useState<Map<string, string | null>>(new Map())
+  const [bdCityFilter, setBdCityFilter] = useState<string | undefined>(undefined)
   const [keyword, setKeyword] = useState('')
   const [filters, setFilters] = useState<SupervisionFilters>({})
   const [createModalOpen, setCreateModalOpen] = useState(false)
@@ -351,6 +354,20 @@ export function SalesSupervisionPage() {
         )
         const filteredBdUsers = userRows.filter((user) => bdUserIds.has(user.id))
         setBdUsers(filteredBdUsers.length > 0 ? filteredBdUsers : userRows)
+
+        const bdIdList = [...bdUserIds]
+        if (bdIdList.length > 0) {
+          const profileResult = await supabase
+            .from('profiles')
+            .select('id, city')
+            .in('id', bdIdList)
+          if (!profileResult.error) {
+            const cityMap = new Map<string, string | null>(
+              (profileResult.data ?? []).map((p: { id: string; city: string | null }) => [p.id, p.city]),
+            )
+            setBdCityByUserId(cityMap)
+          }
+        }
       }
     } catch (error) {
       const text = error instanceof Error ? error.message : t('pages.salesSupervision.loadFail', { defaultValue: 'Failed to load sales supervision data' })
@@ -595,6 +612,15 @@ export function SalesSupervisionPage() {
       })),
     [bdUsers],
   )
+  const filteredRows = useMemo(() => {
+    if (!bdCityFilter) {
+      return rows
+    }
+    return rows.filter((row) => {
+      const city = row.bd_user_id ? bdCityByUserId.get(row.bd_user_id) : undefined
+      return city === bdCityFilter
+    })
+  }, [rows, bdCityFilter, bdCityByUserId])
   const detailDueAt = detailRow ? getPaymentDueAt(detailRow.sold_at, detailRow.payment_method, detailRow.payment_top_term) : null
   const detailReminderDaysLeft = getReminderDaysLeft(detailDueAt)
   const shouldShowDetailReminder = detailReminderDaysLeft !== null && detailReminderDaysLeft >= 0 && detailReminderDaysLeft <= 7
@@ -631,6 +657,16 @@ export function SalesSupervisionPage() {
               options={bdOptions}
               value={filters.bdUserId}
               onChange={(value) => setFilters((current) => ({ ...current, bdUserId: value || undefined }))}
+            />
+          ) : null}
+          {canFilterByBd ? (
+            <Select
+              allowClear
+              style={{ width: 160 }}
+              placeholder={t('pages.bdKpi.allCities', { defaultValue: 'All Cities' })}
+              options={BD_CITIES.map((c) => ({ value: c, label: c }))}
+              value={bdCityFilter}
+              onChange={(value: string | undefined) => setBdCityFilter(value ?? undefined)}
             />
           ) : null}
           <Select
@@ -719,7 +755,7 @@ export function SalesSupervisionPage() {
         rowKey="id"
         bordered
         loading={loading}
-        dataSource={rows}
+        dataSource={filteredRows}
         pagination={{ pageSize: 12 }}
         scroll={{ x: 2100 }}
         showSorterTooltip={{ target: 'sorter-icon' }}
@@ -786,8 +822,15 @@ export function SalesSupervisionPage() {
           {
             title: t('pages.salesSupervision.columns.bdOwner', { defaultValue: 'BD Owner' }),
             width: 260,
-            render: (_: unknown, row: SalesOrderRow) =>
-              formatDisplayName(row.bd_owner?.full_name, row.bd_owner?.email, row.bd_user_id),
+            render: (_: unknown, row: SalesOrderRow) => {
+              const city = row.bd_user_id ? bdCityByUserId.get(row.bd_user_id) : undefined
+              return (
+                <Space size={[6, 4]} wrap>
+                  <span>{formatDisplayName(row.bd_owner?.full_name, row.bd_owner?.email, row.bd_user_id)}</span>
+                  {city ? <Tag color="blue">{city}</Tag> : null}
+                </Space>
+              )
+            },
           },
           {
             title: t('pages.salesSupervision.columns.itemCount', { defaultValue: 'Item Count' }),
@@ -1017,7 +1060,7 @@ export function SalesSupervisionPage() {
             columns={[
               {
                 title: t('pages.salesSupervision.columns.category', { defaultValue: 'Category' }),
-                width: 220,
+                width: 160,
                 render: (_: unknown, row: DraftSalesItem) => (
                   <Select
                     value={row.category}
@@ -1032,7 +1075,7 @@ export function SalesSupervisionPage() {
               },
               {
                 title: t('pages.salesSupervision.columns.subcategory', { defaultValue: 'Subcategory' }),
-                width: 200,
+                width: 150,
                 render: (_: unknown, row: DraftSalesItem) => {
                   const options = getSalesProductSubcategoryOptions(row.category, t)
                   return options.length > 0 ? (
@@ -1090,7 +1133,7 @@ export function SalesSupervisionPage() {
               },
               {
                 title: t('pages.salesSupervision.columns.unitPrice', { defaultValue: 'Unit Price' }),
-                width: 160,
+                width: 220,
                 render: (_: unknown, row: DraftSalesItem) => (
                   <InputNumber
                     min={0}
@@ -1165,7 +1208,7 @@ export function SalesSupervisionPage() {
               size="small"
               bordered
               pagination={false}
-              dataSource={detailRow.items}
+              dataSource={filters.category ? detailRow.items.filter((item) => item.category === filters.category) : detailRow.items}
               columns={[
                 {
                   title: t('pages.salesSupervision.columns.category', { defaultValue: 'Category' }),
@@ -1294,7 +1337,7 @@ export function SalesSupervisionPage() {
             columns={[
               {
                 title: t('pages.salesSupervision.columns.category', { defaultValue: 'Category' }),
-                width: 220,
+                width: 160,
                 render: (_: unknown, row: DraftSalesItem) => (
                   <Select
                     value={row.category}
@@ -1309,7 +1352,7 @@ export function SalesSupervisionPage() {
               },
               {
                 title: t('pages.salesSupervision.columns.subcategory', { defaultValue: 'Subcategory' }),
-                width: 200,
+                width: 150,
                 render: (_: unknown, row: DraftSalesItem) => {
                   const options = getSalesProductSubcategoryOptions(row.category, t)
                   return options.length > 0 ? (
@@ -1367,7 +1410,7 @@ export function SalesSupervisionPage() {
               },
               {
                 title: t('pages.salesSupervision.columns.unitPrice', { defaultValue: 'Unit Price' }),
-                width: 160,
+                width: 220,
                 render: (_: unknown, row: DraftSalesItem) => (
                   <InputNumber
                     min={0}
