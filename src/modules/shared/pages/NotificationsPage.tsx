@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Badge, Button, List, Tag, Typography, message } from 'antd'
+import { ExclamationCircleOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 
 import { PageTitleBar } from '../../../components/common/PageTitleBar'
@@ -97,6 +98,9 @@ export function NotificationsPage() {
                 title={
                   <div className="flex items-center gap-2">
                     <Badge color={item.is_read ? '#94a3b8' : '#ef4444'} />
+                    {(item.type === 'LEAD_OVERDUE_BD' || item.type === 'LEAD_OVERDUE_ADMIN') && (
+                      <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+                    )}
                     <Typography.Text>{item.title}</Typography.Text>
                   </div>
                 }

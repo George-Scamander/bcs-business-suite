@@ -1,7 +1,7 @@
 import type { LocaleCode, RoleCode } from '../types/rbac'
 
 export const APP_NAME = 'BCS Business Suite'
-export const APP_VERSION = 'V1.5.1'
+export const APP_VERSION = 'V1.5.2'
 export const PRIVATE_BUCKET = 'private-documents'
 
 export const BD_CITIES = ['Jakarta', 'Bandung', 'Surabaya'] as const

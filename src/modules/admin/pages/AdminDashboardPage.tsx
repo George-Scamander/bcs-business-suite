@@ -9,6 +9,8 @@ import {
   AppstoreOutlined,
   ContainerOutlined,
   DeploymentUnitOutlined,
+  DownOutlined,
+  ExclamationCircleOutlined,
   FileTextOutlined,
   LineChartOutlined,
   ReconciliationOutlined,
@@ -18,6 +20,7 @@ import {
   UnorderedListOutlined,
 } from '@ant-design/icons'
 import {
+  Alert,
   Button,
   Card,
   Col,
@@ -25,12 +28,15 @@ import {
   Drawer,
   Empty,
   Grid,
+  Input,
+  List,
   Progress,
   Row,
   Select,
   Space,
   Statistic,
   Tag,
+  Typography,
   message,
 } from 'antd'
 import {
@@ -58,6 +64,9 @@ import {
   getAdminSalesInsightOrders,
   getAdminLeadBoardMetrics,
   getAdminDashboardMetrics,
+  fetchTodayNewLeads,
+  fetchTodayFollowups,
+  fetchOverdueLeads,
 } from '../../dashboard/api'
 import {
   listOnboardingCases,
@@ -65,6 +74,9 @@ import {
 import {
   StatusTag,
 } from '../../../components/common/StatusTag'
+import {
+  RoleGuard,
+} from '../../auth/RoleGuard'
 import type {
   SalesProductCategory,
 } from '../../../types/business'
@@ -75,6 +87,9 @@ import type {
   AdminLeadBoardMetrics,
   AdminDashboardMetrics,
   AdminDashboardPeriod,
+  BdDailyNewLeadRow,
+  BdDailyFollowupRow,
+  OverdueLeadRow,
 } from '../../dashboard/api'
 import { formatDisplayName } from '../../../lib/user-display'
 
@@ -218,6 +233,15 @@ export function AdminDashboardPage() {
   const [selectedInsightBdId, setSelectedInsightBdId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [salesLoading, setSalesLoading] = useState(true)
+  const [bdDailyDate, setBdDailyDate] = useState(dayjs)
+  const [bdDailyNewLeads, setBdDailyNewLeads] = useState<BdDailyNewLeadRow[]>([])
+  const [bdDailyFollowups, setBdDailyFollowups] = useState<BdDailyFollowupRow[]>([])
+  const [overdueLeads, setOverdueLeads] = useState<OverdueLeadRow[]>([])
+  const [bdOverviewLoading, setBdOverviewLoading] = useState(false)
+  const [bdOverviewOpen, setBdOverviewOpen] = useState(true)
+  const [overdueSearch, setOverdueSearch] = useState('')
+  const [overdueExpanded, setOverdueExpanded] = useState(false)
+  const OVERDUE_PAGE_SIZE = 10
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -287,6 +311,29 @@ export function AdminDashboardPage() {
   useEffect(() => {
     void loadSalesData()
   }, [loadSalesData])
+
+  const loadBdOverview = useCallback(async (date: ReturnType<typeof dayjs>) => {
+    setBdOverviewLoading(true)
+    try {
+      const [newLeads, followups, overdue] = await Promise.all([
+        fetchTodayNewLeads(date),
+        fetchTodayFollowups(date),
+        fetchOverdueLeads(),
+      ])
+      setBdDailyNewLeads(newLeads)
+      setBdDailyFollowups(followups)
+      setOverdueLeads(overdue)
+    } catch (err) {
+      console.error('[bdOverview]', err)
+      // Supplementary data — silent failure for user
+    } finally {
+      setBdOverviewLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadBdOverview(bdDailyDate)
+  }, [loadBdOverview, bdDailyDate])
 
   const categoryOptions = useMemo(() => getSalesProductCategoryOptions(t), [t])
   const selectedSalesMetrics = useMemo(
@@ -766,6 +813,52 @@ export function AdminDashboardPage() {
             ))
           )}
         </div>
+
+        {/* 逾期線索摘要 — 僅 super_admin 可見 */}
+        <RoleGuard allowRoles={['super_admin']}>
+          {overdueLeads.length > 0 && (
+            <div className="mobile-home-recent">
+              <div className="mobile-home-recent-header">
+                <span className="mobile-home-recent-title">
+                  ⚠️ {t('pages.adminDashboard.overdueAlert', { defaultValue: 'Overdue Follow-up Alert' })}
+                  <Tag color="error" className="ml-1">{overdueLeads.length}</Tag>
+                </span>
+                <button
+                  type="button"
+                  className="mobile-home-recent-more"
+                  onClick={() => navigate('/app/admin/leads/pool')}
+                >
+                  {t('labels.viewAll', { defaultValue: 'View all' })} →
+                </button>
+              </div>
+              {overdueLeads.slice(0, 3).map((row) => {
+                const days = row.lastFollowupAt ? dayjs().diff(dayjs(row.lastFollowupAt), 'day') : null
+                return (
+                  <div
+                    key={row.id}
+                    className="mobile-home-recent-item"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/app/bd/leads/${row.id}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/app/bd/leads/${row.id}`) }}
+                  >
+                    <div className="mobile-home-recent-item-left">
+                      <div className="mobile-home-recent-item-code">{row.leadCode}</div>
+                      <div className="mobile-home-recent-item-name text-xs text-slate-500">{row.companyName}</div>
+                    </div>
+                    <div className="mobile-home-recent-item-date">
+                      <Tag color="error" className="text-xs">
+                        {days === null
+                          ? t('pages.adminDashboard.neverFollowedUp', { defaultValue: 'Never' })
+                          : t('pages.adminDashboard.daysOverdue', { days, defaultValue: '{{days}}d overdue' })}
+                      </Tag>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </RoleGuard>
       </div>
     )
   }
@@ -789,6 +882,185 @@ export function AdminDashboardPage() {
           </Space>
         }
       />
+
+      <RoleGuard allowRoles={['super_admin']}>
+        <Card
+          className="mb-5"
+          title={t('pages.adminDashboard.bdOverviewTitle', { defaultValue: 'BD Daily Work Overview' })}
+          extra={
+            <Space>
+              {bdOverviewOpen && (
+                <DatePicker
+                  value={bdDailyDate}
+                  onChange={(date) => { if (date) setBdDailyDate(date) }}
+                  allowClear={false}
+                />
+              )}
+              <Button
+                type="text"
+                size="small"
+                icon={<DownOutlined rotate={bdOverviewOpen ? 180 : 0} style={{ transition: 'transform 0.2s' }} />}
+                onClick={() => setBdOverviewOpen((o) => !o)}
+              >
+                {bdOverviewOpen
+                  ? t('labels.collapse', { defaultValue: 'Collapse' })
+                  : t('labels.expand', { defaultValue: 'Expand' })}
+              </Button>
+            </Space>
+          }
+        >
+          {bdOverviewOpen && (
+            <Row gutter={[16, 16]}>
+            {/* Card A — 今日新增線索 */}
+            <Col xs={24} xl={8}>
+              <Card
+                size="small"
+                loading={bdOverviewLoading}
+                title={t('pages.adminDashboard.todayNewLeads', { defaultValue: "Today's New Leads" })}
+                extra={<Typography.Text type="secondary" className="text-xs">{t('pages.adminDashboard.byCreator', { defaultValue: 'by Creator' })}</Typography.Text>}
+              >
+                {bdDailyNewLeads.length === 0 ? (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('labels.none', { defaultValue: 'None' })} />
+                ) : (
+                  <List
+                    size="small"
+                    dataSource={bdDailyNewLeads.sort((a, b) => b.count - a.count)}
+                    footer={
+                      <Typography.Text type="secondary" className="text-xs">
+                        {t('pages.adminDashboard.total', { defaultValue: 'Total' })}: {bdDailyNewLeads.reduce((s, r) => s + r.count, 0)}
+                      </Typography.Text>
+                    }
+                    renderItem={(row) => (
+                      <List.Item
+                        className="cursor-pointer hover:bg-slate-50"
+                        onClick={() => navigate(`/app/admin/leads/pool?createdFrom=${bdDailyDate.startOf('day').toISOString()}&createdTo=${bdDailyDate.endOf('day').toISOString()}&createdById=${row.bdId}`)}
+                      >
+                        <span>{row.bdName}</span>
+                        <Tag color="blue">{row.count}</Tag>
+                      </List.Item>
+                    )}
+                  />
+                )}
+              </Card>
+            </Col>
+
+            {/* Card B — 今日跟進線索 */}
+            <Col xs={24} xl={8}>
+              <Card
+                size="small"
+                loading={bdOverviewLoading}
+                title={t('pages.adminDashboard.todayFollowups', { defaultValue: "Today's Follow-ups" })}
+                extra={<Typography.Text type="secondary" className="text-xs">{t('pages.adminDashboard.deduped', { defaultValue: 'Unique Leads' })}</Typography.Text>}
+              >
+                {bdDailyFollowups.length === 0 ? (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('labels.none', { defaultValue: 'None' })} />
+                ) : (
+                  <List
+                    size="small"
+                    dataSource={bdDailyFollowups.sort((a, b) => b.count - a.count)}
+                    footer={
+                      <Typography.Text type="secondary" className="text-xs">
+                        {t('pages.adminDashboard.total', { defaultValue: 'Total' })}: {bdDailyFollowups.reduce((s, r) => s + r.count, 0)}
+                      </Typography.Text>
+                    }
+                    renderItem={(row) => (
+                      <List.Item>
+                        <span>{row.bdName}</span>
+                        <Tag color="gold">{row.count}</Tag>
+                      </List.Item>
+                    )}
+                  />
+                )}
+              </Card>
+            </Col>
+
+            {/* Card C — 逾期未跟進警示 */}
+            <Col xs={24} xl={8}>
+              <Card
+                size="small"
+                loading={bdOverviewLoading}
+                title={
+                  <Space size={6}>
+                    <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+                    {t('pages.adminDashboard.overdueAlert', { defaultValue: 'Overdue Follow-up Alert' })}
+                    {overdueLeads.length > 0 && <Tag color="error">{overdueLeads.length}</Tag>}
+                  </Space>
+                }
+              >
+                {overdueLeads.length === 0 ? (
+                  <Alert
+                    type="success"
+                    showIcon
+                    message={t('pages.adminDashboard.noOverdue', { defaultValue: 'All leads are followed up ✅' })}
+                  />
+                ) : (() => {
+                  const filtered = overdueLeads.filter((row) => {
+                    if (!overdueSearch) return true
+                    const q = overdueSearch.toLowerCase()
+                    return (
+                      (row.assignedBdName ?? '').toLowerCase().includes(q) ||
+                      row.leadCode.toLowerCase().includes(q) ||
+                      row.companyName.toLowerCase().includes(q)
+                    )
+                  })
+                  const shown = overdueExpanded ? filtered : filtered.slice(0, OVERDUE_PAGE_SIZE)
+                  return (
+                    <>
+                      <Input.Search
+                        size="small"
+                        className="mb-2"
+                        placeholder={t('pages.adminDashboard.overdueSearchPlaceholder', { defaultValue: 'Filter by BD / lead / company' })}
+                        value={overdueSearch}
+                        onChange={(e) => setOverdueSearch(e.target.value)}
+                        allowClear
+                      />
+                      <div className="max-h-96 overflow-y-auto">
+                        <List
+                          size="small"
+                          dataSource={shown}
+                          renderItem={(row) => {
+                            const days = row.lastFollowupAt
+                              ? dayjs().diff(dayjs(row.lastFollowupAt), 'day')
+                              : null
+                            return (
+                              <List.Item
+                                className="cursor-pointer hover:bg-slate-50"
+                                onClick={() => navigate(`/app/bd/leads/${row.id}`)}
+                              >
+                                <List.Item.Meta
+                                  title={<span className="text-sm">{row.leadCode} · {row.companyName}</span>}
+                                  description={
+                                    <Space size={4}>
+                                      <Tag color="default" className="text-xs">{row.assignedBdName ?? '—'}</Tag>
+                                      <Tag color="error" className="text-xs">
+                                        {days === null ? t('pages.adminDashboard.neverFollowedUp', { defaultValue: 'Never' }) : t('pages.adminDashboard.daysOverdue', { days, defaultValue: '{{days}}d overdue' })}
+                                      </Tag>
+                                    </Space>
+                                  }
+                                />
+                              </List.Item>
+                            )
+                          }}
+                        />
+                      </div>
+                      {filtered.length > OVERDUE_PAGE_SIZE && (
+                        <div className="mt-2 text-center">
+                          <Button type="link" size="small" onClick={() => setOverdueExpanded((v) => !v)}>
+                            {overdueExpanded
+                              ? t('labels.collapse', { defaultValue: 'Collapse' })
+                              : t('pages.adminDashboard.showAll', { count: filtered.length, defaultValue: 'Show all ({{count}})' })}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+              </Card>
+            </Col>
+          </Row>
+          )}
+        </Card>
+      </RoleGuard>
 
       <Card
         className="mb-5"

@@ -1,6 +1,8 @@
+import dayjs from 'dayjs'
+import type { Dayjs } from 'dayjs'
 import { supabase } from '../../../lib/supabase/client'
 import { SALES_PRODUCT_ENTRY_CATEGORY_OPTIONS, getSalesProductCategoryGroup, getSalesProductSubcategory } from '../../../lib/business-constants'
-import type { SalesProductCategory, SalesProductSubcategory } from '../../../types/business'
+import type { LeadStatus, SalesProductCategory, SalesProductSubcategory } from '../../../types/business'
 
 export interface AdminDashboardMetrics {
   totalLeads: number
@@ -507,4 +509,110 @@ export async function getAdminSalesInsightOrders(month?: string): Promise<AdminS
         items: mappedItems,
       }
     })
+}
+
+// ─── BD Daily Work Overview (M1) ────────────────────────────────────────────
+
+export interface BdDailyNewLeadRow {
+  bdId: string
+  bdName: string
+  count: number
+}
+
+export interface BdDailyFollowupRow {
+  bdId: string
+  bdName: string
+  count: number
+}
+
+export interface OverdueLeadRow {
+  id: string
+  leadCode: string
+  companyName: string
+  lastFollowupAt: string | null
+  status: LeadStatus
+  assignedBdId: string | null
+  assignedBdName: string | null
+}
+
+export async function fetchTodayNewLeads(date: Dayjs): Promise<BdDailyNewLeadRow[]> {
+  const startOfDay = date.startOf('day').toISOString()
+  const endOfDay = date.endOf('day').toISOString()
+
+  const { data, error } = await supabase
+    .from('leads')
+    .select('id, creator:profiles!created_by(id, full_name)')
+    .gte('created_at', startOfDay)
+    .lte('created_at', endOfDay)
+    .is('deleted_at', null)
+
+  if (error) throw error
+
+  const grouped = new Map<string, { name: string; count: number }>()
+  for (const row of data ?? []) {
+    const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator
+    if (!creator) continue
+    const existing = grouped.get(creator.id)
+    if (existing) {
+      existing.count++
+    } else {
+      grouped.set(creator.id, { name: creator.full_name ?? creator.id, count: 1 })
+    }
+  }
+
+  return Array.from(grouped.entries()).map(([bdId, { name, count }]) => ({ bdId, bdName: name, count }))
+}
+
+export async function fetchTodayFollowups(date: Dayjs): Promise<BdDailyFollowupRow[]> {
+  const startOfDay = date.startOf('day').toISOString()
+  const endOfDay = date.endOf('day').toISOString()
+
+  const { data, error } = await supabase
+    .from('lead_followups')
+    .select('lead_id, creator:profiles!created_by(id, full_name)')
+    .gte('created_at', startOfDay)
+    .lte('created_at', endOfDay)
+
+  if (error) throw error
+
+  const grouped = new Map<string, { name: string; leads: Set<string> }>()
+  for (const row of data ?? []) {
+    const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator
+    if (!creator) continue
+    const existing = grouped.get(creator.id)
+    if (existing) {
+      existing.leads.add(row.lead_id)
+    } else {
+      grouped.set(creator.id, { name: creator.full_name ?? creator.id, leads: new Set([row.lead_id]) })
+    }
+  }
+
+  return Array.from(grouped.entries()).map(([bdId, { name, leads }]) => ({ bdId, bdName: name, count: leads.size }))
+}
+
+export async function fetchOverdueLeads(): Promise<OverdueLeadRow[]> {
+  const sevenDaysAgo = dayjs().subtract(7, 'day').toISOString()
+
+  const { data, error } = await supabase
+    .from('leads')
+    .select('id, lead_code, company_name, last_followup_at, status, assigned_bd_id, assignedBd:profiles!assigned_bd_id(id, full_name)')
+    .in('status', ['NEW', 'TO_FOLLOW', 'FOLLOWING', 'NEGOTIATING'])
+    .or(`last_followup_at.lt.${sevenDaysAgo},last_followup_at.is.null`)
+    .is('deleted_at', null)
+    .order('last_followup_at', { ascending: true, nullsFirst: true })
+
+  if (error) throw error
+
+  return (data ?? []).map((row) => {
+    const bd = Array.isArray(row.assignedBd) ? row.assignedBd[0] : row.assignedBd
+    return {
+      id: row.id,
+      leadCode: row.lead_code,
+      companyName: row.company_name,
+      lastFollowupAt: row.last_followup_at,
+      status: row.status as LeadStatus,
+      assignedBdId: row.assigned_bd_id,
+      assignedBdName: bd?.full_name ?? null,
+    }
+  })
 }

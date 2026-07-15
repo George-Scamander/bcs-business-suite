@@ -40,6 +40,7 @@ interface BdAggregate {
   bcsSignedCount: number
   newLeadsCount: number
   newSalesLeadsCount: number
+  overdueCount: number
 }
 
 // ── Category labels ───────────────────────────────────────
@@ -119,6 +120,7 @@ async function queryReport(
         bcsSignedCount: 0,
         newLeadsCount: 0,
         newSalesLeadsCount: 0,
+        overdueCount: 0,
       },
     ]),
   )
@@ -212,7 +214,23 @@ async function queryReport(
     }
   }
 
-  // 5. Top store
+  // 5. Overdue leads (status active + no followup in 7 days)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  const { data: overdueLeads, error: overdueError } = await supabase
+    .from('leads')
+    .select('id, assigned_bd_id')
+    .is('deleted_at', null)
+    .in('status', ['NEW', 'TO_FOLLOW', 'FOLLOWING', 'NEGOTIATING'])
+    .or(`last_followup_at.is.null,last_followup_at.lt.${sevenDaysAgo.toISOString()}`)
+  if (overdueError) throw overdueError
+
+  for (const row of (overdueLeads ?? []) as { id: string; assigned_bd_id: string | null }[]) {
+    if (!row.assigned_bd_id) continue
+    const agg = aggregateMap.get(row.assigned_bd_id)
+    if (agg) agg.overdueCount += 1
+  }
+
+  // 6. Top store
   const topStore = [...storeAmountMap.entries()].sort((a, b) => b[1].amount - a[1].amount)[0]
   const topStoreName = topStore ? topStore[0] : '—'
   const topStoreAmount = topStore ? topStore[1].amount : 0
@@ -243,7 +261,7 @@ function buildTeamsCard(data: Awaited<ReturnType<typeof queryReport>>) {
   const hasActivity = team.salesAmount > 0 || team.bcsSignedCount > 0
 
   const bdFacts = bdRows
-    .filter((r) => r.salesAmount > 0 || r.bcsSignedCount > 0 || r.newLeadsCount > 0)
+    .filter((r) => r.salesAmount > 0 || r.bcsSignedCount > 0 || r.newLeadsCount > 0 || r.overdueCount > 0)
     .map((r) => ({
       type: 'FactSet',
       facts: [
@@ -254,6 +272,7 @@ function buildTeamsCard(data: Awaited<ReturnType<typeof queryReport>>) {
             `Tyres ${r.tireSalesQuantity} pcs`,
             `BCS ${r.bcsSignedCount}`,
             `New Leads ${r.newLeadsCount}`,
+            `Overdue ${r.overdueCount > 0 ? r.overdueCount + ' ⚠️' : '0 ✅'}`,
           ].join('  |  '),
         },
       ],

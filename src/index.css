@@ -349,6 +349,10 @@ pre {
   padding: 10px 12px;
 }
 
+/* Overdue lead row — light error background to draw attention */
+.lead-overdue-row td { background-color: #fff2f0 !important; }
+.dark .lead-overdue-row td { background-color: rgba(255, 77, 79, 0.12) !important; }
+
 /* ─── PageTitleBar 元件內容過渡基礎（全域）──────────────────────────────── */
 
 /* Grid 容器：grid-template-rows 折疊實現平滑高度動畫（不受內容高度限制）*/
