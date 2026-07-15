@@ -157,6 +157,19 @@ function getNextFollowupSortTimestamp(value: string | null | undefined): number 
   return Number.isFinite(timestamp) ? timestamp : null
 }
 
+const OVERDUE_ACTIVE_STATUSES: LeadStatus[] = ['NEW', 'TO_FOLLOW', 'FOLLOWING', 'NEGOTIATING']
+
+function isLeadOverdue(lead: Lead): boolean {
+  if (!OVERDUE_ACTIVE_STATUSES.includes(lead.status)) return false
+  if (!lead.last_followup_at) return true
+  return dayjs().diff(dayjs(lead.last_followup_at), 'day') > 7
+}
+
+function getOverdueDays(lead: Lead): number | null {
+  if (!lead.last_followup_at) return null
+  return dayjs().diff(dayjs(lead.last_followup_at), 'day')
+}
+
 function parseLeadFiltersFromSearch(searchParams: URLSearchParams): { filters: LeadFilters; keyword: string } {
   const statusParam = searchParams.get('status')
   const intentPackageParam = searchParams.get('intentPackage')
@@ -818,6 +831,7 @@ export function BdLeadsListPage() {
         loading={loading}
         bordered
         dataSource={rows}
+        rowClassName={(row: Lead) => (isLeadOverdue(row) ? 'lead-overdue-row' : '')}
         showSorterTooltip={{ target: 'sorter-icon' }}
         locale={{
           triggerAsc: t('pages.salesSupervision.sortTriggerAsc', { defaultValue: 'Click to sort ascending' }),
@@ -847,6 +861,13 @@ export function BdLeadsListPage() {
                     ) : null}
                     {todayFollowupLeadIdSet.has(row.id) ? (
                       <Tag color="gold">{t('pages.bdLeads.leadCodeTodayFollowupTag', { defaultValue: 'Follow-up Today' })}</Tag>
+                    ) : null}
+                    {isLeadOverdue(row) ? (
+                      <Tag color="error">
+                        {row.last_followup_at
+                          ? t('pages.bdLeads.leadCodeOverdueTag', { days: getOverdueDays(row), defaultValue: '⚠️ Overdue {{days}}d' })
+                          : t('pages.bdLeads.leadCodeNeverFollowedTag', { defaultValue: '⚠️ Never Followed Up' })}
+                      </Tag>
                     ) : null}
                   </Space>
                   <div className="mt-0.5 text-xs app-text-soft">

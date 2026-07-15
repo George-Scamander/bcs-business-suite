@@ -15,11 +15,14 @@ import {
   Radio,
   Select,
   Space,
+  Tag,
+  Timeline,
+  Typography,
   message,
 } from 'antd'
 import {
-  AdaptiveTable as Table,
-} from '../../../components/common/AdaptiveTable'
+  WarningOutlined,
+} from '@ant-design/icons'
 import {
   useTranslation,
 } from 'react-i18next'
@@ -68,6 +71,24 @@ interface FollowupFormValues {
   status_change_reason?: string
 }
 
+const { Text } = Typography
+
+const FOLLOWUP_TYPE_EMOJI: Record<string, string> = {
+  CALL: '📞',
+  VISIT: '🚗',
+  MEETING: '🤝',
+  CHAT: '💬',
+  EMAIL: '📧',
+}
+
+const OVERDUE_ACTIVE_STATUSES_TL: LeadStatus[] = ['NEW', 'TO_FOLLOW', 'FOLLOWING', 'NEGOTIATING']
+
+function getStatusChangeColor(toStatus: string): string {
+  if (toStatus === 'SIGNED') return 'green'
+  if (toStatus === 'LOST' || toStatus === 'REJECTED') return 'gray'
+  return '#fa8c16'
+}
+
 function isSalesOrderFollowup(followupType: string, summary: string): boolean {
   const normalizedType = followupType.trim().toUpperCase()
   if (normalizedType === 'SALES_ORDER') {
@@ -100,12 +121,56 @@ export function LeadFollowupTimelinePage() {
     return map
   }, [t])
 
-  const renderFollowupType = useCallback((followupType: string, summary: string) => {
-    if (followupType === 'MEETING' && summary.startsWith('Sales order ')) {
-      return t('merchantActivityType.SALES_ORDER', { defaultValue: 'Sales Order' })
+  const followupTypeOptionsWithEmoji = useMemo(() => {
+    const emojiMap: Record<string, string> = {
+      CALL: '📞',
+      VISIT: '🚗',
+      MEETING: '🤝',
+      CHAT: '💬',
+      EMAIL: '📧',
     }
-    return followupTypeLabelByValue.get(followupType) ?? followupType
-  }, [followupTypeLabelByValue, t])
+    return getFollowupTypeOptions(t).map((opt) => ({
+      ...opt,
+      label: `${emojiMap[opt.value] ?? ''} ${opt.label}`.trim(),
+    }))
+  }, [t])
+
+  const [visibleCount, setVisibleCount] = useState(10)
+
+  const allEvents = useMemo(() => {
+    type TLEvent =
+      | { id: string; type: 'LEAD_CREATED'; eventAt: string }
+      | { id: string; type: 'FOLLOWUP_RECORD'; eventAt: string; followup: LeadFollowup }
+      | { id: string; type: 'STATUS_CHANGED'; eventAt: string; statusLog: LeadStatusLog }
+
+    const events: TLEvent[] = []
+
+    if (lead) {
+      events.push({ id: `created-${lead.id}`, type: 'LEAD_CREATED', eventAt: lead.created_at })
+    }
+
+    for (const row of visibleRows) {
+      events.push({ id: row.id, type: 'FOLLOWUP_RECORD', eventAt: row.followup_at, followup: row })
+    }
+
+    for (const log of statusLogs) {
+      events.push({ id: log.id, type: 'STATUS_CHANGED', eventAt: log.changed_at, statusLog: log })
+    }
+
+    return events.sort((a, b) => new Date(a.eventAt).getTime() - new Date(b.eventAt).getTime())
+  }, [lead, visibleRows, statusLogs])
+
+  const isLeadCurrentlyOverdue = useMemo(() => {
+    if (!lead) return false
+    if (!OVERDUE_ACTIVE_STATUSES_TL.includes(lead.status)) return false
+    if (!lead.last_followup_at) return true
+    return dayjs().diff(dayjs(lead.last_followup_at), 'day') > 7
+  }, [lead])
+
+  const overdueDays = useMemo(() => {
+    if (!lead?.last_followup_at) return null
+    return dayjs().diff(dayjs(lead.last_followup_at), 'day')
+  }, [lead])
 
   const loadData = useCallback(async () => {
     if (!leadId) {
@@ -236,11 +301,11 @@ export function LeadFollowupTimelinePage() {
               label={t('page.leads.followupType', { defaultValue: 'Follow-up Type' })}
               rules={[{ required: true, message: t('page.leads.followupTypeRequired', { defaultValue: 'Follow-up type is required' }) }]}
             >
-              <Select options={getFollowupTypeOptions(t)} placeholder={t('page.leads.selectType', { defaultValue: 'Select type' })} />
+              <Select options={followupTypeOptionsWithEmoji} placeholder={t('page.leads.selectType', { defaultValue: 'Select type' })} />
             </Form.Item>
 
             <Form.Item name="followup_at" label={t('page.leads.followupTime', { defaultValue: 'Follow-up Time' })}>
-              <DatePicker className="w-full" />
+              <DatePicker className="w-full" showTime />
             </Form.Item>
 
             <Form.Item
@@ -261,14 +326,18 @@ export function LeadFollowupTimelinePage() {
                   : []
               }
             >
-              <DatePicker className="w-full" />
+              <DatePicker className="w-full" showTime />
             </Form.Item>
           </div>
 
           <Form.Item
             name="summary"
             label={t('page.leads.summary', { defaultValue: 'Summary' })}
-            rules={[{ required: true, message: t('page.leads.summaryRequired', { defaultValue: 'Summary is required' }) }]}
+            rules={[
+              { required: true, message: t('page.leads.summaryRequired', { defaultValue: 'Summary is required' }) },
+              { min: 20, message: t('page.leads.summaryTooShort', { defaultValue: 'Summary must be at least 20 characters' }) },
+              { max: 1000, message: t('page.leads.summaryTooLong', { defaultValue: 'Summary cannot exceed 1000 characters' }) },
+            ]}
           >
             <Input.TextArea
               rows={3}
@@ -338,67 +407,99 @@ export function LeadFollowupTimelinePage() {
         </Form>
       </Card>
 
-      <Table
+      <Card
+        className="mt-5"
         loading={loading}
-        rowKey="id"
-        bordered
-        dataSource={visibleRows}
-        pagination={{ pageSize: 10 }}
-        columns={[
-          {
-            title: t('page.leads.followupTime', { defaultValue: 'Follow-up Time' }),
-            dataIndex: 'followup_at',
-            width: 200,
-            render: (value: string) => new Date(value).toLocaleString(),
-          },
-          {
-            title: t('page.leads.type', { defaultValue: 'Type' }),
-            dataIndex: 'followup_type',
-            width: 130,
-            render: (value: string, row: LeadFollowup) => renderFollowupType(value, row.summary),
-          },
-          { title: t('page.leads.summary', { defaultValue: 'Summary' }), dataIndex: 'summary' },
-          {
-            title: t('page.leads.nextFollowup', { defaultValue: 'Next Follow-up' }),
-            dataIndex: 'next_followup_at',
-            width: 200,
-            render: (value: string | null) => (value ? new Date(value).toLocaleString() : '-'),
-          },
-        ]}
-      />
+        title={t('page.leads.followupHistory', { defaultValue: 'Follow-up History' })}
+      >
+        {allEvents.length === 0 ? (
+          <div className="py-6 text-center app-text-soft">
+            {t('page.leads.noFollowupHistory', { defaultValue: 'No records yet.' })}
+          </div>
+        ) : (
+          <>
+            <Timeline
+              mode="left"
+              items={[
+                ...allEvents.slice(0, visibleCount).map((event) => {
+                  if (event.type === 'LEAD_CREATED') {
+                    return {
+                      key: event.id,
+                      color: '#1677ff',
+                      label: <span className="text-xs app-text-soft">{dayjs(event.eventAt).format('YYYY-MM-DD HH:mm')}</span>,
+                      children: <Text strong>{t('page.leads.timelineLeadCreated', { defaultValue: 'Lead Created' })}</Text>,
+                    }
+                  }
 
-      <Card className="mt-5" title={t('page.leads.statusChangeLogs', { defaultValue: 'Status Change Logs' })}>
-        <Table
-          rowKey="id"
-          bordered
-          dataSource={statusLogs}
-          pagination={{ pageSize: 10 }}
-          columns={[
-            {
-              title: t('page.leads.changedAt', { defaultValue: 'Changed At' }),
-              dataIndex: 'changed_at',
-              width: 190,
-              render: (value: string) => new Date(value).toLocaleString(),
-            },
-            {
-              title: t('page.onboarding.from', { defaultValue: 'From' }),
-              dataIndex: 'from_status',
-              width: 150,
-              render: (value: string | null) => (value ? <StatusTag value={value} /> : '-'),
-            },
-            {
-              title: t('page.onboarding.to', { defaultValue: 'To' }),
-              dataIndex: 'to_status',
-              width: 150,
-              render: (value: string) => <StatusTag value={value} />,
-            },
-            {
-              title: t('page.onboarding.reason', { defaultValue: 'Reason' }),
-              dataIndex: 'reason',
-              render: (value: string | null) => value ?? '-',
-            },
-          ]}
-        />
+                  if (event.type === 'FOLLOWUP_RECORD') {
+                    const fu = event.followup
+                    const typeLabel = followupTypeLabelByValue.get(fu.followup_type) ?? fu.followup_type
+                    const emoji = FOLLOWUP_TYPE_EMOJI[fu.followup_type] ?? ''
+                    return {
+                      key: event.id,
+                      color: '#faad14',
+                      label: <span className="text-xs app-text-soft">{dayjs(event.eventAt).format('YYYY-MM-DD HH:mm')}</span>,
+                      children: (
+                        <Space direction="vertical" size={4}>
+                          <Tag color="gold">{emoji} {typeLabel}</Tag>
+                          <Text>{fu.summary}</Text>
+                          {fu.next_followup_at ? (
+                            <Text type="secondary" className="text-xs">
+                              {t('page.leads.nextFollowup', { defaultValue: 'Next Follow-up' })}: {dayjs(fu.next_followup_at).format('YYYY-MM-DD HH:mm')}
+                            </Text>
+                          ) : null}
+                          {fu.bd_notes ? (
+                            <Text type="secondary" className="text-xs">
+                              {t('page.leads.bdNotes', { defaultValue: 'BD Notes' })}: {fu.bd_notes}
+                            </Text>
+                          ) : null}
+                        </Space>
+                      ),
+                    }
+                  }
+
+                  // STATUS_CHANGED
+                  const log = event.statusLog
+                  return {
+                    key: event.id,
+                    color: getStatusChangeColor(log.to_status),
+                    label: <span className="text-xs app-text-soft">{dayjs(event.eventAt).format('YYYY-MM-DD HH:mm')}</span>,
+                    children: (
+                      <Space direction="vertical" size={4}>
+                        <Space align="center" size={4}>
+                          {log.from_status ? <StatusTag value={log.from_status} /> : null}
+                          {log.from_status ? <Text type="secondary">→</Text> : null}
+                          <StatusTag value={log.to_status} />
+                        </Space>
+                        {log.reason ? <Text type="secondary" className="text-xs">{log.reason}</Text> : null}
+                      </Space>
+                    ),
+                  }
+                }),
+                ...(isLeadCurrentlyOverdue ? [{
+                  key: 'overdue-warning',
+                  dot: <WarningOutlined style={{ color: '#ff4d4f' }} />,
+                  color: 'red',
+                  label: <span className="text-xs app-text-soft">{t('page.leads.timelineNow', { defaultValue: 'Now' })}</span>,
+                  children: (
+                    <Text type="danger">
+                      {overdueDays === null
+                        ? t('page.leads.timelineNeverFollowedUp', { defaultValue: '⚠️ Never followed up — please take action.' })
+                        : t('page.leads.timelineOverdue', { days: overdueDays, defaultValue: '⚠️ {{days}} day(s) since last follow-up — please take action.' })}
+                    </Text>
+                  ),
+                }] : []),
+              ]}
+            />
+            {visibleCount < allEvents.length ? (
+              <div className="mt-2 text-center">
+                <Button onClick={() => setVisibleCount((c) => c + 10)}>
+                  {t('page.leads.loadMoreHistory', { defaultValue: 'Load More' })}
+                </Button>
+              </div>
+            ) : null}
+          </>
+        )}
       </Card>
     </>
   )

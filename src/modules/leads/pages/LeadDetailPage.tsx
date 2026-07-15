@@ -4,7 +4,9 @@ import {
   useMemo,
   useState,
 } from 'react'
+import dayjs from 'dayjs'
 import {
+  Alert,
   Button,
   Card,
   Descriptions,
@@ -312,6 +314,20 @@ export function LeadDetailPage() {
           </Space>
         }
       />
+
+      {lead && ['NEW', 'TO_FOLLOW', 'FOLLOWING', 'NEGOTIATING'].includes(lead.status) && (
+        !lead.last_followup_at || dayjs().diff(dayjs(lead.last_followup_at), 'day') > 7
+      ) ? (
+        <Alert
+          type="error"
+          showIcon
+          className="mb-5"
+          message={!lead.last_followup_at
+            ? t('pages.leadDetail.neverFollowedUp', { defaultValue: 'This lead has never been followed up. Please take action soon.' })
+            : t('pages.leadDetail.overdueFollowup', { days: dayjs().diff(dayjs(lead.last_followup_at), 'day'), defaultValue: 'This lead has been overdue for {{days}} day(s). Please complete the follow-up soon.' })
+          }
+        />
+      ) : null}
 
       <Card loading={loading} className="mb-5">
         {lead ? (
