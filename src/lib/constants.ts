@@ -1,7 +1,7 @@
 import type { LocaleCode, RoleCode } from '../types/rbac'
 
 export const APP_NAME = 'BCS Business Suite'
-export const APP_VERSION = 'V1.5.2'
+export const APP_VERSION = 'V1.5.3'
 export const PRIVATE_BUCKET = 'private-documents'
 
 export const BD_CITIES = ['Jakarta', 'Bandung', 'Surabaya'] as const
@@ -25,6 +25,7 @@ export const ROLE_LABELS: Record<RoleCode, string> = {
 export const NAV_ITEMS_BY_ROLE: Record<RoleCode, Array<{ key: string; label: string; path: string }>> = {
   super_admin: [
     { key: 'admin-dashboard', label: 'Admin Dashboard', path: '/app/admin/dashboard' },
+    { key: 'admin-store-alert', label: 'Store Visit Alerts', path: '/app/admin/store-alert' },
     { key: 'users-roles', label: 'Users & Roles', path: '/app/admin/users-roles' },
     { key: 'lead-pool', label: 'Lead Pool', path: '/app/admin/leads/pool' },
     { key: 'admin-onboard-merchants', label: 'Onboard Merchants', path: '/app/admin/onboarding/merchants' },
@@ -60,6 +61,7 @@ export const NAV_ITEMS_BY_ROLE: Record<RoleCode, Array<{ key: string; label: str
     { key: 'pm-projects', label: 'Projects', path: '/app/pm/projects' },
     { key: 'pm-onboard-merchants', label: 'Onboard Merchants', path: '/app/pm/onboarding/merchants' },
     { key: 'sales-supervision', label: 'Sales Management', path: '/app/pm/sales/supervision' },
+    { key: 'pm-sales-new', label: 'Create Sales', path: '/app/bd/sales/new' },
     { key: 'bd-kpi-dashboard', label: 'BD KPI Dashboard', path: '/app/pm/kpi/dashboard' },
     { key: 'report-export', label: 'Report Export', path: '/app/pm/reports/export' },
     { key: 'pm-new-project', label: 'Create Project', path: '/app/pm/projects/new' },

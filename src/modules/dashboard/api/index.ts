@@ -514,15 +514,21 @@ export async function getAdminSalesInsightOrders(month?: string): Promise<AdminS
 // ─── BD Daily Work Overview (M1) ────────────────────────────────────────────
 
 export interface BdDailyNewLeadRow {
+  id: string
+  leadCode: string
+  companyName: string
   bdId: string
   bdName: string
-  count: number
+  createdAt: string
 }
 
 export interface BdDailyFollowupRow {
+  id: string
+  leadCode: string
+  companyName: string
   bdId: string
   bdName: string
-  count: number
+  createdAt: string
 }
 
 export interface OverdueLeadRow {
@@ -541,26 +547,28 @@ export async function fetchTodayNewLeads(date: Dayjs): Promise<BdDailyNewLeadRow
 
   const { data, error } = await supabase
     .from('leads')
-    .select('id, creator:profiles!created_by(id, full_name)')
+    .select('id, lead_code, company_name, created_at, creator:profiles!created_by(id, full_name)')
     .gte('created_at', startOfDay)
     .lte('created_at', endOfDay)
     .is('deleted_at', null)
+    .order('created_at', { ascending: false })
 
   if (error) throw error
 
-  const grouped = new Map<string, { name: string; count: number }>()
-  for (const row of data ?? []) {
-    const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator
-    if (!creator) continue
-    const existing = grouped.get(creator.id)
-    if (existing) {
-      existing.count++
-    } else {
-      grouped.set(creator.id, { name: creator.full_name ?? creator.id, count: 1 })
-    }
-  }
-
-  return Array.from(grouped.entries()).map(([bdId, { name, count }]) => ({ bdId, bdName: name, count }))
+  return (data ?? [])
+    .map((row) => {
+      const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator
+      if (!creator) return null
+      return {
+        id: row.id,
+        leadCode: row.lead_code,
+        companyName: row.company_name,
+        bdId: creator.id,
+        bdName: creator.full_name ?? creator.id,
+        createdAt: row.created_at,
+      }
+    })
+    .filter((row): row is BdDailyNewLeadRow => row !== null)
 }
 
 export async function fetchTodayFollowups(date: Dayjs): Promise<BdDailyFollowupRow[]> {
@@ -569,25 +577,32 @@ export async function fetchTodayFollowups(date: Dayjs): Promise<BdDailyFollowupR
 
   const { data, error } = await supabase
     .from('lead_followups')
-    .select('lead_id, creator:profiles!created_by(id, full_name)')
+    .select('lead_id, created_at, creator:profiles!created_by(id, full_name), lead:leads!lead_id(id, lead_code, company_name)')
     .gte('created_at', startOfDay)
     .lte('created_at', endOfDay)
+    .order('created_at', { ascending: false })
 
   if (error) throw error
 
-  const grouped = new Map<string, { name: string; leads: Set<string> }>()
+  const seenLeads = new Set<string>()
+  const rows: BdDailyFollowupRow[] = []
   for (const row of data ?? []) {
+    if (seenLeads.has(row.lead_id)) continue
     const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator
-    if (!creator) continue
-    const existing = grouped.get(creator.id)
-    if (existing) {
-      existing.leads.add(row.lead_id)
-    } else {
-      grouped.set(creator.id, { name: creator.full_name ?? creator.id, leads: new Set([row.lead_id]) })
-    }
+    const lead = Array.isArray(row.lead) ? row.lead[0] : row.lead
+    if (!creator || !lead) continue
+    seenLeads.add(row.lead_id)
+    rows.push({
+      id: lead.id,
+      leadCode: lead.lead_code,
+      companyName: lead.company_name,
+      bdId: creator.id,
+      bdName: creator.full_name ?? creator.id,
+      createdAt: row.created_at,
+    })
   }
 
-  return Array.from(grouped.entries()).map(([bdId, { name, leads }]) => ({ bdId, bdName: name, count: leads.size }))
+  return rows
 }
 
 export async function fetchOverdueLeads(): Promise<OverdueLeadRow[]> {

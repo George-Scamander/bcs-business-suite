@@ -1,5 +1,7 @@
 export type LeadStatus = 'NEW' | 'TO_FOLLOW' | 'FOLLOWING' | 'NEGOTIATING' | 'ON_HOLD' | 'LOST' | 'SIGNED' | 'REJECTED'
 
+export type StoreTier = 'KA' | 'NORMAL'
+
 export type IntentPackage = 'BCS' | 'PRODUCTS_SALES' | 'BOTH'
 
 export type OnboardingStatus =
@@ -66,6 +68,7 @@ export interface Lead {
   intent_level: number | null
   estimated_value: number | null
   status: LeadStatus
+  store_tier: StoreTier
   lost_reason_code: string | null
   lost_reason_note: string | null
   status_reason: string | null

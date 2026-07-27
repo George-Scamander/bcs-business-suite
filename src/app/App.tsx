@@ -16,6 +16,7 @@ import { AdminOnboardingReviewCenterPage } from '../modules/admin/pages/AdminOnb
 import { AdminProjectOverviewPage } from '../modules/admin/pages/AdminProjectOverviewPage'
 import { AdminReportExportPage } from '../modules/admin/pages/AdminReportExportPage'
 import { AdminSystemConfigPage } from '../modules/admin/pages/AdminSystemConfigPage'
+import { AdminStoreAlertPage } from '../modules/admin/pages/AdminStoreAlertPage'
 import { AppEntryPage } from '../modules/shared/pages/AppEntryPage'
 import { BdDashboardPage } from '../modules/shared/pages/BdDashboardPage'
 import { FileCenterPage } from '../modules/shared/pages/FileCenterPage'
@@ -71,6 +72,14 @@ export default function App() {
               element={
                 <RoleGuard allowRoles={['super_admin']}>
                   <AdminDashboardPage />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="admin/store-alert"
+              element={
+                <RoleGuard allowRoles={['super_admin']}>
+                  <AdminStoreAlertPage />
                 </RoleGuard>
               }
             />
@@ -290,7 +299,7 @@ export default function App() {
             <Route
               path="bd/sales/new"
               element={
-                <RoleGuard allowRoles={['bd_user', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
+                <RoleGuard allowRoles={['bd_user', 'project_manager', 'super_admin']} requiredPermissions={[PERMISSIONS.LEADS_WRITE]}>
                   <BdSalesCreatePage />
                 </RoleGuard>
               }

@@ -13,7 +13,9 @@ import {
   Empty,
   Input,
   Popconfirm,
+  Select,
   Space,
+  Tag,
   Timeline,
   message,
 } from 'antd'
@@ -56,6 +58,7 @@ import type {
   SalesProductCategory,
   SalesProductSubcategory,
   SignedRecord,
+  StoreTier,
 } from '../../../types/business'
 import {
   getLeadById,
@@ -80,6 +83,11 @@ import {
   useAuth,
 } from '../../auth/auth-context'
 
+const STORE_TIER_OPTIONS: Array<{ value: StoreTier; labelKey: string; defaultLabel: string }> = [
+  { value: 'NORMAL', labelKey: 'pages.leadDetail.storeTierNormal', defaultLabel: 'Normal Store' },
+  { value: 'KA', labelKey: 'pages.leadDetail.storeTierKa', defaultLabel: 'KA Store' },
+]
+
 function isSalesOrderFollowup(followupType: string, summary: string): boolean {
   const normalizedType = followupType.trim().toUpperCase()
   if (normalizedType === 'SALES_ORDER') {
@@ -98,7 +106,10 @@ function resolveLeadDetailBackPath(rawBackPath: string | null, fallbackPath: str
     rawBackPath.startsWith('/app/admin/onboarding/review-center?') ||
     rawBackPath === '/app/admin/leads/pool' ||
     rawBackPath.startsWith('/app/admin/leads/pool/') ||
-    rawBackPath.startsWith('/app/admin/leads/pool?')
+    rawBackPath.startsWith('/app/admin/leads/pool?') ||
+    rawBackPath === '/app/admin/dashboard' ||
+    rawBackPath === '/app/admin/store-alert' ||
+    rawBackPath.startsWith('/app/admin/store-alert?')
 
   return isSafeAdminPath ? rawBackPath : fallbackPath
 }
@@ -122,10 +133,12 @@ export function LeadDetailPage() {
   const [onboardingCase, setOnboardingCase] = useState<OnboardingCase | null>(null)
   const [project, setProject] = useState<Project | null>(null)
   const [teamAttentionNote, setTeamAttentionNote] = useState('')
+  const [storeTier, setStoreTier] = useState<StoreTier>('NORMAL')
   const deleteRetentionHint = t('labels.autoDelete30DaysHint', {
     defaultValue: 'Moved to Recently Deleted and auto-permanently deleted after 30 days.',
   })
   const [savingNote, setSavingNote] = useState(false)
+  const [savingStoreTier, setSavingStoreTier] = useState(false)
 
   const canEditAttentionNote = roles.includes('super_admin')
 
@@ -149,6 +162,7 @@ export function LeadDetailPage() {
 
       setLead(leadResult)
       setTeamAttentionNote(leadResult.team_attention_note ?? '')
+      setStoreTier(leadResult.store_tier)
       setFollowups(followupRows)
       setStatusLogs(statusRows)
       setAttachments(attachmentRows)
@@ -246,6 +260,31 @@ export function LeadDetailPage() {
       message.error(text)
     } finally {
       setSavingNote(false)
+    }
+  }
+
+  async function handleSaveStoreTier(nextTier: StoreTier) {
+    if (!lead || !canEditAttentionNote) {
+      return
+    }
+
+    setSavingStoreTier(true)
+
+    try {
+      const result = await updateLead({
+        id: lead.id,
+        store_tier: nextTier,
+      })
+
+      setLead(result)
+      setStoreTier(result.store_tier)
+      message.success(t('pages.leadDetail.storeTierSaveSuccess', { defaultValue: 'Store tier updated' }))
+    } catch (error) {
+      const text =
+        error instanceof Error ? error.message : t('pages.leadDetail.storeTierSaveFail', { defaultValue: 'Failed to update store tier' })
+      message.error(text)
+    } finally {
+      setSavingStoreTier(false)
     }
   }
 
@@ -356,6 +395,31 @@ export function LeadDetailPage() {
           <Empty description={t('pages.leadDetail.notFound', { defaultValue: 'Lead not found' })} />
         )}
       </Card>
+
+      {lead ? (
+        <Card title={t('pages.leadDetail.storeTierTitle', { defaultValue: 'Store Tier' })} className="mb-5">
+          {canEditAttentionNote ? (
+            <Select<StoreTier>
+              style={{ width: 220 }}
+              value={storeTier}
+              loading={savingStoreTier}
+              disabled={savingStoreTier}
+              options={STORE_TIER_OPTIONS.map((item) => ({
+                value: item.value,
+                label: t(item.labelKey, { defaultValue: item.defaultLabel }),
+              }))}
+              onChange={(value) => void handleSaveStoreTier(value)}
+            />
+          ) : (
+            <Tag color={storeTier === 'KA' ? 'gold' : 'default'}>
+              {t(
+                STORE_TIER_OPTIONS.find((item) => item.value === storeTier)?.labelKey ?? 'pages.leadDetail.storeTierNormal',
+                { defaultValue: STORE_TIER_OPTIONS.find((item) => item.value === storeTier)?.defaultLabel ?? 'Normal Store' },
+              )}
+            </Tag>
+          )}
+        </Card>
+      ) : null}
 
       {lead ? (
         <Card title={t('pages.leadDetail.teamAttentionNote', { defaultValue: 'Team Attention Note' })} className="mb-5">
