@@ -6,6 +6,7 @@ import {
   useState,
 } from 'react'
 import dayjs from 'dayjs'
+import * as XLSX from 'xlsx'
 import {
   AutoComplete,
   Button,
@@ -16,6 +17,7 @@ import {
   InputNumber,
   Select,
   Space,
+  Upload,
   message,
 } from 'antd'
 import {
@@ -23,7 +25,9 @@ import {
 } from '../../../components/common/AdaptiveTable'
 import {
   DeleteOutlined,
+  DownloadOutlined,
   PlusOutlined,
+  UploadOutlined,
 } from '@ant-design/icons'
 import {
   useTranslation,
@@ -604,6 +608,106 @@ export function BdSalesCreatePage() {
     setTemplateText(templateSkeleton)
   }
 
+  function downloadExcelTemplate() {
+    const headers = [
+      t('pages.bdSalesCreate.columns.category', { defaultValue: 'Category' }),
+      t('pages.bdSalesCreate.columns.productName', { defaultValue: 'Product / Description' }),
+      t('pages.bdSalesCreate.columns.quantity', { defaultValue: 'Quantity' }),
+      t('pages.bdSalesCreate.columns.unitPrice', { defaultValue: 'Unit Price' }),
+    ]
+    const sampleRows = [
+      ['Engine Oil', '5W-30 4L', 2, 150000],
+      ['Tire', '185/65R15', 4, 850000],
+    ]
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...sampleRows])
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Template')
+    XLSX.writeFile(workbook, 'sales-order-template.xlsx')
+  }
+
+  function parseExcelDataRows(rows: unknown[][]): { items: DraftSalesItem[]; unmatchedCount: number } {
+    const parsedItems: DraftSalesItem[] = []
+    let unmatchedCount = 0
+
+    for (const row of rows) {
+      if (!row || row.length === 0) {
+        continue
+      }
+      const [categoryRaw, productNameRaw, quantityRaw, unitPriceRaw] = row
+      const categoryText = categoryRaw != null ? String(categoryRaw).trim() : ''
+      const productName = productNameRaw != null ? String(productNameRaw).trim() : ''
+      if (!categoryText && !productName) {
+        continue
+      }
+
+      const category = detectCategory(categoryText) || detectCategory(productName)
+      const quantityNumber = Number(quantityRaw)
+      const quantity = Number.isFinite(quantityNumber) && quantityNumber > 0 ? quantityNumber : 1
+      const unitPriceNumber = Number(unitPriceRaw)
+      const unitPrice = Number.isFinite(unitPriceNumber) && unitPriceNumber > 0 ? unitPriceNumber : undefined
+
+      if (!category) {
+        unmatchedCount += 1
+      }
+
+      const resolvedCategory = category ?? 'TIRE'
+      parsedItems.push({
+        key: generateUuid(),
+        category: resolvedCategory,
+        subcategory: category ? detectSubcategory(categoryText || productName, category) : null,
+        product_name: productName || categoryText,
+        quantity,
+        unit_price: unitPrice,
+      })
+    }
+
+    return { items: parsedItems, unmatchedCount }
+  }
+
+  async function handleExcelUpload(file: File) {
+    try {
+      const buffer = await file.arrayBuffer()
+      const workbook = XLSX.read(buffer, { type: 'array' })
+      const firstSheetName = workbook.SheetNames[0]
+      const sheet = firstSheetName ? workbook.Sheets[firstSheetName] : undefined
+      if (!sheet) {
+        message.warning(t('pages.bdSalesCreate.excelNoRows', { defaultValue: 'No recognizable item rows found in the file' }))
+        return false
+      }
+
+      const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 })
+      const dataRows = rows.slice(1)
+      const { items: parsedItems, unmatchedCount } = parseExcelDataRows(dataRows)
+
+      if (parsedItems.length === 0) {
+        message.warning(t('pages.bdSalesCreate.excelNoRows', { defaultValue: 'No recognizable item rows found in the file' }))
+        return false
+      }
+
+      setItems(parsedItems)
+
+      if (unmatchedCount > 0) {
+        message.warning(
+          t('pages.bdSalesCreate.excelParsedSummaryPartial', {
+            defaultValue: 'Imported {{count}} item(s), {{unmatched}} need category confirmation',
+            count: parsedItems.length,
+            unmatched: unmatchedCount,
+          }),
+        )
+      } else {
+        message.success(
+          t('pages.bdSalesCreate.excelParsedSummary', {
+            defaultValue: 'Imported {{count}} item(s) from Excel',
+            count: parsedItems.length,
+          }),
+        )
+      }
+    } catch {
+      message.error(t('pages.bdSalesCreate.excelParseFail', { defaultValue: 'Failed to parse the uploaded Excel file' }))
+    }
+    return false
+  }
+
   async function handleSubmit(values: SalesFormValues) {
     const allowedCategories: SalesProductCategory[] = SALES_PRODUCT_CATEGORY_OPTIONS.map((item) => item.value)
     const validItems = items
@@ -712,6 +816,24 @@ export function BdSalesCreatePage() {
               {t('pages.bdSalesCreate.fillTemplateSkeleton', { defaultValue: 'Insert Template' })}
             </Button>
             <Button onClick={handleParseTemplateText}>{t('pages.bdSalesCreate.parseTemplateText', { defaultValue: 'Parse Template Text' })}</Button>
+          </Space>
+        </Space>
+      </Card>
+
+      <Card className="mb-4">
+        <Space direction="vertical" className="w-full" size={12}>
+          <div className="text-sm font-medium">
+            {t('pages.bdSalesCreate.excelImportLabel', { defaultValue: 'Excel Template Import' })}
+          </div>
+          <Space wrap>
+            <Button icon={<DownloadOutlined />} onClick={downloadExcelTemplate}>
+              {t('pages.bdSalesCreate.downloadTemplate', { defaultValue: 'Download Excel Template' })}
+            </Button>
+            <Upload accept=".xlsx,.xls" showUploadList={false} beforeUpload={handleExcelUpload}>
+              <Button icon={<UploadOutlined />}>
+                {t('pages.bdSalesCreate.uploadExcel', { defaultValue: 'Upload Excel' })}
+              </Button>
+            </Upload>
           </Space>
         </Space>
       </Card>
@@ -854,7 +976,7 @@ export function BdSalesCreatePage() {
                 },
                 {
                   title: t('pages.bdSalesCreate.columns.quantity', { defaultValue: 'Quantity' }),
-                  width: 140,
+                  width: 100,
                   render: (_: unknown, row: DraftSalesItem) => (
                     <InputNumber
                       min={1}
@@ -866,7 +988,7 @@ export function BdSalesCreatePage() {
                 },
                 {
                   title: t('pages.bdSalesCreate.columns.unitPrice', { defaultValue: 'Unit Price' }),
-                  width: 180,
+                  width: 130,
                   render: (_: unknown, row: DraftSalesItem) => (
                     <InputNumber
                       min={0}

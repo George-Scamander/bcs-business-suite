@@ -10,6 +10,7 @@ import {
   Button,
   DatePicker,
   Drawer,
+  Form,
   Input,
   Modal,
   Popconfirm,
@@ -46,6 +47,7 @@ import {
 import {
   getIntentPackageOptions,
   getLeadStatusOptions,
+  getLostReasonOptions,
 } from '../../../lib/business-constants'
 import {
   PERMISSIONS,
@@ -60,6 +62,7 @@ import {
   softDeleteLead,
   softDeleteLeads,
   assignLead as assignLeadApi,
+  changeLeadStatus,
   type LeadFilters,
 } from '../api'
 import {
@@ -236,6 +239,11 @@ export function BdLeadsListPage() {
   const [userOptions, setUserOptions] = useState<UserOption[]>([])
   const [dictionaryItems, setDictionaryItems] = useState<DictionaryItem[]>([])
 
+  const [statusDrawerLead, setStatusDrawerLead] = useState<Lead | null>(null)
+  const [statusSaving, setStatusSaving] = useState(false)
+  const [statusForm] = Form.useForm<{ to_status: LeadStatus; lost_reason_code?: string }>()
+  const statusDrawerToStatus = Form.useWatch('to_status', statusForm)
+
   const canAssign = roles.includes('super_admin') || hasPermission(PERMISSIONS.LEADS_ASSIGN)
   const isProjectManager = roles.includes('project_manager') && !roles.includes('super_admin')
   const canFilterByBd = roles.includes('super_admin') || roles.includes('project_manager')
@@ -400,6 +408,35 @@ export function BdLeadsListPage() {
     } catch (error) {
       const text = error instanceof Error ? error.message : t('pages.bdLeads.assignFail', { defaultValue: 'Failed to assign lead' })
       message.error(text)
+    }
+  }
+
+  function openStatusDrawer(lead: Lead) {
+    setStatusDrawerLead(lead)
+    statusForm.resetFields()
+  }
+
+  async function handleStatusDrawerSubmit(values: { to_status: LeadStatus; lost_reason_code?: string }) {
+    if (!statusDrawerLead) {
+      return
+    }
+
+    setStatusSaving(true)
+
+    try {
+      await changeLeadStatus({
+        leadId: statusDrawerLead.id,
+        toStatus: values.to_status,
+        lostReasonCode: values.lost_reason_code,
+      })
+      message.success(t('page.leads.statusUpdated', { defaultValue: 'Lead status updated' }))
+      setStatusDrawerLead(null)
+      await loadRows()
+    } catch (error) {
+      const text = error instanceof Error ? error.message : t('pages.bdLeads.statusUpdateFail', { defaultValue: 'Failed to change lead status' })
+      message.error(text)
+    } finally {
+      setStatusSaving(false)
     }
   }
 
@@ -941,6 +978,11 @@ export function BdLeadsListPage() {
                     onClick: () => navigate(`/app/bd/leads/${row.id}/followups`),
                   },
                   ...(row.status !== 'SIGNED' ? [{
+                    key: 'statusChange',
+                    label: t('pages.bdLeads.actionStatusChange', { defaultValue: 'Status Change' }),
+                    onClick: () => openStatusDrawer(row),
+                  }] : []),
+                  ...(row.status !== 'SIGNED' ? [{
                     key: 'sign',
                     label: t('pages.bdLeads.actionSign', { defaultValue: 'Sign' }),
                     onClick: () => navigate(`/app/bd/leads/${row.id}/sign`),
@@ -996,6 +1038,49 @@ export function BdLeadsListPage() {
           />
         </Space>
       </Modal>
+
+      <Drawer
+        title={
+          statusDrawerLead
+            ? `${t('pages.bdLeads.actionStatusChange', { defaultValue: 'Status Change' })} · ${statusDrawerLead.lead_code}`
+            : t('pages.bdLeads.actionStatusChange', { defaultValue: 'Status Change' })
+        }
+        placement="bottom"
+        height="auto"
+        open={statusDrawerLead !== null}
+        onClose={() => setStatusDrawerLead(null)}
+        destroyOnClose
+      >
+        <Form
+          form={statusForm}
+          layout="vertical"
+          onFinish={(values) => void handleStatusDrawerSubmit(values)}
+          requiredMark={false}
+        >
+          <Form.Item
+            name="to_status"
+            label={t('pages.bdLeads.statusChangeTargetLabel', { defaultValue: 'Target Status' })}
+            rules={[{ required: true, message: t('pages.bdLeads.statusChangeTargetPlaceholder', { defaultValue: 'Select target status' }) }]}
+          >
+            <Select
+              options={getLeadStatusOptions(t).filter((item) => item.value !== 'SIGNED')}
+              placeholder={t('pages.bdLeads.statusChangeTargetPlaceholder', { defaultValue: 'Select target status' })}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="lost_reason_code"
+            label={t('pages.bdLeads.statusChangeLostReasonLabel', { defaultValue: 'Lost Reason' })}
+            hidden={statusDrawerToStatus !== 'LOST'}
+          >
+            <Select options={getLostReasonOptions(t)} allowClear />
+          </Form.Item>
+
+          <Button type="primary" htmlType="submit" loading={statusSaving} block>
+            {t('pages.bdLeads.statusChangeSubmit', { defaultValue: 'Update Status' })}
+          </Button>
+        </Form>
+      </Drawer>
     </>
   )
 }

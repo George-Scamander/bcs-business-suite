@@ -821,7 +821,7 @@ export function SalesSupervisionPage() {
           },
           {
             title: t('pages.salesSupervision.columns.bdOwner', { defaultValue: 'BD Owner' }),
-            width: 260,
+            width: 200,
             render: (_: unknown, row: SalesOrderRow) => {
               const city = row.bd_user_id ? bdCityByUserId.get(row.bd_user_id) : undefined
               return (
@@ -844,7 +844,7 @@ export function SalesSupervisionPage() {
             onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' } }),
             sorter: (a: SalesOrderRow, b: SalesOrderRow) => getSoldAtTimestamp(a) - getSoldAtTimestamp(b),
             sortDirections: ['descend', 'ascend'],
-            render: (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm:ss'),
+            render: (value: string) => dayjs(value).format('YYYY-MM-DD'),
           },
           {
             title: t('pages.salesSupervision.paymentMethod', { defaultValue: 'Payment Method' }),
@@ -853,7 +853,7 @@ export function SalesSupervisionPage() {
           },
           {
             title: t('pages.salesSupervision.paymentDueDate', { defaultValue: 'Payment Due Date' }),
-            width: 260,
+            width: 200,
             onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' } }),
             sorter: (a: SalesOrderRow, b: SalesOrderRow) => getPaymentSortTimestamp(a) - getPaymentSortTimestamp(b),
             sortDirections: ['descend', 'ascend'],
@@ -1196,7 +1196,7 @@ export function SalesSupervisionPage() {
               <div><strong>{t('pages.salesSupervision.columns.companyName', { defaultValue: 'Company' })}:</strong> {detailRow.company_name}</div>
               <div><strong>{t('pages.salesSupervision.columns.leadCode', { defaultValue: 'Lead Code' })}:</strong> {detailRow.lead?.lead_code ?? '-'}</div>
               <div><strong>{t('pages.salesSupervision.columns.bdOwner', { defaultValue: 'BD Owner' })}:</strong> {formatDisplayName(detailRow.bd_owner?.full_name, detailRow.bd_owner?.email, detailRow.bd_user_id)}</div>
-              <div><strong>{t('pages.salesSupervision.columns.soldAt', { defaultValue: 'Sold Time' })}:</strong> {dayjs(detailRow.sold_at).format('YYYY-MM-DD HH:mm:ss')}</div>
+              <div><strong>{t('pages.salesSupervision.columns.soldAt', { defaultValue: 'Sold Time' })}:</strong> {dayjs(detailRow.sold_at).format('YYYY-MM-DD')}</div>
               <div><strong>{t('pages.salesSupervision.paymentMethod', { defaultValue: 'Payment Method' })}:</strong> {renderPaymentMethodLabel(detailRow.payment_method, detailRow.payment_top_term, paymentLabels)}</div>
               <div><strong>{t('pages.salesSupervision.paymentDueDate', { defaultValue: 'Payment Due Date' })}:</strong> {detailDueAt ? detailDueAt.format('YYYY-MM-DD') : '-'}</div>
               {shouldShowDetailReminder ? (

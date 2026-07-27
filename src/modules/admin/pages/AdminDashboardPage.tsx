@@ -839,8 +839,8 @@ export function AdminDashboardPage() {
                     className="mobile-home-recent-item"
                     role="button"
                     tabIndex={0}
-                    onClick={() => navigate(`/app/bd/leads/${row.id}`)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/app/bd/leads/${row.id}`) }}
+                    onClick={() => navigate(`/app/bd/leads/${row.id}?back=${encodeURIComponent('/app/admin/dashboard')}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/app/bd/leads/${row.id}?back=${encodeURIComponent('/app/admin/dashboard')}`) }}
                   >
                     <div className="mobile-home-recent-item-left">
                       <div className="mobile-home-recent-item-code">{row.leadCode}</div>
@@ -922,24 +922,28 @@ export function AdminDashboardPage() {
                 {bdDailyNewLeads.length === 0 ? (
                   <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('labels.none', { defaultValue: 'None' })} />
                 ) : (
-                  <List
-                    size="small"
-                    dataSource={bdDailyNewLeads.sort((a, b) => b.count - a.count)}
-                    footer={
-                      <Typography.Text type="secondary" className="text-xs">
-                        {t('pages.adminDashboard.total', { defaultValue: 'Total' })}: {bdDailyNewLeads.reduce((s, r) => s + r.count, 0)}
-                      </Typography.Text>
-                    }
-                    renderItem={(row) => (
-                      <List.Item
-                        className="cursor-pointer hover:bg-slate-50"
-                        onClick={() => navigate(`/app/admin/leads/pool?createdFrom=${bdDailyDate.startOf('day').toISOString()}&createdTo=${bdDailyDate.endOf('day').toISOString()}&createdById=${row.bdId}`)}
-                      >
-                        <span>{row.bdName}</span>
-                        <Tag color="blue">{row.count}</Tag>
-                      </List.Item>
-                    )}
-                  />
+                  <div className="max-h-96 overflow-y-auto">
+                    <List
+                      size="small"
+                      dataSource={bdDailyNewLeads}
+                      footer={
+                        <Typography.Text type="secondary" className="text-xs">
+                          {t('pages.adminDashboard.total', { defaultValue: 'Total' })}: {bdDailyNewLeads.length}
+                        </Typography.Text>
+                      }
+                      renderItem={(row) => (
+                        <List.Item
+                          className="cursor-pointer hover:bg-slate-50"
+                          onClick={() => navigate(`/app/bd/leads/${row.id}?back=${encodeURIComponent('/app/admin/dashboard')}`)}
+                        >
+                          <List.Item.Meta
+                            title={<span className="text-sm">{row.leadCode} · {row.companyName}</span>}
+                            description={<Tag color="blue" className="text-xs">{row.bdName}</Tag>}
+                          />
+                        </List.Item>
+                      )}
+                    />
+                  </div>
                 )}
               </Card>
             </Col>
@@ -955,21 +959,28 @@ export function AdminDashboardPage() {
                 {bdDailyFollowups.length === 0 ? (
                   <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('labels.none', { defaultValue: 'None' })} />
                 ) : (
-                  <List
-                    size="small"
-                    dataSource={bdDailyFollowups.sort((a, b) => b.count - a.count)}
-                    footer={
-                      <Typography.Text type="secondary" className="text-xs">
-                        {t('pages.adminDashboard.total', { defaultValue: 'Total' })}: {bdDailyFollowups.reduce((s, r) => s + r.count, 0)}
-                      </Typography.Text>
-                    }
-                    renderItem={(row) => (
-                      <List.Item>
-                        <span>{row.bdName}</span>
-                        <Tag color="gold">{row.count}</Tag>
-                      </List.Item>
-                    )}
-                  />
+                  <div className="max-h-96 overflow-y-auto">
+                    <List
+                      size="small"
+                      dataSource={bdDailyFollowups}
+                      footer={
+                        <Typography.Text type="secondary" className="text-xs">
+                          {t('pages.adminDashboard.total', { defaultValue: 'Total' })}: {bdDailyFollowups.length}
+                        </Typography.Text>
+                      }
+                      renderItem={(row) => (
+                        <List.Item
+                          className="cursor-pointer hover:bg-slate-50"
+                          onClick={() => navigate(`/app/bd/leads/${row.id}?back=${encodeURIComponent('/app/admin/dashboard')}`)}
+                        >
+                          <List.Item.Meta
+                            title={<span className="text-sm">{row.leadCode} · {row.companyName}</span>}
+                            description={<Tag color="gold" className="text-xs">{row.bdName}</Tag>}
+                          />
+                        </List.Item>
+                      )}
+                    />
+                  </div>
                 )}
               </Card>
             </Col>
@@ -1025,7 +1036,7 @@ export function AdminDashboardPage() {
                             return (
                               <List.Item
                                 className="cursor-pointer hover:bg-slate-50"
-                                onClick={() => navigate(`/app/bd/leads/${row.id}`)}
+                                onClick={() => navigate(`/app/bd/leads/${row.id}?back=${encodeURIComponent('/app/admin/dashboard')}`)}
                               >
                                 <List.Item.Meta
                                   title={<span className="text-sm">{row.leadCode} · {row.companyName}</span>}

@@ -56,14 +56,16 @@ const CATEGORY_COLORS = [
   '#13c2c2', '#722ed1', '#f97316', '#06b6d4',
 ]
 
-const CHART_VIEWS = [
-  { key: 'trend',    title: '每日銷售趨勢' },
-  { key: 'donut',    title: '品類收入佔比' },
-  { key: 'accounts', title: '大客戶排行 Top 10' },
-  { key: 'stacked',  title: '客戶品類分佈 Top 6' },
-  { key: 'products', title: '單品銷售排行 Top 10' },
-  { key: 'bd',       title: 'BD 業績排行' },
-]
+const CHART_VIEW_KEYS = ['trend', 'donut', 'accounts', 'stacked', 'products', 'bd'] as const
+
+const CHART_VIEW_DEFAULT_TITLES: Record<typeof CHART_VIEW_KEYS[number], string> = {
+  trend: 'Daily Sales Trend',
+  donut: 'Category Revenue Share',
+  accounts: 'Top 10 Key Accounts',
+  stacked: 'Top 6 Customer Category Distribution',
+  products: 'Top 10 Product Ranking',
+  bd: 'BD Performance Ranking',
+}
 
 const CAROUSEL_INTERVAL = 8000 // ms — auto-advance interval
 
@@ -373,7 +375,7 @@ export function AdminSalesDashboardPage() {
       return
     }
     const timer = setInterval(() => {
-      setChartIndex((i) => (i + 1) % CHART_VIEWS.length)
+      setChartIndex((i) => (i + 1) % CHART_VIEW_KEYS.length)
     }, CAROUSEL_INTERVAL)
     return () => clearInterval(timer)
   }, [chartAutoPlay, chartIsHovered, chartIndex])
@@ -381,11 +383,11 @@ export function AdminSalesDashboardPage() {
   // ── Carousel navigation ───────────────────────────────────────────────────
 
   function goPrev() {
-    setChartIndex((i) => (i - 1 + CHART_VIEWS.length) % CHART_VIEWS.length)
+    setChartIndex((i) => (i - 1 + CHART_VIEW_KEYS.length) % CHART_VIEW_KEYS.length)
   }
 
   function goNext() {
-    setChartIndex((i) => (i + 1) % CHART_VIEWS.length)
+    setChartIndex((i) => (i + 1) % CHART_VIEW_KEYS.length)
   }
 
   function goTo(i: number) {
@@ -446,6 +448,14 @@ export function AdminSalesDashboardPage() {
   }, [unifiedOrders])
 
   // ── Memos ─────────────────────────────────────────────────────────────────
+
+  const chartViews = useMemo(
+    () => CHART_VIEW_KEYS.map((key) => ({
+      key,
+      title: t(`pages.adminSalesDashboard.chartViews.${key}`, { defaultValue: CHART_VIEW_DEFAULT_TITLES[key] }),
+    })),
+    [t],
+  )
 
   const categoryOptions = useMemo(() => getSalesProductCategoryOptions(t), [t])
 
@@ -946,12 +956,12 @@ export function AdminSalesDashboardPage() {
               format="YYYY-MM-DD"
               allowClear={false}
               presets={[
-                { label: '本月', value: [dayjs().startOf('month'), dayjs().endOf('month')] },
-                { label: '上月', value: [dayjs().subtract(1, 'month').startOf('month'), dayjs().subtract(1, 'month').endOf('month')] },
-                { label: '近7天', value: [dayjs().subtract(6, 'day'), dayjs()] },
-                { label: '近30天', value: [dayjs().subtract(29, 'day'), dayjs()] },
-                { label: '近90天', value: [dayjs().subtract(89, 'day'), dayjs()] },
-                { label: '今年', value: [dayjs().startOf('year'), dayjs().endOf('year')] },
+                { label: t('pages.adminSalesDashboard.dateRange.thisMonth', { defaultValue: 'This Month' }), value: [dayjs().startOf('month'), dayjs().endOf('month')] },
+                { label: t('pages.adminSalesDashboard.dateRange.lastMonth', { defaultValue: 'Last Month' }), value: [dayjs().subtract(1, 'month').startOf('month'), dayjs().subtract(1, 'month').endOf('month')] },
+                { label: t('pages.adminSalesDashboard.dateRange.last7Days', { defaultValue: 'Last 7 Days' }), value: [dayjs().subtract(6, 'day'), dayjs()] },
+                { label: t('pages.adminSalesDashboard.dateRange.last30Days', { defaultValue: 'Last 30 Days' }), value: [dayjs().subtract(29, 'day'), dayjs()] },
+                { label: t('pages.adminSalesDashboard.dateRange.last90Days', { defaultValue: 'Last 90 Days' }), value: [dayjs().subtract(89, 'day'), dayjs()] },
+                { label: t('pages.adminSalesDashboard.dateRange.thisYear', { defaultValue: 'This Year' }), value: [dayjs().startOf('year'), dayjs().endOf('year')] },
               ]}
               onChange={(dates) => {
                 if (dates?.[0] && dates?.[1]) {
@@ -1004,19 +1014,33 @@ export function AdminSalesDashboardPage() {
         {/* Header: title + controls */}
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold app-text">{CHART_VIEWS[chartIndex].title}</span>
-            <span className="text-xs app-text-soft">{chartIndex + 1} / {CHART_VIEWS.length}</span>
+            <span className="text-sm font-semibold app-text">{chartViews[chartIndex].title}</span>
+            <span className="text-xs app-text-soft">{chartIndex + 1} / {chartViews.length}</span>
           </div>
           <Space size={4}>
-            <Button size="small" icon={<LeftOutlined />} onClick={goPrev} title="上一個" />
+            <Button
+              size="small"
+              icon={<LeftOutlined />}
+              onClick={goPrev}
+              title={t('pages.adminSalesDashboard.carousel.prev', { defaultValue: 'Previous' })}
+            />
             <Button
               size="small"
               onClick={() => setChartAutoPlay((p) => !p)}
-              title={chartAutoPlay ? '暫停' : '播放'}
+              title={
+                chartAutoPlay
+                  ? t('pages.adminSalesDashboard.carousel.pause', { defaultValue: 'Pause' })
+                  : t('pages.adminSalesDashboard.carousel.play', { defaultValue: 'Play' })
+              }
             >
               {chartAutoPlay ? '⏸' : '▶'}
             </Button>
-            <Button size="small" icon={<RightOutlined />} onClick={goNext} title="下一個" />
+            <Button
+              size="small"
+              icon={<RightOutlined />}
+              onClick={goNext}
+              title={t('pages.adminSalesDashboard.carousel.next', { defaultValue: 'Next' })}
+            />
           </Space>
         </div>
 
@@ -1027,7 +1051,7 @@ export function AdminSalesDashboardPage() {
 
         {/* Navigation dots */}
         <div className="mt-3 flex justify-center gap-1.5">
-          {CHART_VIEWS.map((view, i) => (
+          {chartViews.map((view, i) => (
             <button
               key={view.key}
               type="button"
@@ -1051,7 +1075,7 @@ export function AdminSalesDashboardPage() {
           {/* ── Tab 1: Category & Subcategory Detail ──────────────────────── */}
           <Tabs.TabPane
             key="category"
-            tab={t('pages.adminSalesDashboard.tabs.category', { defaultValue: '品類明細' })}
+            tab={t('pages.adminSalesDashboard.tabs.category', { defaultValue: 'Category Detail' })}
           >
             <Table
               loading={loading}
@@ -1132,12 +1156,12 @@ export function AdminSalesDashboardPage() {
           {/* ── Tab 2: Product Ranking ────────────────────────────────────── */}
           <Tabs.TabPane
             key="product"
-            tab={t('pages.adminSalesDashboard.tabs.product', { defaultValue: '單品排行' })}
+            tab={t('pages.adminSalesDashboard.tabs.product', { defaultValue: 'Product Ranking' })}
           >
             <div className="mb-3">
               <Select
                 allowClear
-                placeholder={t('pages.adminSalesDashboard.product.filterPlaceholder', { defaultValue: '所有品類' })}
+                placeholder={t('pages.adminSalesDashboard.product.filterPlaceholder', { defaultValue: 'All Categories' })}
                 style={{ width: 180 }}
                 value={productCategoryFilter}
                 onChange={setProductCategoryFilter}
@@ -1157,11 +1181,11 @@ export function AdminSalesDashboardPage() {
               columns={[
                 { title: '#', render: (_: unknown, __: unknown, i: number) => i + 1, width: 48, align: 'right' as const },
                 {
-                  title: t('pages.adminSalesDashboard.product.name', { defaultValue: '商品名稱' }),
+                  title: t('pages.adminSalesDashboard.product.name', { defaultValue: 'Product Name' }),
                   dataIndex: 'productName',
                 },
                 {
-                  title: t('pages.adminSalesDashboard.product.category', { defaultValue: '品類' }),
+                  title: t('pages.adminSalesDashboard.table.category', { defaultValue: 'Category' }),
                   dataIndex: 'categoryLabel',
                   width: isMobile ? 90 : 130,
                   render: (label: string) => <Tag>{label}</Tag>,
@@ -1195,13 +1219,13 @@ export function AdminSalesDashboardPage() {
           {/* ── Tab 3: Key Accounts (multi-dimensional) ───────────────────── */}
           <Tabs.TabPane
             key="account"
-            tab={t('pages.adminSalesDashboard.tabs.account', { defaultValue: '大客戶' })}
+            tab={t('pages.adminSalesDashboard.tabs.account', { defaultValue: 'Key Accounts' })}
           >
             {/* Filter controls */}
             <Space wrap className="mb-3">
               <Select
                 allowClear
-                placeholder={t('pages.adminSalesDashboard.account.filterCategory', { defaultValue: '篩選品類' })}
+                placeholder={t('pages.adminSalesDashboard.account.filterCategory', { defaultValue: 'Filter Category' })}
                 style={{ width: 190 }}
                 value={accountCategoryFilter}
                 onChange={setAccountCategoryFilter}
@@ -1212,10 +1236,10 @@ export function AdminSalesDashboardPage() {
                 value={accountSortBy}
                 onChange={(v) => setAccountSortBy(v as typeof accountSortBy)}
                 options={[
-                  { label: '按金額', value: 'amount' },
-                  { label: '按數量', value: 'quantity' },
-                  { label: '按訂單', value: 'orders' },
-                  { label: '按客單', value: 'aov' },
+                  { label: t('pages.adminSalesDashboard.account.sortAmount', { defaultValue: 'By Amount' }), value: 'amount' },
+                  { label: t('pages.adminSalesDashboard.account.sortQuantity', { defaultValue: 'By Quantity' }), value: 'quantity' },
+                  { label: t('pages.adminSalesDashboard.account.sortOrders', { defaultValue: 'By Orders' }), value: 'orders' },
+                  { label: t('pages.adminSalesDashboard.account.sortAov', { defaultValue: 'By AOV' }), value: 'aov' },
                 ]}
               />
               <Segmented
@@ -1225,7 +1249,7 @@ export function AdminSalesDashboardPage() {
                 options={[
                   { label: 'Top 10', value: 10 },
                   { label: 'Top 20', value: 20 },
-                  { label: '全部', value: 9999 },
+                  { label: t('pages.adminSalesDashboard.account.topAll', { defaultValue: 'All' }), value: 9999 },
                 ]}
               />
             </Space>
@@ -1249,10 +1273,10 @@ export function AdminSalesDashboardPage() {
                       <table className="w-full border-collapse text-xs">
                         <thead>
                           <tr className="border-b app-border">
-                            <th className="pb-1 pl-6 pr-3 text-left font-medium app-text-soft">品類</th>
-                            <th className="pb-1 pr-3 text-right font-medium app-text-soft">數量</th>
-                            <th className="pb-1 pr-3 text-right font-medium app-text-soft">金額 (IDR)</th>
-                            <th className="pb-1 text-right font-medium app-text-soft">佔比</th>
+                            <th className="pb-1 pl-6 pr-3 text-left font-medium app-text-soft">{t('pages.adminSalesDashboard.table.category', { defaultValue: 'Category' })}</th>
+                            <th className="pb-1 pr-3 text-right font-medium app-text-soft">{t('pages.adminSalesDashboard.table.quantity', { defaultValue: 'Qty' })}</th>
+                            <th className="pb-1 pr-3 text-right font-medium app-text-soft">{t('pages.adminSalesDashboard.account.categoryAmount', { defaultValue: 'Amount (IDR)' })}</th>
+                            <th className="pb-1 text-right font-medium app-text-soft">{t('pages.adminSalesDashboard.table.share', { defaultValue: 'Share' })}</th>
                             <th className="pb-1 pl-3 app-text-soft" style={{ minWidth: 100 }} />
                           </tr>
                         </thead>
@@ -1291,38 +1315,38 @@ export function AdminSalesDashboardPage() {
               columns={[
                 { title: '#', render: (_: unknown, __: unknown, i: number) => i + 1, width: 48, align: 'right' as const },
                 {
-                  title: t('pages.adminSalesDashboard.account.company', { defaultValue: '公司名稱' }),
+                  title: t('pages.adminSalesDashboard.account.company', { defaultValue: 'Company Name' }),
                   dataIndex: 'companyName',
                 },
                 {
-                  title: t('pages.adminSalesDashboard.account.orders', { defaultValue: '訂單數' }),
+                  title: t('pages.adminSalesDashboard.account.orders', { defaultValue: 'Orders' }),
                   dataIndex: 'orderCount',
                   align: 'right' as const,
                   width: isMobile ? 60 : 80,
                 },
                 {
-                  title: t('pages.adminSalesDashboard.account.totalQuantity', { defaultValue: '總採購量' }),
+                  title: t('pages.adminSalesDashboard.account.totalQuantity', { defaultValue: 'Total Qty' }),
                   dataIndex: 'totalQuantity',
                   align: 'right' as const,
                   width: isMobile ? 70 : 90,
                   render: (v: number) => formatNumber(v),
                 },
                 {
-                  title: t('pages.adminSalesDashboard.account.totalAmount', { defaultValue: '總消費 (IDR)' }),
+                  title: t('pages.adminSalesDashboard.account.totalAmount', { defaultValue: 'Total Spend (IDR)' }),
                   dataIndex: 'totalAmount',
                   align: 'right' as const,
                   width: isMobile ? 120 : 200,
                   render: (v: number) => <span className="font-medium">{formatCurrency(v)}</span>,
                 },
                 {
-                  title: t('pages.adminSalesDashboard.account.aov', { defaultValue: '平均客單價' }),
+                  title: t('pages.adminSalesDashboard.account.aov', { defaultValue: 'Avg Order Value' }),
                   dataIndex: 'aov',
                   align: 'right' as const,
                   width: isMobile ? 100 : 160,
                   render: (v: number) => formatCurrency(v),
                 },
                 {
-                  title: t('pages.adminSalesDashboard.account.topCategory', { defaultValue: '主要品類' }),
+                  title: t('pages.adminSalesDashboard.account.topCategory', { defaultValue: 'Top Category' }),
                   dataIndex: 'topCategoryLabel',
                   width: isMobile ? 90 : 130,
                   render: (label: string) =>

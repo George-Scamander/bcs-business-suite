@@ -7,6 +7,7 @@ import type {
   SalesProductCategory,
   SalesProductSubcategory,
   SignedRecord,
+  StoreTier,
 } from '../../../types/business'
 import { supabase } from '../../../lib/supabase/client'
 import { recordOperationLog } from '../../../lib/supabase/logs'
@@ -136,6 +137,7 @@ export interface CreateLeadInput {
   address?: string
   source?: string
   team_attention_note?: string | null
+  store_tier?: StoreTier
   intent_level?: number
   estimated_value?: number
   assigned_bd_id?: string
